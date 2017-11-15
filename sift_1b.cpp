@@ -239,7 +239,7 @@ inline bool exists_test(const std::string& name) {
 void sift_test1B() {
 	
 	
-	int subset_size_milllions = 1;
+	int subset_size_milllions = 200;
 	int efConstruction = 40;
 	int M = 16;
 	
