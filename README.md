@@ -40,6 +40,8 @@ p.init_index(max_elements=10000, ef_construction=200, M=16)
 # Element insertion be called several times:
 int_labels = p.add_items(data, data_labels)
 
+
+p.set_ef(50)
 # Query dataset, k - number of closest elements
 # Return numpy arrays 
 labels, distances = p.knn_query(data, k=1)
