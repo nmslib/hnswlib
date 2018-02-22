@@ -5,8 +5,6 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 
 
-project(hello_world)                
-
 set(SOURCE_EXE main.cpp)            
 
 set(SOURCE_LIB sift_1b.cpp)
