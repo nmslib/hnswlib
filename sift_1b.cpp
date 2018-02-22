@@ -231,7 +231,7 @@ inline bool exists_test(const std::string &name) {
 void sift_test1B() {
 	
 	
-	int subset_size_milllions = 1;
+	int subset_size_milllions = 200;
 	int efConstruction = 40;
 	int M = 16;
 	
@@ -242,8 +242,8 @@ void sift_test1B() {
     size_t vecdim = 128;
     char path_index[1024];
     char path_gt[1024];
-    char *path_q = "/home/yurymal/frameworks/nns/hnsw/bigann/bigann_query.bvecs";
-    char *path_data = "/home/yurymal/frameworks/nns/hnsw/bigann/bigann_base.bvecs";
+    char *path_q = "bigann/bigann_query.bvecs";
+    char *path_data = "bigann/bigann_base.bvecs";
     sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_milllions, efConstruction, M);
 
     sprintf(path_gt, "/home/yurymal/frameworks/nns/hnsw/bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
