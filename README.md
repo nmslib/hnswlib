@@ -1,7 +1,7 @@
-# Hnsw - Approximate nearest neighbor search
+# HNSW - Approximate nearest neighbor search
 Paper code for the HNSW 200M SIFT experiment and a header-only C++ HNSW implementation with python bindings.
 
-NEW: Added simple python bindings with incremental construction (reusing some nmslib code, only L2 is now supported)
+NEW: Added simple python bindings with incremental construction
 
 
 #### Test reproduction steps:
@@ -31,19 +31,23 @@ import numpy as np
 dim = 128
 num_elements = 10000
 
-data = np.float32(np.random.random((num_elements,dim)))
+# Generating sample data
+data = np.float32(np.random.random((num_elements, dim)))
 data_labels = np.arange(num_elements)
 
-p = hnswlib.Index(space='l2', dim=dim) # Only l2 is supported currently
-p.init_index(max_elements=num_elements, ef_construction=200, M=16)
+# Declaring index
+p = hnswlib.Index(space = 'l2', dim = dim) # Only l2 is supported currently
 
-# Element insertion be called several times:
+# Initing index - the maximum number of elements should be known beforehand
+p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
+
+# Element insertion (can be called several times):
 int_labels = p.add_items(data, data_labels)
 
-
+# Controlling the recall by setting ef:
 p.set_ef(50)
-# Query dataset, k - number of closest elements
-# Return numpy arrays 
+
+# Query dataset, k - number of closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
 
 ```
