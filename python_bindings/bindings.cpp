@@ -127,7 +127,7 @@ public:
                 if (result.size() != k)
                     std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
-                for (int i = 0; i < k; i++) {
+                for (int i = k-1; i >= 0; i--) {
                     auto &result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
                     data_numpy_l[row * k + i] = result_tuple.second;
