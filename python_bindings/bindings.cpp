@@ -131,6 +131,7 @@ public:
                     auto &result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
                     data_numpy_l[row * k + i] = result_tuple.second;
+                    result.pop();
                 }
             }
         }
