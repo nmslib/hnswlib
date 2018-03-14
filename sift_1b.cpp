@@ -210,13 +210,13 @@ test_vs_recall(unsigned char *massQ, size_t vecsize, size_t qsize, HierarchicalN
     for (size_t ef : efs) {
         appr_alg.setEf(ef);
         StopW stopw = StopW();
-        appr_alg.dist_calc_counter_ = 0;
+
         float recall = test_approx(massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
         float time_us_per_query = stopw.getElapsedTimeMicro() / qsize;
-        float avr_dist_count = appr_alg.dist_calc_counter_ * 1.f / qsize;
-        cout << ef << "\t" << recall << "\t" << time_us_per_query << " us\t" << avr_dist_count << " dcs\n";
+
+        cout << ef << "\t" << recall << "\t" << time_us_per_query << " us\n";
         if (recall > 1.0) {
-            cout << recall << "\t" << time_us_per_query << " us\t" << avr_dist_count << " dcs\n";
+            cout << recall << "\t" << time_us_per_query << " us\n";
             break;
         }
     }
