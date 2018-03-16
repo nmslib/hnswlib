@@ -74,7 +74,17 @@ class Index {
 public:
     Index(const std::string &space_name, const int dim) :
             space_name(space_name), dim(dim) {
-        l2space = new hnswlib::L2Space(dim);
+        normalize=false;
+        if(space_name=="l2") {
+            l2space = new hnswlib::L2Space(dim);
+        }
+        else if(space_name=="ip") {
+            l2space = new hnswlib::InnerProductSpace(dim);
+        }
+        else if(space_name=="cosine") {
+            l2space = new hnswlib::InnerProductSpace(dim);
+            normalize=true;
+        }
         appr_alg = NULL;
         ep_added = true;
         index_inited = false;
@@ -144,11 +154,30 @@ public:
                 start = 1;
                 ep_added = true;
             }
+            if(normalize==false) {
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    size_t id = ids.size() ? ids.at(row) : (cur_l++);
+                    data_numpy[row] = appr_alg->addPoint((void *) items.data(row), (size_t) id);
+                });
+            } else{
+                std::vector<float> norm_array(num_threads*features);
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
 
-            ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                size_t id = ids.size() ? ids.at(row) : (cur_l++);
-                data_numpy[row] = appr_alg->addPoint((void *) items.data(row), (size_t) id);
-            });
+                    float *data= (float *) items.data(row);
+
+                    float norm=0.0f;
+                    for(int i=0;i<features;i++)
+                        norm+=data[i]*data[i];
+                    norm=1.0/sqrt(norm);
+
+                    size_t start_idx=threadId*features;
+                    for(int i=0;i<features;i++)
+                        norm_array[start_idx+i]=data[i]*norm;
+
+                    size_t id = ids.size() ? ids.at(row) : (cur_l++);
+                    data_numpy[row] = appr_alg->addPoint((void *) (norm_array.data()+start_idx), (size_t) id);
+                });
+            }
 
 
         }
@@ -177,7 +206,7 @@ public:
             num_threads = num_threads_default;
 
         {
-            //py::gil_scoped_release l;
+            py::gil_scoped_release l;
 
             if (buffer.ndim != 2) throw std::runtime_error("data must be a 2d array");
 
@@ -188,21 +217,50 @@ public:
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
-
-            ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
-                            std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                                    (void *) items.data(row), k);
-                            if (result.size() != k)
-                                std::runtime_error(
-                                        "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
-                            for (int i = k - 1; i >= 0; i--) {
-                                auto &result_tuple = result.top();
-                                data_numpy_d[row * k + i] = result_tuple.first;
-                                data_numpy_l[row * k + i] = result_tuple.second;
-                                result.pop();
+            if(normalize==false) {
+                ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                                std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
+                                        (void *) items.data(row), k);
+                                if (result.size() != k)
+                                    std::runtime_error(
+                                            "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
+                                for (int i = k - 1; i >= 0; i--) {
+                                    auto &result_tuple = result.top();
+                                    data_numpy_d[row * k + i] = result_tuple.first;
+                                    data_numpy_l[row * k + i] = result_tuple.second;
+                                    result.pop();
+                                }
                             }
-                        }
-            );
+                );
+            }
+            else{
+                std::vector<float> norm_array(num_threads*features);
+                ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                                float *data= (float *) items.data(row);
+
+                                float norm=0.0f;
+                                for(int i=0;i<features;i++)
+                                    norm+=data[i]*data[i];
+                                norm=1.0/sqrt(norm);
+
+                                size_t start_idx=threadId*features;
+                                for(int i=0;i<features;i++)
+                                    norm_array[start_idx+i]=data[i]*norm;
+
+                                std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
+                                        (void *) (norm_array.data()+start_idx), k);
+                                if (result.size() != k)
+                                    std::runtime_error(
+                                            "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
+                                for (int i = k - 1; i >= 0; i--) {
+                                    auto &result_tuple = result.top();
+                                    data_numpy_d[row * k + i] = result_tuple.first;
+                                    data_numpy_l[row * k + i] = result_tuple.second;
+                                    result.pop();
+                                }
+                            }
+                );
+            }
 
         }
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
@@ -234,10 +292,11 @@ public:
 
     bool index_inited;
     bool ep_added;
+    bool normalize;
     int num_threads_default;
     hnswlib::labeltype cur_l;
     hnswlib::HierarchicalNSW<dist_t> *appr_alg;
-    hnswlib::L2Space *l2space;
+    hnswlib::SpaceInterface<float> *l2space;
 
     ~Index() {
         delete l2space;
