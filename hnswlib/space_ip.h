@@ -28,7 +28,7 @@ namespace hnswlib {
         size_t qty = *((size_t *) qty_ptr);
         float res = 0;
         for (int i = 0; i < qty; i++) {
-            res += -((float *) pVect1)[i] * ((float *) pVect2)[i];
+            res += ((float *) pVect1)[i] * ((float *) pVect2)[i];
         }
         return (1.0f - res);
 
@@ -140,10 +140,9 @@ namespace hnswlib {
 
 #ifdef USE_AVX
         size_t qty16 = qty / 16;
-        size_t qty4 = qty / 4;
+
 
         const float *pEnd1 = pVect1 + 16 * qty16;
-        const float *pEnd2 = pVect1 + 4 * qty4;
 
         __m256 sum256 = _mm256_set1_ps(0);
 
