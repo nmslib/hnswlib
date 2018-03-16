@@ -44,5 +44,6 @@ namespace hnswlib {
 }
 
 #include "space_l2.h"
+#include "space_ip.h"
 #include "brutoforce.h"
 #include "hnswalg.h"
