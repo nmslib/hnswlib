@@ -113,6 +113,14 @@ public:
     void loadIndex(const std::string &path_to_index) {
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index);
     }
+	void normalize_vector(float *data, float *norm_array){
+		float norm=0.0f;
+		for(int i=0;i<dim;i++)
+			norm+=data[i]*data[i];
+		norm=1.0/sqrt(norm);		
+		for(int i=0;i<dim;i++)
+			norm_array[i]=data[i]*norm;
+	}
 
     py::object addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
@@ -150,7 +158,14 @@ public:
             int start = 0;
             if (!ep_added) {
                 size_t id = ids.size() ? ids.at(0) : (cur_l++);
-                data_numpy[0] = appr_alg->addPoint((void *) items.data(0), (size_t) id);
+				float *vector_data=(float *) items.data(0);
+				if(normalize){
+					std::vector<float> norm_array(dim);
+					normalize_vector(vector_data, norm_array.data());					
+					vector_data = norm_array.data();
+					
+				}
+				data_numpy[0] = appr_alg->addPoint((void *) vector_data, (size_t) id);
                 start = 1;
                 ep_added = true;
             }
@@ -160,20 +175,10 @@ public:
                     data_numpy[row] = appr_alg->addPoint((void *) items.data(row), (size_t) id);
                 });
             } else{
-                std::vector<float> norm_array(num_threads*features);
+                std::vector<float> norm_array(num_threads * dim);
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-
-                    float *data= (float *) items.data(row);
-
-                    float norm=0.0f;
-                    for(int i=0;i<features;i++)
-                        norm+=data[i]*data[i];
-                    norm=1.0/sqrt(norm);
-
-                    size_t start_idx=threadId*features;
-                    for(int i=0;i<features;i++)
-                        norm_array[start_idx+i]=data[i]*norm;
-
+					size_t start_idx = threadId * dim;
+                    normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
                     size_t id = ids.size() ? ids.at(row) : (cur_l++);
                     data_numpy[row] = appr_alg->addPoint((void *) (norm_array.data()+start_idx), (size_t) id);
                 });
@@ -238,14 +243,8 @@ public:
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                                 float *data= (float *) items.data(row);
 
-                                float norm=0.0f;
-                                for(int i=0;i<features;i++)
-                                    norm+=data[i]*data[i];
-                                norm=1.0/sqrt(norm);
-
-                                size_t start_idx=threadId*features;
-                                for(int i=0;i<features;i++)
-                                    norm_array[start_idx+i]=data[i]*norm;
+                                size_t start_idx = threadId * dim;
+								normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                                         (void *) (norm_array.data()+start_idx), k);
