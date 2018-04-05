@@ -9,7 +9,7 @@ Part of the nmslib project https://github.com/nmslib/nmslib
 ### Python bindings
 
 
-####Supported distances:
+#### Supported distances:
 1) Squared L2 ('l2', d = sum((Ai-Bi)^2)
 2) Inner product ('ip', d = 1.0 - sum(Ai\*Bi))
 3) Cosine similarity ('cosine', d = 1.0 - sum(Ai\*Bi)/(sum(Ai\*Ai)*sum(Ai\*Bi))))
@@ -131,4 +131,4 @@ The size of the bigann subset (in millions) is controlled by the variable **subs
 
 
 References:
-Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." arXiv preprint [arXiv:1603.09320]:https://arxiv.org/abs/1603.09320 (2016).
+Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." arXiv preprint arXiv:1603.09320 (2016). https://arxiv.org/abs/1603.09320
