@@ -27,7 +27,7 @@ namespace hnswlib {
     class AlgorithmInterface {
     public:
         //virtual void addPoint(void *, labeltype) = 0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *, int) = 0;
+        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *, size_t) = 0;
     };
 
     template<typename MTYPE>
