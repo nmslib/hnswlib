@@ -12,9 +12,9 @@ Part of the nmslib project https://github.com/nmslib/nmslib
 #### Supported distances:
 1) Squared L2 ('l2', d = sum((Ai-Bi)^2)
 2) Inner product ('ip', d = 1.0 - sum(Ai\*Bi))
-3) Cosine similarity ('cosine', d = 1.0 - sum(Ai\*Bi)/(sum(Ai\*Ai)*sum(Ai\*Bi))))
+3) Cosine similarity ('cosine', d = 1.0 - sum(Ai\*Bi)/sqrt(sum(Ai\*Ai)*sum(Bi\*Bi))))
 
-Note that inner product is not a metric. An element can be closer to some other element than itself.
+Note that inner product is not a metric. An element can be closer to some other element than to itself.
 
 For other spaces use the main library https://github.com/nmslib/nmslib 
 
