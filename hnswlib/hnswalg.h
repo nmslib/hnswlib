@@ -49,8 +49,8 @@ namespace hnswlib {
             M_ = M;
             maxM_ = M_;
             maxM0_ = M_ * 2;
-            ef_construction_ = ef_construction;
-            ef_ = 7;
+            ef_construction_ = std::max(ef_construction,M_);
+            ef_ = 10;
 
 
 
@@ -492,8 +492,6 @@ namespace hnswlib {
         };
 
         void saveIndex(const string &location) {
-
-            cout << "Saving index to " << location.c_str() << "\n";
             std::ofstream output(location, std::ios::binary);
             streampos position;
 
@@ -544,7 +542,6 @@ namespace hnswlib {
             readBinaryPOD(input, M_);
             readBinaryPOD(input, mult_);
             readBinaryPOD(input, ef_construction_);
-            cout << ef_construction_ << "\n";
 
 
             data_size_ = s->get_data_size();
@@ -557,11 +554,15 @@ namespace hnswlib {
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
+
+            size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+            vector<mutex>(max_elements_).swap(link_list_locks_);
+
+
             visited_list_pool_ = new VisitedListPool(1, max_elements_);
 
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
-            cout << max_elements_ << "\n";
             element_levels_ = vector<int>(max_elements_);
             revSize_ = 1.0 / mult_;
             ef_ = 10;
@@ -578,12 +579,8 @@ namespace hnswlib {
                     input.read(linkLists_[i], linkListSize);
                 }
             }
-
-
             input.close();
-            size_t predicted_size_per_element = size_data_per_element_ + sizeof(void *) + 8 + 8 + 2 * 8;
-            cout << "Loaded index, predicted size=" << max_elements_ * (predicted_size_per_element) / (1000 * 1000)
-                 << "\n";
+
             return;
         }
 
@@ -682,7 +679,7 @@ namespace hnswlib {
             return cur_c;
         };
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *query_data, int k) {
+        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *query_data, size_t k) {
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -711,7 +708,7 @@ namespace hnswlib {
 
 
             std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayerST(
-                    currObj, query_data, ef_);
+                    currObj, query_data, std::max(ef_,k));
             std::priority_queue<std::pair<dist_t, labeltype >> results;
             while (top_candidates.size() > k) {
                 top_candidates.pop();
