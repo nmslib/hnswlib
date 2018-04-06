@@ -128,36 +128,54 @@ public:
         if (num_threads <= 0)
             num_threads = num_threads_default;
 
-        size_t rows = buffer.shape[0], features = buffer.shape[1];
+        size_t rows, features;
+
+        if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
+        if (buffer.ndim == 2) {
+            rows = buffer.shape[0];
+            features = buffer.shape[1];
+        }
+        else{
+            rows = 1;
+            features = buffer.shape[0];
+        }
+
+        if (features != dim)
+            throw std::runtime_error("wrong dimensionality of the vectors");
+
+        // avoid using threads when the number of searches is small:
+
+        if(rows<=num_threads*4){
+            num_threads=1;
+        }
 
         std::vector<size_t> ids;
 
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
             auto ids_numpy = items.request();
-            std::vector<size_t> ids1(ids_numpy.shape[0]);
-            for (size_t i = 0; i < ids1.size(); i++) {
-                ids1[i] = items.data()[i];
+            if(ids_numpy.ndim==1 && ids_numpy.shape[0]==rows) {
+                std::vector<size_t> ids1(ids_numpy.shape[0]);
+                for (size_t i = 0; i < ids1.size(); i++) {
+                    ids1[i] = items.data()[i];
+                }
+                ids.swap(ids1);
             }
-            ids.swap(ids1);
+            else if(ids_numpy.ndim==0 && rows==1) {
+                ids.push_back(*items.data());
+            }
+            else
+                throw std::runtime_error("wrong dimensionality of the labels");
         }
 
         hnswlib::tableint *data_numpy;
 
         {
 
-            py::gil_scoped_release l;
-
-
-            if (buffer.ndim != 2) throw std::runtime_error("data must be a 2d array");
-
-            if (features != dim)
-                throw std::runtime_error("wrong dimensionality of the vectors");
-
             data_numpy = new hnswlib::tableint[rows];
             int start = 0;
             if (!ep_added) {
-                size_t id = ids.size() ? ids.at(0) : (cur_l++);
+                size_t id = ids.size() ? ids.at(0) : (cur_l);
 				float *vector_data=(float *) items.data(0);
 				if(normalize){
 					std::vector<float> norm_array(dim);
@@ -169,20 +187,25 @@ public:
                 start = 1;
                 ep_added = true;
             }
+
+            py::gil_scoped_release l;
             if(normalize==false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    size_t id = ids.size() ? ids.at(row) : (cur_l++);
+                    size_t id = ids.size() ? ids.at(row) : (cur_l+row);
                     data_numpy[row] = appr_alg->addPoint((void *) items.data(row), (size_t) id);
                 });
             } else{
                 std::vector<float> norm_array(num_threads * dim);
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    // normalize vector:
 					size_t start_idx = threadId * dim;
                     normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
-                    size_t id = ids.size() ? ids.at(row) : (cur_l++);
+
+                    size_t id = ids.size() ? ids.at(row) : (cur_l+row);
                     data_numpy[row] = appr_alg->addPoint((void *) (norm_array.data()+start_idx), (size_t) id);
                 });
-            }
+            };
+            cur_l+=rows;
 
 
         }
@@ -213,11 +236,22 @@ public:
         {
             py::gil_scoped_release l;
 
-            if (buffer.ndim != 2) throw std::runtime_error("data must be a 2d array");
+            if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
+            if (buffer.ndim == 2) {
+                rows = buffer.shape[0];
+                features = buffer.shape[1];
+            }
+            else{
+                rows = 1;
+                features = buffer.shape[0];
+            }
 
-            rows = buffer.shape[0];
-            features = buffer.shape[1];
 
+            // avoid using threads when the number of searches is small:
+
+            if(rows<=num_threads*4){
+                num_threads=1;
+            }
 
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
