@@ -93,7 +93,7 @@ public:
 
     void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction) {
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, false);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction);
         index_inited = true;
         ep_added = false;
     }
@@ -168,11 +168,9 @@ public:
                 throw std::runtime_error("wrong dimensionality of the labels");
         }
 
-        hnswlib::tableint *data_numpy;
 
         {
 
-            data_numpy = new hnswlib::tableint[rows];
             int start = 0;
             if (!ep_added) {
                 size_t id = ids.size() ? ids.at(0) : (cur_l);
@@ -183,7 +181,6 @@ public:
 					vector_data = norm_array.data();
 					
 				}
-				data_numpy[0] = appr_alg->addPoint((void *) vector_data, (size_t) id);
                 start = 1;
                 ep_added = true;
             }
@@ -192,7 +189,6 @@ public:
             if(normalize==false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
-                    data_numpy[row] = appr_alg->addPoint((void *) items.data(row), (size_t) id);
                 });
             } else{
                 std::vector<float> norm_array(num_threads * dim);
@@ -202,22 +198,14 @@ public:
                     normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
-                    data_numpy[row] = appr_alg->addPoint((void *) (norm_array.data()+start_idx), (size_t) id);
                 });
             };
             cur_l+=rows;
 
 
         }
-        py::capsule free_when_done(data_numpy, [](void *f) {
-            delete[] f;
-        });
 
-        return py::array_t<hnswlib::tableint>(
-                {rows}, // shape
-                {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
-                data_numpy, // the data pointer
-                free_when_done);
+
 
 
     }
