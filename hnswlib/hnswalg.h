@@ -10,15 +10,10 @@
 #include <string.h>
 #include <algorithm>
 #include <atomic>
-template<typename T>
-void writeBinaryPOD(std::ostream &out, const T &podRef) {
-    out.write((char *) &podRef, sizeof(T));
-}
+#include <unordered_set>
+#include <unordered_map>
 
-template<typename T>
-static void readBinaryPOD(std::istream &in, T &podRef) {
-    in.read((char *) &podRef, sizeof(T));
-}
+
 
 
 namespace hnswlib {
@@ -37,8 +32,7 @@ namespace hnswlib {
             loadIndex(location, s);
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200,
-                        bool allow_removal = false) :
+        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200) :
                 link_list_locks_(max_elements), element_levels_(max_elements) {
             max_elements_ = max_elements;
 
@@ -406,7 +400,6 @@ namespace hnswlib {
                 if (sz_link_list_other < Mcurmax) {
                     data[sz_link_list_other] = cur_c;
                     *ll_other = sz_link_list_other + 1;
-//                    cout<<"BB";
                 } else {
                     // finding the "weakest" element to replace it with the new one
                     dist_t d_max = fstdistfunc_(getDataByInternalId(cur_c), getDataByInternalId(selectedNeighbors[idx]),
@@ -584,7 +577,12 @@ namespace hnswlib {
             return;
         }
 
-        tableint addPoint(void *data_point, labeltype label, int level = -1) {
+        void addPoint(void *data_point, labeltype label)
+        {
+            addPoint(data_point, label,-1);
+        };
+
+        tableint addPoint(void *data_point, labeltype label, int level) {
 
             tableint cur_c = 0;
             {
