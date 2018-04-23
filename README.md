@@ -43,7 +43,7 @@ p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or 
 p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 
 # Element insertion (can be called several times):
-int_labels = p.add_items(data, data_labels)
+p.add_items(data, data_labels)
 
 # Controlling the recall by setting ef:
 p.set_ef(50) # ef should always be > k

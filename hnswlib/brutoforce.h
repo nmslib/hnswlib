@@ -1,6 +1,6 @@
 #pragma once
 #include <unordered_map>
-
+#include <fstream>
 
 namespace hnswlib {
     template<typename dist_t>
