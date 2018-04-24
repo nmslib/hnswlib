@@ -1,0 +1,9 @@
+language: python
+
+matrix:
+  include:
+    - python: 3.6
+install:
+  - |
+    cd python_bindings
+    python setup.py install
