@@ -122,7 +122,7 @@ public:
 			norm_array[i]=data[i]*norm;
 	}
 
-    py::object addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
+    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         if (num_threads <= 0)
@@ -181,6 +181,7 @@ public:
 					vector_data = norm_array.data();
 					
 				}
+				appr_alg->addPoint((void *) vector_data, (size_t) id);
                 start = 1;
                 ep_added = true;
             }
@@ -189,6 +190,7 @@ public:
             if(normalize==false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
+                    appr_alg->addPoint((void *) items.data(row), (size_t) id);
                 });
             } else{
                 std::vector<float> norm_array(num_threads * dim);
@@ -198,6 +200,7 @@ public:
                     normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
+                    appr_alg->addPoint((void *) (norm_array.data()+start_idx), (size_t) id);
                 });
             };
             cur_l+=rows;
