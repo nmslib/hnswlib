@@ -112,6 +112,7 @@ public:
 
     void loadIndex(const std::string &path_to_index) {
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index);
+		cur_l = appr_alg->cur_element_count;
     }
 	void normalize_vector(float *data, float *norm_array){
 		float norm=0.0f;
