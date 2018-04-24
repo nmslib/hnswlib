@@ -1,0 +1,15 @@
+language: python
+
+matrix:
+  include:
+    - python: 3.6
+install:
+  - |
+    cd python_bindings
+    pip install -r requirements.txt
+    python setup.py install
+
+script:
+  - |
+    cd python_bindings
+    python setup.py test
