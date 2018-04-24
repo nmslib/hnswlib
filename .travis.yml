@@ -6,5 +6,5 @@ matrix:
 install:
   - |
     cd python_bindings
-    pip install requirements.txt
+    pip install -r requirements.txt
     python setup.py install
