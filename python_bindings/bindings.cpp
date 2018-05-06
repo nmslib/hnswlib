@@ -114,13 +114,13 @@ public:
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index);
 		cur_l = appr_alg->cur_element_count;
     }
-	void normalize_vector(float *data, float *norm_array){
-		float norm=0.0f;
-		for(int i=0;i<dim;i++)
-			norm+=data[i]*data[i];
-		norm=1.0/sqrt(norm);		
-		for(int i=0;i<dim;i++)
-			norm_array[i]=data[i]*norm;
+    void normalize_vector(float *data, float *norm_array){
+        float norm = 0.0f;
+        for(int i = 0; i < dim; i++)
+            norm+= data[i] * data[i];
+        norm= 1.0f / sqrtf(norm + 1e-10f);		
+        for(int i = 0; i < dim; i++)
+            norm_array[i]= data[i] * norm;
 	}
 
     void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
