@@ -28,7 +28,7 @@ namespace hnswlib {
 
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, const string &location, bool nmslib = false) {
+        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false) {
             loadIndex(location, s);
         }
 
@@ -75,8 +75,8 @@ namespace hnswlib {
         }
 
         struct CompareByFirst {
-            constexpr bool operator()(pair<dist_t, tableint> const &a,
-                                      pair<dist_t, tableint> const &b) const noexcept {
+            constexpr bool operator()(std::pair<dist_t, tableint> const &a,
+                                      std::pair<dist_t, tableint> const &b) const noexcept {
                 return a.first < b.first;
             }
         };
@@ -107,9 +107,9 @@ namespace hnswlib {
 
 
         VisitedListPool *visited_list_pool_;
-        mutex cur_element_count_guard_;
+        std::mutex cur_element_count_guard_;
 
-        vector<mutex> link_list_locks_;
+        std::vector<std::mutex> link_list_locks_;
         tableint enterpoint_node_;
 
 
@@ -120,7 +120,7 @@ namespace hnswlib {
 
         char *data_level0_memory_;
         char **linkLists_;
-        vector<int> element_levels_;
+        std::vector<int> element_levels_;
 
 
         size_t data_size_;
@@ -148,14 +148,14 @@ namespace hnswlib {
             return (int) r;
         }
 
-        std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst>
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
         searchBaseLayer(tableint enterpoint_id, void *data_point, int layer) {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
 
-            std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> candidateSet;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidateSet;
             dist_t dist = fstdistfunc_(data_point, getDataByInternalId(enterpoint_id), dist_func_param_);
 
             top_candidates.emplace(dist, enterpoint_id);
@@ -174,7 +174,7 @@ namespace hnswlib {
 
                 tableint curNodeNum = curr_el_pair.second;
 
-                unique_lock <mutex> lock(link_list_locks_[curNodeNum]);
+                std::unique_lock <std::mutex> lock(link_list_locks_[curNodeNum]);
 
                 int *data;// = (int *)(linkList0_ + curNodeNum * size_links_per_element0_);
                 if (layer == 0)
@@ -213,14 +213,14 @@ namespace hnswlib {
             return top_candidates;
         }
 
-        std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst>
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
         searchBaseLayerST(tableint ep_id, void *data_point, size_t ef) {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
 
-            std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> candidate_set;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
             dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
 
             top_candidates.emplace(dist, ep_id);
@@ -279,13 +279,13 @@ namespace hnswlib {
         }
 
         void getNeighborsByHeuristic2(
-                std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
+                std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
                 const int M) {
             if (top_candidates.size() < M) {
                 return;
             }
             std::priority_queue<std::pair<dist_t, tableint>> queue_closest;
-            vector<std::pair<dist_t, tableint>> return_list;
+            std::vector<std::pair<dist_t, tableint>> return_list;
             while (top_candidates.size() > 0) {
                 queue_closest.emplace(-top_candidates.top().first, top_candidates.top().second);
                 top_candidates.pop();
@@ -335,15 +335,15 @@ namespace hnswlib {
         };
 
         void mutuallyConnectNewElement(void *data_point, tableint cur_c,
-                                       std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates,
+                                       std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates,
                                        int level) {
 
             size_t Mcurmax = level ? maxM_ : maxM0_;
             getNeighborsByHeuristic2(top_candidates, M_);
             if (top_candidates.size() > M_)
-                throw runtime_error("Should be not be more than M_ candidates returned by the heuristic");
+                throw std::runtime_error("Should be not be more than M_ candidates returned by the heuristic");
 
-            vector<tableint> selectedNeighbors;
+            std::vector<tableint> selectedNeighbors;
             selectedNeighbors.reserve(M_);
             while (top_candidates.size() > 0) {
                 selectedNeighbors.push_back(top_candidates.top().second);
@@ -357,10 +357,7 @@ namespace hnswlib {
                     ll_cur = get_linklist(cur_c, level);
 
                 if (*ll_cur) {
-                    cout << *ll_cur << "\n";
-                    cout << element_levels_[cur_c] << "\n";
-                    cout << level << "\n";
-                    throw runtime_error("The newly inserted element should have blank link list");
+                    throw std::runtime_error("The newly inserted element should have blank link list");
                 }
                 *ll_cur = selectedNeighbors.size();
                 tableint *data = (tableint *) (ll_cur + 1);
@@ -368,9 +365,9 @@ namespace hnswlib {
 
                 for (int idx = 0; idx < selectedNeighbors.size(); idx++) {
                     if (data[idx])
-                        throw runtime_error("Possible memory corruption");
+                        throw std::runtime_error("Possible memory corruption");
                     if (level > element_levels_[selectedNeighbors[idx]])
-                        throw runtime_error("Trying to make a link on a non-existent level");
+                        throw std::runtime_error("Trying to make a link on a non-existent level");
 
                     data[idx] = selectedNeighbors[idx];
 
@@ -378,7 +375,7 @@ namespace hnswlib {
             }
             for (int idx = 0; idx < selectedNeighbors.size(); idx++) {
 
-                unique_lock <mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
+                std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
 
 
                 linklistsizeint *ll_other;
@@ -390,11 +387,11 @@ namespace hnswlib {
 
 
                 if (sz_link_list_other > Mcurmax || sz_link_list_other < 0)
-                    throw runtime_error("Bad value of sz_link_list_other");
+                    throw std::runtime_error("Bad value of sz_link_list_other");
                 if (selectedNeighbors[idx] == cur_c)
-                    throw runtime_error("Trying to connect an element to itself");
+                    throw std::runtime_error("Trying to connect an element to itself");
                 if (level > element_levels_[selectedNeighbors[idx]])
-                    throw runtime_error("Trying to make a link on a non-existent level");
+                    throw std::runtime_error("Trying to make a link on a non-existent level");
 
                 tableint *data = (tableint *) (ll_other + 1);
                 if (sz_link_list_other < Mcurmax) {
@@ -405,7 +402,7 @@ namespace hnswlib {
                     dist_t d_max = fstdistfunc_(getDataByInternalId(cur_c), getDataByInternalId(selectedNeighbors[idx]),
                                                 dist_func_param_);
                     // Heuristic:
-                    std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> candidates;
+                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidates;
                     candidates.emplace(d_max, cur_c);
 
                     for (int j = 0; j < sz_link_list_other; j++) {
@@ -440,7 +437,7 @@ namespace hnswlib {
             }
         }
 
-        mutex global;
+        std::mutex global;
         size_t ef_;
 
         void setEf(size_t ef) {
@@ -463,7 +460,7 @@ namespace hnswlib {
                     for (int i = 0; i < size; i++) {
                         tableint cand = datal[i];
                         if (cand < 0 || cand > max_elements_)
-                            throw runtime_error("cand error");
+                            throw std::runtime_error("cand error");
                         dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
 
                         if (d < curdist) {
@@ -484,9 +481,9 @@ namespace hnswlib {
             return top_candidates;
         };
 
-        void saveIndex(const string &location) {
+        void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
-            streampos position;
+            std::streampos position;
 
             writeBinaryPOD(output, offsetLevel0_);
             writeBinaryPOD(output, max_elements_);
@@ -514,12 +511,11 @@ namespace hnswlib {
             output.close();
         }
 
-        void loadIndex(const string &location, SpaceInterface<dist_t> *s) {
+        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s) {
 
 
-            //cout << "Loading index from " << location;
             std::ifstream input(location, std::ios::binary);
-            streampos position;
+            std::streampos position;
 
             readBinaryPOD(input, offsetLevel0_);
             readBinaryPOD(input, max_elements_);
@@ -549,14 +545,14 @@ namespace hnswlib {
 
 
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-            vector<mutex>(max_elements_).swap(link_list_locks_);
+            std::vector<std::mutex>(max_elements_).swap(link_list_locks_);
 
 
             visited_list_pool_ = new VisitedListPool(1, max_elements_);
 
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
-            element_levels_ = vector<int>(max_elements_);
+            element_levels_ = std::vector<int>(max_elements_);
             revSize_ = 1.0 / mult_;
             ef_ = 10;
             for (size_t i = 0; i < max_elements_; i++) {
@@ -586,15 +582,14 @@ namespace hnswlib {
 
             tableint cur_c = 0;
             {
-                unique_lock <mutex> lock(cur_element_count_guard_);
+                std::unique_lock <std::mutex> lock(cur_element_count_guard_);
                 if (cur_element_count >= max_elements_) {
-                    cout << "The number of elements exceeds the specified limit\n";
-                    throw runtime_error("The number of elements exceeds the specified limit");
+                    throw std::runtime_error("The number of elements exceeds the specified limit");
                 };
                 cur_c = cur_element_count;
                 cur_element_count++;
             }
-            unique_lock <mutex> lock_el(link_list_locks_[cur_c]);
+            std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
             int curlevel = getRandomLevel(mult_);
             if (level > 0)
                 curlevel = level;
@@ -602,7 +597,7 @@ namespace hnswlib {
             element_levels_[cur_c] = curlevel;
 
 
-            unique_lock <mutex> templock(global);
+            std::unique_lock <std::mutex> templock(global);
             int maxlevelcopy = maxlevel_;
             if (curlevel <= maxlevelcopy)
                 templock.unlock();
@@ -633,14 +628,14 @@ namespace hnswlib {
                         while (changed) {
                             changed = false;
                             int *data;
-                            unique_lock <mutex> lock(link_list_locks_[currObj]);
+                            std::unique_lock <std::mutex> lock(link_list_locks_[currObj]);
                             data = (int *) (linkLists_[currObj] + (level - 1) * size_links_per_element_);
                             int size = *data;
                             tableint *datal = (tableint *) (data + 1);
                             for (int i = 0; i < size; i++) {
                                 tableint cand = datal[i];
                                 if (cand < 0 || cand > max_elements_)
-                                    throw runtime_error("cand error");
+                                    throw std::runtime_error("cand error");
                                 dist_t d = fstdistfunc_(data_point, getDataByInternalId(cand), dist_func_param_);
                                 if (d < curdist) {
                                     curdist = d;
@@ -652,11 +647,11 @@ namespace hnswlib {
                     }
                 }
 
-                for (int level = min(curlevel, maxlevelcopy); level >= 0; level--) {
+                for (int level = std::min(curlevel, maxlevelcopy); level >= 0; level--) {
                     if (level > maxlevelcopy || level < 0)
-                        throw runtime_error("Level error");
+                        throw std::runtime_error("Level error");
 
-                    std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
+                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
                             currObj, data_point, level);
                     mutuallyConnectNewElement(data_point, cur_c, top_candidates, level);
                 }
@@ -692,7 +687,7 @@ namespace hnswlib {
                     for (int i = 0; i < size; i++) {
                         tableint cand = datal[i];
                         if (cand < 0 || cand > max_elements_)
-                            throw runtime_error("cand error");
+                            throw std::runtime_error("cand error");
                         dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
 
                         if (d < curdist) {
@@ -705,7 +700,7 @@ namespace hnswlib {
             }
 
 
-            std::priority_queue<std::pair<dist_t, tableint>, vector<pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayerST(
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayerST(
                     currObj, query_data, std::max(ef_,k));
             std::priority_queue<std::pair<dist_t, labeltype >> results;
             while (top_candidates.size() > k) {
