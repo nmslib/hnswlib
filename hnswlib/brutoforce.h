@@ -9,7 +9,7 @@ namespace hnswlib {
         BruteforceSearch(SpaceInterface <dist_t> *s) {
 
         }
-        BruteforceSearch(SpaceInterface<dist_t> *s, const string &location) {
+        BruteforceSearch(SpaceInterface<dist_t> *s, const std::string &location) {
             loadIndex(location, s);
         }
 
@@ -90,9 +90,9 @@ namespace hnswlib {
             return topResults;
         };
 
-        void saveIndex(const string &location) {
+        void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
-            streampos position;
+            std::streampos position;
 
             writeBinaryPOD(output, maxelements_);
             writeBinaryPOD(output, size_per_element_);
@@ -103,11 +103,11 @@ namespace hnswlib {
             output.close();
         }
 
-        void loadIndex(const string &location, SpaceInterface<dist_t> *s) {
+        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s) {
 
 
             std::ifstream input(location, std::ios::binary);
-            streampos position;
+            std::streampos position;
 
             readBinaryPOD(input, maxelements_);
             readBinaryPOD(input, size_per_element_);

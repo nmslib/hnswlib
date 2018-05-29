@@ -21,7 +21,6 @@
 #include "hnswlib.h"
 
 namespace hnswlib {
-    using namespace std;
 
     static float
     L2Sqr(const void *pVect1, const void *pVect2, const void *qty_ptr) {
