@@ -35,8 +35,8 @@ namespace hnswlib {
 /////////////////////////////////////////////////////////
 
     class VisitedListPool {
-        deque<VisitedList *> pool;
-        mutex poolguard;
+        std::deque<VisitedList *> pool;
+        std::mutex poolguard;
         int maxpools;
         int numelements;
 
@@ -50,7 +50,7 @@ namespace hnswlib {
         VisitedList *getFreeVisitedList() {
             VisitedList *rez;
             {
-                unique_lock <mutex> lock(poolguard);
+                std::unique_lock <std::mutex> lock(poolguard);
                 if (pool.size() > 0) {
                     rez = pool.front();
                     pool.pop_front();
@@ -63,7 +63,7 @@ namespace hnswlib {
         };
 
         void releaseVisitedList(VisitedList *vl) {
-            unique_lock <mutex> lock(poolguard);
+            std::unique_lock <std::mutex> lock(poolguard);
             pool.push_front(vl);
         };
 
