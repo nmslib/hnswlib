@@ -10,7 +10,8 @@
 #include <x86intrin.h>
 
 #endif
-#define USE_AVX
+
+
 #if defined(__GNUC__)
 #define PORTABLE_ALIGN32 __attribute__((aligned(32)))
 #else
@@ -41,7 +42,7 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
 
-#ifdef USE_AVX
+#ifdef __AVX__
         size_t qty16 = qty / 16;
         size_t qty4 = qty / 4;
 
@@ -137,7 +138,7 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
 
-#ifdef USE_AVX
+#ifdef __AVX__
         size_t qty16 = qty / 16;
 
 
