@@ -253,7 +253,7 @@ public:
                                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                                         (void *) items.data(row), k);
                                 if (result.size() != k)
-                                    std::runtime_error(
+                                    throw std::runtime_error(
                                             "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
                                 for (int i = k - 1; i >= 0; i--) {
                                     auto &result_tuple = result.top();
@@ -275,7 +275,7 @@ public:
                                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                                         (void *) (norm_array.data()+start_idx), k);
                                 if (result.size() != k)
-                                    std::runtime_error(
+                                    throw std::runtime_error(
                                             "Cannot return the results in a contigious 2D array. Probably ef or M is to small");
                                 for (int i = k - 1; i >= 0; i--) {
                                     auto &result_tuple = result.top();
