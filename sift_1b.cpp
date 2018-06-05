@@ -246,7 +246,7 @@ void sift_test1B() {
     char *path_data = "bigann/bigann_base.bvecs";
     sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_milllions, efConstruction, M);
 
-    sprintf(path_gt, "/home/yurymal/frameworks/nns/hnsw/bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
+    sprintf(path_gt, "bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
 
 
     unsigned char *massb = new unsigned char[vecdim];
