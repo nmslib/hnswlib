@@ -612,8 +612,8 @@ namespace hnswlib {
 
 
             if (curlevel) {
-                linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel);
-                memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel);
+                linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
+                memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
             }
             if (currObj != -1) {
 
