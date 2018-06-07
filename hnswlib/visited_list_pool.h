@@ -26,7 +26,7 @@ namespace hnswlib {
             }
         };
 
-        ~VisitedList() { delete mass; }
+        ~VisitedList() { delete[] mass; }
     };
 ///////////////////////////////////////////////////////////
 //
