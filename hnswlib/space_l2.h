@@ -28,7 +28,7 @@ namespace hnswlib {
         //return *((float *)pVect2);
         size_t qty = *((size_t *) qty_ptr);
         float res = 0;
-        for (int i = 0; i < qty; i++) {
+        for (unsigned i = 0; i < qty; i++) {
             float t = ((float *) pVect1)[i] - ((float *) pVect2)[i];
             res += t * t;
         }
