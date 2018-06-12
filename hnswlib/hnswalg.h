@@ -280,7 +280,7 @@ namespace hnswlib {
 
         void getNeighborsByHeuristic2(
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
-                const int M) {
+                const size_t M) {
             if (top_candidates.size() < M) {
                 return;
             }
@@ -363,7 +363,7 @@ namespace hnswlib {
                 tableint *data = (tableint *) (ll_cur + 1);
 
 
-                for (int idx = 0; idx < selectedNeighbors.size(); idx++) {
+                for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
                     if (data[idx])
                         throw std::runtime_error("Possible memory corruption");
                     if (level > element_levels_[selectedNeighbors[idx]])
@@ -373,7 +373,7 @@ namespace hnswlib {
 
                 }
             }
-            for (int idx = 0; idx < selectedNeighbors.size(); idx++) {
+            for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
 
                 std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
 
@@ -383,7 +383,7 @@ namespace hnswlib {
                     ll_other = get_linklist0(selectedNeighbors[idx]);
                 else
                     ll_other = get_linklist(selectedNeighbors[idx], level);
-                int sz_link_list_other = *ll_other;
+                size_t sz_link_list_other = *ll_other;
 
 
                 if (sz_link_list_other > Mcurmax || sz_link_list_other < 0)
@@ -405,7 +405,7 @@ namespace hnswlib {
                     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidates;
                     candidates.emplace(d_max, cur_c);
 
-                    for (int j = 0; j < sz_link_list_other; j++) {
+                    for (size_t j = 0; j < sz_link_list_other; j++) {
                         candidates.emplace(
                                 fstdistfunc_(getDataByInternalId(data[j]), getDataByInternalId(selectedNeighbors[idx]),
                                              dist_func_param_), data[j]);
@@ -449,7 +449,7 @@ namespace hnswlib {
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
-            for (int level = maxlevel_; level > 0; level--) {
+            for (size_t level = maxlevel_; level > 0; level--) {
                 bool changed = true;
                 while (changed) {
                     changed = false;
@@ -615,7 +615,7 @@ namespace hnswlib {
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
                 memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
             }
-            if (currObj != -1) {
+            if ((signed)currObj != -1) {
 
 
                 if (curlevel < maxlevelcopy) {
