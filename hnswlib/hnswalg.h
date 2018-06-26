@@ -56,7 +56,7 @@ namespace hnswlib {
 
             data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
             if (data_level0_memory_ == nullptr)
-                throw new std::runtime_error("Not enough memory");
+                throw std::runtime_error("Not enough memory");
 
             cur_element_count = 0;
 
