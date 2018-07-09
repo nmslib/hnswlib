@@ -32,7 +32,7 @@ namespace hnswlib {
             loadIndex(location, s);
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200) :
+        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 0) :
                 link_list_locks_(max_elements), element_levels_(max_elements) {
             max_elements_ = max_elements;
 
@@ -46,8 +46,9 @@ namespace hnswlib {
             ef_construction_ = std::max(ef_construction,M_);
             ef_ = 10;
 
-
-
+            level_generator_.seed(random_seed);
+            printf("%u\n", level_generator_());
+            
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
             size_data_per_element_ = size_links_level0_ + data_size_ + sizeof(labeltype);
             offsetData_ = size_links_level0_;
