@@ -47,7 +47,6 @@ namespace hnswlib {
             ef_ = 10;
 
             level_generator_.seed(random_seed);
-            printf("%u\n", level_generator_());
             
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
             size_data_per_element_ = size_links_level0_ + data_size_ + sizeof(labeltype);
