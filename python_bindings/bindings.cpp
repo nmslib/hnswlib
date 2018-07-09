@@ -91,9 +91,9 @@ public:
         num_threads_default = std::thread::hardware_concurrency();
     }
 
-    void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction) {
+    void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
         ep_added = false;
     }
@@ -336,7 +336,7 @@ PYBIND11_PLUGIN(hnswlib) {
         py::class_<Index<float>>(m, "Index")
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16,
-        py::arg("ef_construction")=200)
+        py::arg("ef_construction")=200, py::arg("random_seed")=0)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
