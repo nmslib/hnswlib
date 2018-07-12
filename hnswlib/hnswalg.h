@@ -32,7 +32,7 @@ namespace hnswlib {
             loadIndex(location, s);
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200) :
+        HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
                 link_list_locks_(max_elements), element_levels_(max_elements) {
             max_elements_ = max_elements;
 
@@ -46,8 +46,8 @@ namespace hnswlib {
             ef_construction_ = std::max(ef_construction,M_);
             ef_ = 10;
 
-
-
+            level_generator_.seed(random_seed);
+            
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
             size_data_per_element_ = size_links_level0_ + data_size_ + sizeof(labeltype);
             offsetData_ = size_links_level0_;
@@ -128,7 +128,7 @@ namespace hnswlib {
         DISTFUNC<dist_t> fstdistfunc_;
         void *dist_func_param_;
 
-        std::default_random_engine level_generator_ = std::default_random_engine(100);
+        std::default_random_engine level_generator_;
 
         inline labeltype getExternalLabel(tableint internal_id) {
             return *((labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_));
