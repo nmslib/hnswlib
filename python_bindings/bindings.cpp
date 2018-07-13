@@ -176,8 +176,8 @@ public:
             if (!ep_added) {
                 size_t id = ids.size() ? ids.at(0) : (cur_l);
 				float *vector_data=(float *) items.data(0);
-				if(normalize){
-					std::vector<float> norm_array(dim);
+                                std::vector<float> norm_array(dim);
+				if(normalize){					
 					normalize_vector(vector_data, norm_array.data());					
 					vector_data = norm_array.data();
 					
