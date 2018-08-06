@@ -110,8 +110,8 @@ public:
         appr_alg->saveIndex(path_to_index);
     }
 
-    void loadIndex(const std::string &path_to_index) {
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index);
+    void loadIndex(const std::string &path_to_index, size_t max_elements) {
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
 		cur_l = appr_alg->cur_element_count;
     }
 	void normalize_vector(float *data, float *norm_array){
@@ -342,7 +342,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
-        .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"))
+        .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("__repr__",
         [](const Index<float> &a) {
             return "<HNSW-lib index>";
