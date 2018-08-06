@@ -524,7 +524,7 @@ namespace hnswlib {
             size_t max_elements=max_elements_i;
             if(max_elements < cur_element_count)
                 max_elements = max_elements_;
-            max_elements_ = max_elements_i;
+            max_elements_ = max_elements;
             readBinaryPOD(input, size_data_per_element_);
             readBinaryPOD(input, label_offset_);
             readBinaryPOD(input, offsetData_);
