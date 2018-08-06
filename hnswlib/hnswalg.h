@@ -28,8 +28,8 @@ namespace hnswlib {
 
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false) {
-            loadIndex(location, s);
+        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
+            loadIndex(location, s, max_elements);
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
@@ -500,9 +500,9 @@ namespace hnswlib {
             writeBinaryPOD(output, mult_);
             writeBinaryPOD(output, ef_construction_);
 
-            output.write(data_level0_memory_, max_elements_ * size_data_per_element_);
+            output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
 
-            for (size_t i = 0; i < max_elements_; i++) {
+            for (size_t i = 0; i < cur_element_count; i++) {
                 unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
                 writeBinaryPOD(output, linkListSize);
                 if (linkListSize)
@@ -511,7 +511,7 @@ namespace hnswlib {
             output.close();
         }
 
-        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s) {
+        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
 
 
             std::ifstream input(location, std::ios::binary);
@@ -520,6 +520,11 @@ namespace hnswlib {
             readBinaryPOD(input, offsetLevel0_);
             readBinaryPOD(input, max_elements_);
             readBinaryPOD(input, cur_element_count);
+
+            size_t max_elements=max_elements_i;
+            if(max_elements < cur_element_count)
+                max_elements = max_elements_;
+            max_elements_ = max_elements;
             readBinaryPOD(input, size_data_per_element_);
             readBinaryPOD(input, label_offset_);
             readBinaryPOD(input, offsetData_);
@@ -537,25 +542,25 @@ namespace hnswlib {
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
 
-            data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-            input.read(data_level0_memory_, max_elements_ * size_data_per_element_);
+            data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
+            input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
 
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
 
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-            std::vector<std::mutex>(max_elements_).swap(link_list_locks_);
+            std::vector<std::mutex>(max_elements).swap(link_list_locks_);
 
 
-            visited_list_pool_ = new VisitedListPool(1, max_elements_);
+            visited_list_pool_ = new VisitedListPool(1, max_elements);
 
 
-            linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
-            element_levels_ = std::vector<int>(max_elements_);
+            linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
+            element_levels_ = std::vector<int>(max_elements);
             revSize_ = 1.0 / mult_;
             ef_ = 10;
-            for (size_t i = 0; i < max_elements_; i++) {
+            for (size_t i = 0; i < cur_element_count; i++) {
                 unsigned int linkListSize;
                 readBinaryPOD(input, linkListSize);
                 if (linkListSize == 0) {
