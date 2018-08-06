@@ -386,7 +386,7 @@ namespace hnswlib {
                 size_t sz_link_list_other = *ll_other;
 
 
-                if (sz_link_list_other > Mcurmax || sz_link_list_other < 0)
+                if (sz_link_list_other > Mcurmax)
                     throw std::runtime_error("Bad value of sz_link_list_other");
                 if (selectedNeighbors[idx] == cur_c)
                     throw std::runtime_error("Trying to connect an element to itself");
