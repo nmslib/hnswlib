@@ -542,8 +542,37 @@ namespace hnswlib {
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
 
+            /// Legacy, check that everything is ok
+
+            bool old_index=false;
+
+            auto pos=input.tellg();
+            input.seekg(max_elements * size_data_per_element_,input.cur);
+            for (size_t i = 0; i < cur_element_count; i++) {
+                unsigned int linkListSize;
+                readBinaryPOD(input, linkListSize);
+                if (linkListSize != 0) {
+                    input.seekg(linkListSize,input.cur);
+                }
+            }
+            auto end_p=input.tellg();
+            input.seekg(0,input.end);
+            auto total_filesize=input.tellg();
+
+            // Check if file is ok, if not this is either corrupted or old index
+            if(end_p!=total_filesize) {
+                std::cerr << "Warning: loading of old indexes will be deprecated before 2019.\n"
+                            <<"Please resave the index in the new format.\n";
+                old_index = true;
+            }
+            input.seekg(pos,input.beg);
+
+
             data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+
+            if(old_index)
+                input.seekg(((max_elements_-cur_element_count) * size_data_per_element_), input.cur);
 
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
