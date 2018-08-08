@@ -515,7 +515,12 @@ namespace hnswlib {
 
 
             std::ifstream input(location, std::ios::binary);
-            std::streampos position;
+
+            // get file size:
+            std::streampos end_p=input.tellg();
+            input.seekg(0,input.end);
+            auto total_filesize=input.tellg();
+            input.seekg(0,input.beg);
 
             readBinaryPOD(input, offsetLevel0_);
             readBinaryPOD(input, max_elements_);
@@ -547,24 +552,29 @@ namespace hnswlib {
             bool old_index=false;
 
             auto pos=input.tellg();
-            input.seekg(max_elements * size_data_per_element_,input.cur);
+            input.seekg(cur_element_count * size_data_per_element_,input.cur);
             for (size_t i = 0; i < cur_element_count; i++) {
+                if(input.tellg() < 0 || input.tellg()>=total_filesize){
+                    old_index = true;
+                    break;
+                }
+
                 unsigned int linkListSize;
                 readBinaryPOD(input, linkListSize);
                 if (linkListSize != 0) {
                     input.seekg(linkListSize,input.cur);
                 }
             }
-            auto end_p=input.tellg();
-            input.seekg(0,input.end);
-            auto total_filesize=input.tellg();
 
-            // Check if file is ok, if not this is either corrupted or old index
-            if(end_p!=total_filesize) {
-                std::cerr << "Warning: loading of old indexes will be deprecated before 2019.\n"
-                            <<"Please resave the index in the new format.\n";
+            // check if file is ok, if not this is either corrupted or old index
+            if(input.tellg()!=total_filesize)
                 old_index = true;
+
+            if (old_index) {
+                std::cerr << "Warning: loading of old indexes will be deprecated before 2019.\n"
+                          << "Please resave the index in the new format.\n";
             }
+            input.clear();
             input.seekg(pos,input.beg);
 
 
