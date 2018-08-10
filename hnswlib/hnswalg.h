@@ -517,9 +517,8 @@ namespace hnswlib {
             std::ifstream input(location, std::ios::binary);
 
             // get file size:
-            std::streampos end_p=input.tellg();
             input.seekg(0,input.end);
-            auto total_filesize=input.tellg();
+            std::streampos total_filesize=input.tellg();
             input.seekg(0,input.beg);
 
             readBinaryPOD(input, offsetLevel0_);
