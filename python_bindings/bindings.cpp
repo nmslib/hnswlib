@@ -118,7 +118,7 @@ public:
 		float norm=0.0f;
 		for(int i=0;i<dim;i++)
 			norm+=data[i]*data[i];
-		norm=1.0/sqrt(norm);
+		norm= 1.0f / (sqrtf(norm) + 1e-30f);
 		for(int i=0;i<dim;i++)
 			norm_array[i]=data[i]*norm;
 	}
