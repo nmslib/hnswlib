@@ -92,6 +92,9 @@ public:
     }
 
     void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
+        if (appr_alg) {
+            throw new std::runtime_error("The index is already initiated.");
+        }
         cur_l = 0;
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
