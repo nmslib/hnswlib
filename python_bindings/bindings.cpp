@@ -111,6 +111,10 @@ public:
     }
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
+        if (appr_alg) {
+            std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+            delete appr_alg;
+        }
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
 		cur_l = appr_alg->cur_element_count;
     }
