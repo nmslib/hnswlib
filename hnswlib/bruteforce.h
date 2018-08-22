@@ -116,11 +116,6 @@ namespace hnswlib {
             data_size_ = s->get_data_size();
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
-
-
-            data_size_ = s->get_data_size();
-            fstdistfunc_ = s->get_dist_func();
-            dist_func_param_ = s->get_dist_func_param();
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxelements_ * size_per_element_);
 
