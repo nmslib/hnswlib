@@ -1,15 +1,14 @@
-# HNSW - Fast approximate nearest neighbor search
+# hnswlib - Fast approximate nearest neighbor search
 Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
 
-NEW: Added support for cosine similarity and inner product distances
+Highlights:
+1) Lightweight, header-only.
+2) Interfaces for C++, python and R (https://github.com/jlmelville/rcpphnsw).
+3) Has full support for incremental index construction.
+4) Significantly less memory footprint and faster build time compared to current nmslib's implementation, although is slightly slower in terms of the search speed.
 
-
-Part of the nmslib project https://github.com/nmslib/nmslib
-
-Offers less memory footprint and faster builds compared to current nmslib's version.
 
 ### Python bindings
-
 
 #### Supported distances:
 
@@ -21,7 +20,7 @@ Offers less memory footprint and faster builds compared to current nmslib's vers
 
 Note that inner product is not a metric. An element can be closer to some other element than to itself.
 
-For other spaces use the main library https://github.com/nmslib/nmslib 
+For other spaces use the main library https://github.com/nmslib/nmslib. For huge datasets you can try https://github.com/dbaranchuk/ivf-hnsw (which is state-of-the-art in compressed indeces) or faiss (https://github.com/facebookresearch/faiss), both of which can use hnsw for coarse quatization.
 
 
 #### Python bindings example
