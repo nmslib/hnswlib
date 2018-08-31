@@ -1,11 +1,14 @@
-# hnswlib - Fast approximate nearest neighbor search
+# Hnswlib - fast approximate nearest neighbor search
 Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
 
 Highlights:
-1) Lightweight, header-only.
+1) Lightweight, header-only, no dependences other than C++ 11.
 2) Interfaces for C++, python and R (https://github.com/jlmelville/rcpphnsw).
 3) Has full support for incremental index construction.
-4) Significantly less memory footprint and faster build time compared to current nmslib's implementation, although is slightly slower in terms of the search speed.
+4) Can work with custom user distances (C++). 
+5) Significantly less memory footprint and faster build time compared to current nmslib's implementation, although is slightly slower in terms of the search speed.
+
+Description of the algroithm's parameters can be found in [ALGO_PARAMS.md](ALGO_PARAMS.md).
 
 
 ### Python bindings
@@ -20,10 +23,10 @@ Highlights:
 
 Note that inner product is not a metric. An element can be closer to some other element than to itself.
 
-For other spaces use the main library https://github.com/nmslib/nmslib. For huge datasets you can try https://github.com/dbaranchuk/ivf-hnsw (which is state-of-the-art in compressed indeces) or faiss (https://github.com/facebookresearch/faiss), both of which can use hnsw for coarse quatization.
+For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
 
-#### Python bindings example
+#### Python bindings examples
 ```python
 import hnswlib
 import numpy as np
@@ -121,12 +124,28 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 
 ```
 
-#### Bindings installation
+### Bindings installation
 ```bash
+apt-get install -y python-setuptools python-pip
 pip3 install pybind11 numpy setuptools
 cd python_bindings
 python3 setup.py install
 ```
+
+### Other implementations
+* Non-metric space library (nmslib) - main library(python, C++), supports exotic distances: https://github.com/nmslib/nmslib
+* Faiss libary by facebook, uses own HNSW  implemenation for coarse quatization (python, C++):
+https://github.com/facebookresearch/faiss
+* Code for the paper 
+["Revisiting the Inverted Indices for Billion-Scale Approximate Nearest Neighbors"](https://arxiv.org/abs/1802.02422) 
+(current state-of-the-art in compressed indexes, C++):
+https://github.com/dbaranchuk/ivf-hnsw
+* TOROS N2 (python, C++): https://github.com/kakao/n2 
+* Online HNSW (C++): https://github.com/andrusha97/online-hnsw) 
+* Go implementation: https://github.com/Bithack/go-hnsw
+* Python implementation (as a part of the clustring code by by Matteo Dell'Amico): https://github.com/matteodellamico/flexible-clustering 
+* OCaml implementaion: https://github.com/lehy/ocaml-hnsw 
+
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset:
