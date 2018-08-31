@@ -1,4 +1,4 @@
-# hnswlib - Fast approximate nearest neighbor search
+# Hnswlib - fast approximate nearest neighbor search
 Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
 
 Highlights:
