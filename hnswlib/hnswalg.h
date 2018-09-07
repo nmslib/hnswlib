@@ -20,7 +20,7 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t>
+    template<typename dist_t, typename data_t>
     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     public:
 
@@ -617,13 +617,13 @@ namespace hnswlib {
             return;
         }
 
-        std::vector<dist_t> getDataByLabel(labeltype label)
+        std::vector<data_t> getDataByLabel(labeltype label)
         {
           tableint label_c = label_lookup_[label];
           char* data_ptrv = getDataByInternalId(label_c);
           size_t dim = *((size_t *) dist_func_param_);
-          std::vector<dist_t> data;
-          float* data_ptr = (float*) data_ptrv;
+          std::vector<data_t> data;
+          data_t* data_ptr = (data_t*) data_ptrv;
           for (int i = 0; i < dim; i++) {
             data.push_back(*data_ptr);
             data_ptr += 1;
