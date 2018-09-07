@@ -70,7 +70,7 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 
 }
 
-template<typename dist_t>
+template<typename dist_t, typename data_t=float>
 class Index {
 public:
     Index(const std::string &space_name, const int dim) :
@@ -97,7 +97,7 @@ public:
             throw new std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t, data_t>(l2space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
         ep_added = false;
     }
@@ -119,7 +119,7 @@ public:
             std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
             delete appr_alg;
         }
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t, data_t>(l2space, path_to_index, false, max_elements);
 		cur_l = appr_alg->cur_element_count;
     }
 	void normalize_vector(float *data, float *norm_array){
@@ -216,7 +216,7 @@ public:
         }
     }
 
-    std::vector<std::vector<dist_t> > GetDataReturnNumpy(py::object ids_ = py::none()) {
+    std::vector<std::vector<data_t>> GetDataReturnList(py::object ids_ = py::none()) {
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
@@ -228,7 +228,7 @@ public:
             ids.swap(ids1);
         }
 
-        std::vector<std::vector<dist_t> > data;
+        std::vector<std::vector<data_t>> data;
         for (auto id : ids) {
             data.push_back(appr_alg->getDataByLabel(id));
         }
@@ -341,7 +341,7 @@ public:
     bool normalize;
     int num_threads_default;
     hnswlib::labeltype cur_l;
-    hnswlib::HierarchicalNSW<dist_t> *appr_alg;
+    hnswlib::HierarchicalNSW<dist_t, data_t> *appr_alg;
     hnswlib::SpaceInterface<float> *l2space;
 
     ~Index() {
@@ -360,7 +360,7 @@ PYBIND11_PLUGIN(hnswlib) {
         py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
-        .def("get_items", &Index<float>::GetDataReturnNumpy, py::arg("ids") = py::none())
+        .def("get_items", &Index<float, float>::GetDataReturnList, py::arg("ids") = py::none())
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
