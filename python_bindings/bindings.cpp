@@ -97,7 +97,7 @@ public:
             throw new std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t, data_t>(l2space, maxElements, M, efConstruction, random_seed);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
         ep_added = false;
     }
@@ -119,7 +119,7 @@ public:
             std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
             delete appr_alg;
         }
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t, data_t>(l2space, path_to_index, false, max_elements);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
 		cur_l = appr_alg->cur_element_count;
     }
 	void normalize_vector(float *data, float *norm_array){
@@ -230,7 +230,7 @@ public:
 
         std::vector<std::vector<data_t>> data;
         for (auto id : ids) {
-            data.push_back(appr_alg->getDataByLabel(id));
+            data.push_back(appr_alg->template getDataByLabel<data_t>(id));
         }
         return data;
     }
@@ -341,7 +341,7 @@ public:
     bool normalize;
     int num_threads_default;
     hnswlib::labeltype cur_l;
-    hnswlib::HierarchicalNSW<dist_t, data_t> *appr_alg;
+    hnswlib::HierarchicalNSW<dist_t> *appr_alg;
     hnswlib::SpaceInterface<float> *l2space;
 
     ~Index() {
