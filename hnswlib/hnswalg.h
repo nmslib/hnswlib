@@ -20,7 +20,7 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t, typename data_t>
+    template<typename dist_t>
     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     public:
 
@@ -600,6 +600,7 @@ namespace hnswlib {
             revSize_ = 1.0 / mult_;
             ef_ = 10;
             for (size_t i = 0; i < cur_element_count; i++) {
+                label_lookup_[getExternalLabel(i)]=i;
                 unsigned int linkListSize;
                 readBinaryPOD(input, linkListSize);
                 if (linkListSize == 0) {
@@ -617,6 +618,7 @@ namespace hnswlib {
             return;
         }
 
+        template<typename data_t>
         std::vector<data_t> getDataByLabel(labeltype label)
         {
           tableint label_c = label_lookup_[label];
@@ -645,6 +647,7 @@ namespace hnswlib {
                     throw std::runtime_error("The number of elements exceeds the specified limit");
                 };
                 cur_c = cur_element_count;
+                label_lookup_[label] = cur_c;  // expected unique, if not will overwrite
                 cur_element_count++;
             }
             std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
@@ -667,7 +670,7 @@ namespace hnswlib {
             // Initialisation of the data and label
             memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
             memcpy(getDataByInternalId(cur_c), data_point, data_size_);
-            label_lookup_[label] = cur_c;  // expected unique, if not will overwrite
+
 
             if (curlevel) {
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
