@@ -20,7 +20,7 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t>
+    template<typename dist_t, typename data_t>
     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     public:
 
@@ -127,6 +127,7 @@ namespace hnswlib {
         size_t label_offset_;
         DISTFUNC<dist_t> fstdistfunc_;
         void *dist_func_param_;
+        std::unordered_map<labeltype, tableint> label_lookup_;
 
         std::default_random_engine level_generator_;
 
@@ -616,6 +617,20 @@ namespace hnswlib {
             return;
         }
 
+        std::vector<data_t> getDataByLabel(labeltype label)
+        {
+          tableint label_c = label_lookup_[label];
+          char* data_ptrv = getDataByInternalId(label_c);
+          size_t dim = *((size_t *) dist_func_param_);
+          std::vector<data_t> data;
+          data_t* data_ptr = (data_t*) data_ptrv;
+          for (int i = 0; i < dim; i++) {
+            data.push_back(*data_ptr);
+            data_ptr += 1;
+          }
+          return data;
+        };
+
         void addPoint(void *data_point, labeltype label)
         {
             addPoint(data_point, label,-1);
@@ -652,7 +667,7 @@ namespace hnswlib {
             // Initialisation of the data and label
             memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
             memcpy(getDataByInternalId(cur_c), data_point, data_size_);
-
+            label_lookup_[label] = cur_c;  // expected unique, if not will overwrite
 
             if (curlevel) {
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
