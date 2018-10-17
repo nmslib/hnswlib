@@ -130,15 +130,15 @@ namespace hnswlib {
 
         std::default_random_engine level_generator_;
 
-        inline labeltype getExternalLabel(tableint internal_id) {
+        inline labeltype getExternalLabel(tableint internal_id) const {
             return *((labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_));
         }
 
-        inline labeltype *getExternalLabeLp(tableint internal_id) {
+        inline labeltype *getExternalLabeLp(tableint internal_id) const {
             return (labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_);
         }
 
-        inline char *getDataByInternalId(tableint internal_id) {
+        inline char *getDataByInternalId(tableint internal_id) const {
             return (data_level0_memory_ + internal_id * size_data_per_element_ + offsetData_);
         }
 
@@ -214,7 +214,7 @@ namespace hnswlib {
         }
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayerST(tableint ep_id, void *data_point, size_t ef) {
+        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef) const {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -715,7 +715,7 @@ namespace hnswlib {
             return cur_c;
         };
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *query_data, size_t k) {
+        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
