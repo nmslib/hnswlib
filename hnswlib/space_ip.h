@@ -1,4 +1,3 @@
-
 #pragma once
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -32,7 +31,7 @@ namespace hnswlib {
         }
         return (1.0f - res);
 
-    };
+    }
 
 
     static float
@@ -130,7 +129,7 @@ namespace hnswlib {
 
         return 1.0f - sum;
 #endif
-    };
+    }
     static float
     InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float PORTABLE_ALIGN32 TmpRes[8];
@@ -206,7 +205,7 @@ namespace hnswlib {
 
         return 1.0f - sum;
 #endif
-    };
+    }
 
 
     class InnerProductSpace : public SpaceInterface<float> {
@@ -240,4 +239,4 @@ namespace hnswlib {
     };
 
 
-};
+}
