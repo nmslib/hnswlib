@@ -34,7 +34,7 @@ namespace hnswlib {
         }
         return (res);
 
-    };
+    }
 
 
     static float
@@ -117,7 +117,7 @@ namespace hnswlib {
 
         return (res);
 #endif
-    };
+    }
 
 
     static float
@@ -148,7 +148,7 @@ namespace hnswlib {
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 
         return (res);
-    };
+    }
 
     class L2Space : public SpaceInterface<float> {
 
@@ -216,7 +216,7 @@ namespace hnswlib {
 
         return (res);
 
-    };
+    }
 
     class L2SpaceI : public SpaceInterface<int> {
 
@@ -245,4 +245,4 @@ namespace hnswlib {
     };
 
 
-};
+}
