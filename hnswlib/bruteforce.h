@@ -68,7 +68,7 @@ namespace hnswlib {
         }
 
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(void *query_data, size_t k) {
+        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
