@@ -25,7 +25,33 @@ Note that inner product is not a metric. An element can be closer to some other 
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
+#### short API description
+* ```hnswlib.Index(space, dim)``` creates a non-initalized index an HNSW in space ```space``` with integer dimension ```dim```.
 
+Index methods:
+* ```init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)``` initalizes the index from with no elements. 
+    * ```max_elements``` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk via saving/loading).
+    * ```ef_construction``` defines a construcion time/accuracy tradeoff (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
+    * ```M``` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
+* ```add_items(data, data_labels, num_threads = -1)``` - inserts the ```data```(numpy array of vectors, shape:```N*dim```) into the structure. 
+    * ```labels``` is an optional N-size numpy array of integer labels for all elements in ```data```.
+    * ```num_threads``` sets the number of cpu threads to use (-1 means use default).
+* ```set_ef(ef)``` - sets the query time accuracy/speed tradeoff, defined by the ```ef``` parameter (
+[ALGO_PARAMS.md](ALGO_PARAMS.md)).
+* ```knn_query(data, k = 1, num_threads = -1)``` make a batch query for ```k``` closests elements for each element of the 
+    * ```data``` (shape:```N*dim```). Returns a numpy array of (shape:```N*k```).
+    * ```num_threads``` sets the number of cpu threads to use (-1 means use default).
+* ```load_index(path_to_index, max_elements = 0)``` loads the index from persistence to the unintialized index.
+    * ```max_elements```(optional) resets the maximum number of elements in the structure.  
+* ```save_index(path_to_index)``` saves the index from persistence.
+* ```set_num_threads(num_threads)``` set the defualt number of cpu threads used during data insertion/querying.  
+* ```get_items(ids)``` - returns a numpy array (shape:```N*dim```) of vectors that have integer identifiers specified in ```ids``` numpy vector (shape:```N```).  
+* ```get_ids_list()```  - returns a list of all element ids.
+
+   
+        
+        
+  
 #### Python bindings examples
 ```python
 import hnswlib
