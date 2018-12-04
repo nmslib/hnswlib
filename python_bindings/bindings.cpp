@@ -216,7 +216,7 @@ public:
         }
     }
 
-    std::vector<std::vector<data_t>> GetDataReturnList(py::object ids_ = py::none()) {
+    std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
@@ -233,6 +233,16 @@ public:
             data.push_back(appr_alg->template getDataByLabel<data_t>(id));
         }
         return data;
+    }
+
+    std::vector<unsigned int> getIdsList() {
+
+        std::vector<unsigned int> ids;
+
+        for(auto kv : appr_alg->label_lookup_) {
+            ids.push_back(kv.first);
+        }
+        return ids;
     }
 
     py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
@@ -360,7 +370,8 @@ PYBIND11_PLUGIN(hnswlib) {
         py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
-        .def("get_items", &Index<float, float>::GetDataReturnList, py::arg("ids") = py::none())
+        .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
+        .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))

@@ -81,6 +81,9 @@ class RandomSelfTestCase(unittest.TestCase):
         diff_with_gt_labels=np.max(np.abs(data-items))
         self.assertAlmostEqual(diff_with_gt_labels,0,1e-4)
 
+        # Checking that all labels are returned correcly:
+        sorted_labels=sorted(p.get_ids_list())
+        self.assertEqual(np.sum(~np.asarray(sorted_labels)==np.asarray(range(num_elements))),0)
 
 
 
