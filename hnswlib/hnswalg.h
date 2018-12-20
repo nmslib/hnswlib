@@ -633,7 +633,13 @@ namespace hnswlib {
         template<typename data_t>
         std::vector<data_t> getDataByLabel(labeltype label)
         {
-          tableint label_c = label_lookup_[label];
+          tableint label_c;
+          auto search = label_lookup_.find(label);
+          if (search == label_lookup_.end()) {
+              throw std::runtime_error("Label not found");
+          }
+          label_c = search->second;
+
           char* data_ptrv = getDataByInternalId(label_c);
           size_t dim = *((size_t *) dist_func_param_);
           std::vector<data_t> data;
