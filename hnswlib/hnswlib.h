@@ -1,22 +1,31 @@
 #pragma once
+#ifndef NO_MANUAL_VECTORIZATION
+#ifdef __SSE__
+#define USE_SSE
+#ifdef __AVX__
+#define USE_AVX
+#endif
+#endif
+#endif
+
+#if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
-
-#define  __builtin_popcount(t) __popcnt(t)
-
+#else
+#include <x86intrin.h>
 #endif
-
-
-#include <queue>
-
-#include <string.h>
 
 #if defined(__GNUC__)
 #define PORTABLE_ALIGN32 __attribute__((aligned(32)))
 #else
 #define PORTABLE_ALIGN32 __declspec(align(32))
 #endif
+#endif
+
+#include <queue>
+
+#include <string.h>
 
 namespace hnswlib {
     typedef size_t labeltype;
@@ -45,6 +54,7 @@ namespace hnswlib {
 
         virtual void *get_dist_func_param() = 0;
 
+        virtual ~SpaceInterface() {}
     };
 
     template<typename dist_t>

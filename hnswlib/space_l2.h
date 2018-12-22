@@ -1,24 +1,4 @@
-
 #pragma once
-#ifdef _MSC_VER
-#include <intrin.h>
-#include <stdexcept>
-
-#define  __builtin_popcount(t) __popcnt(t)
-#else
-
-#include <x86intrin.h>
-
-#endif
-
-
-#if defined(__GNUC__)
-#define PORTABLE_ALIGN32 __attribute__((aligned(32)))
-#else
-#define PORTABLE_ALIGN32 __declspec(align(32))
-#endif
-
-
 #include "hnswlib.h"
 
 namespace hnswlib {
@@ -36,14 +16,15 @@ namespace hnswlib {
 
     }
 
+#if defined(USE_AVX)
 
+    // Favor using AVX if available.
     static float
     L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
         float PORTABLE_ALIGN32 TmpRes[8];
-#ifdef __AVX__
         size_t qty16 = qty >> 4;
 
         const float *pEnd1 = pVect1 + (qty16 << 4);
@@ -71,7 +52,16 @@ namespace hnswlib {
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
 
         return (res);
-#else
+}
+
+#elif defined(USE_SSE)
+
+    static float
+    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
+        float PORTABLE_ALIGN32 TmpRes[8];
         // size_t qty4 = qty >> 2;
         size_t qty16 = qty >> 4;
 
@@ -116,10 +106,11 @@ namespace hnswlib {
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 
         return (res);
-#endif
     }
+#endif
 
 
+#ifdef USE_SSE
     static float
     L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float PORTABLE_ALIGN32 TmpRes[8];
@@ -149,6 +140,7 @@ namespace hnswlib {
 
         return (res);
     }
+#endif
 
     class L2Space : public SpaceInterface<float> {
 
@@ -158,6 +150,7 @@ namespace hnswlib {
     public:
         L2Space(size_t dim) {
             fstdistfunc_ = L2Sqr;
+        #if defined(USE_SSE) || defined(USE_AVX)
             if (dim % 4 == 0)
                 fstdistfunc_ = L2SqrSIMD4Ext;
             if (dim % 16 == 0)
@@ -165,6 +158,7 @@ namespace hnswlib {
             /*else{
                 throw runtime_error("Data type not supported!");
             }*/
+        #endif
             dim_ = dim;
             data_size_ = dim * sizeof(float);
         }
@@ -181,6 +175,7 @@ namespace hnswlib {
             return &dim_;
         }
 
+        ~L2Space() {}
     };
 
     static int
@@ -242,6 +237,7 @@ namespace hnswlib {
             return &dim_;
         }
 
+        ~L2SpaceI() {}
     };
 
 
