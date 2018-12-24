@@ -1,23 +1,4 @@
 #pragma once
-#ifdef _MSC_VER
-#include <intrin.h>
-#include <stdexcept>
-
-#define  __builtin_popcount(t) __popcnt(t)
-#else
-
-#include <x86intrin.h>
-
-#endif
-
-
-#if defined(__GNUC__)
-#define PORTABLE_ALIGN32 __attribute__((aligned(32)))
-#else
-#define PORTABLE_ALIGN32 __declspec(align(32))
-#endif
-
-
 #include "hnswlib.h"
 
 namespace hnswlib {
@@ -33,7 +14,9 @@ namespace hnswlib {
 
     }
 
+#if defined(USE_AVX)
 
+// Favor using AVX if available.
     static float
     InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float PORTABLE_ALIGN32 TmpRes[8];
@@ -41,7 +24,6 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
 
-#ifdef __AVX__
         size_t qty16 = qty / 16;
         size_t qty4 = qty / 4;
 
@@ -80,7 +62,17 @@ namespace hnswlib {
         _mm_store_ps(TmpRes, sum_prod);
         float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];;
         return 1.0f - sum;
-#else
+}
+
+#elif defined(USE_SSE)
+
+    static float
+    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float PORTABLE_ALIGN32 TmpRes[8];
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
+
         size_t qty16 = qty / 16;
         size_t qty4 = qty / 4;
 
@@ -128,8 +120,12 @@ namespace hnswlib {
         float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 
         return 1.0f - sum;
-#endif
     }
+
+#endif
+
+#if defined(USE_AVX)
+
     static float
     InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float PORTABLE_ALIGN32 TmpRes[8];
@@ -137,7 +133,6 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
 
-#ifdef __AVX__
         size_t qty16 = qty / 16;
 
 
@@ -165,12 +160,20 @@ namespace hnswlib {
         float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
 
         return 1.0f - sum;
-#else
+    }
+
+#elif defined(USE_SSE)
+
+      static float
+      InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float PORTABLE_ALIGN32 TmpRes[8];
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
+
         size_t qty16 = qty / 16;
-        size_t qty4 = qty / 4;
 
         const float *pEnd1 = pVect1 + 16 * qty16;
-        const float *pEnd2 = pVect1 + 4 * qty4;
 
         __m128 v1, v2;
         __m128 sum_prod = _mm_set1_ps(0);
@@ -204,9 +207,9 @@ namespace hnswlib {
         float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 
         return 1.0f - sum;
-#endif
     }
 
+#endif
 
     class InnerProductSpace : public SpaceInterface<float> {
 
@@ -216,10 +219,12 @@ namespace hnswlib {
     public:
         InnerProductSpace(size_t dim) {
             fstdistfunc_ = InnerProduct;
+    #if defined(USE_AVX) || defined(USE_SSE)
             if (dim % 4 == 0)
                 fstdistfunc_ = InnerProductSIMD4Ext;
             if (dim % 16 == 0)
                 fstdistfunc_ = InnerProductSIMD16Ext;
+#endif
             dim_ = dim;
             data_size_ = dim * sizeof(float);
         }
@@ -236,6 +241,7 @@ namespace hnswlib {
             return &dim_;
         }
 
+    ~InnerProductSpace() {}
     };
 
 
