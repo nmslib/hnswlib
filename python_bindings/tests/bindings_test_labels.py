@@ -23,7 +23,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # M - is tightly connected with internal dimensionality of the data
         #     stronlgy affects the memory consumption
 
-        p.init_index(max_elements=num_elements, ef_construction=100, M=16)
+        p.init_index(max_elements = num_elements, ef_construction = 100, M = 16)
 
         # Controlling the recall by setting ef:
         # higher ef leads to better accuracy, but slower search
@@ -48,7 +48,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Check that the returned element data is correct:
         diff_with_gt_labels=np.max(np.abs(data1-items))
-        self.assertAlmostEqual(diff_with_gt_labels,0,1e-4)
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
 
         # Serializing and deleting the index.
         # We need the part to check that serialization is working properly.
@@ -79,7 +79,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Check that the returned element data is correct:
         diff_with_gt_labels=np.max(np.abs(data-items))
-        self.assertAlmostEqual(diff_with_gt_labels,0,1e-4)
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
 
         # Checking that all labels are returned correcly:
         sorted_labels=sorted(p.get_ids_list())
