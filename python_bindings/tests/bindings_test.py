@@ -23,7 +23,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # M - is tightly connected with internal dimensionality of the data
         #     stronlgy affects the memory consumption
 
-        p.init_index(max_elements=num_elements, ef_construction=100, M=16)
+        p.init_index(max_elements = num_elements, ef_construction = 100, M = 16)
 
         # Controlling the recall by setting ef:
         # higher ef leads to better accuracy, but slower search
