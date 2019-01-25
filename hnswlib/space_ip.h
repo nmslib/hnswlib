@@ -4,7 +4,7 @@
 namespace hnswlib {
 
     static float
-    InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+    InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr, const void *pWeights=NULL) {
         size_t qty = *((size_t *) qty_ptr);
         float res = 0;
         for (unsigned i = 0; i < qty; i++) {
@@ -18,7 +18,7 @@ namespace hnswlib {
 
 // Favor using AVX if available.
     static float
-    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeights=NULL) {
         float PORTABLE_ALIGN32 TmpRes[8];
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
@@ -67,7 +67,7 @@ namespace hnswlib {
 #elif defined(USE_SSE)
 
     static float
-    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeights=NULL) {
         float PORTABLE_ALIGN32 TmpRes[8];
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
@@ -127,7 +127,7 @@ namespace hnswlib {
 #if defined(USE_AVX)
 
     static float
-    InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeights=NULL) {
         float PORTABLE_ALIGN32 TmpRes[8];
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;

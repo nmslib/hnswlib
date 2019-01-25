@@ -4,13 +4,22 @@
 namespace hnswlib {
 
     static float
-    L2Sqr(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+    L2Sqr(const void *pVect1, const void *pVect2, const void *qty_ptr, const void *pWeights=NULL) {
         //return *((float *)pVect2);
         size_t qty = *((size_t *) qty_ptr);
         float res = 0;
-        for (unsigned i = 0; i < qty; i++) {
-            float t = ((float *) pVect1)[i] - ((float *) pVect2)[i];
-            res += t * t;
+
+        if (pWeights==NULL) {
+            for (unsigned i = 0; i < qty; i++) {
+                float t = ((float *) pVect1)[i] - ((float *) pVect2)[i];
+                res += t * t;
+            }
+        } else {
+            for (unsigned i = 0; i < qty; i++) {
+                float t = ((float *) pVect1)[i] - ((float *) pVect2)[i];
+                float w = ((float *) pWeights)[i];
+                res += w * t * t;
+            }
         }
         return (res);
 
@@ -20,9 +29,10 @@ namespace hnswlib {
 
     // Favor using AVX if available.
     static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeightsv=NULL) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
+        float *pWeights = (float *) pWeightsv;
         size_t qty = *((size_t *) qty_ptr);
         float PORTABLE_ALIGN32 TmpRes[8];
         size_t qty16 = qty >> 4;
@@ -32,22 +42,45 @@ namespace hnswlib {
         __m256 diff, v1, v2;
         __m256 sum = _mm256_set1_ps(0);
 
-        while (pVect1 < pEnd1) {
-            v1 = _mm256_loadu_ps(pVect1);
-            pVect1 += 8;
-            v2 = _mm256_loadu_ps(pVect2);
-            pVect2 += 8;
-            diff = _mm256_sub_ps(v1, v2);
-            sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
+        if (pWeights==NULL) {
+            while (pVect1 < pEnd1) {
+                v1 = _mm256_loadu_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_loadu_ps(pVect2);
+                pVect2 += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
 
-            v1 = _mm256_loadu_ps(pVect1);
-            pVect1 += 8;
-            v2 = _mm256_loadu_ps(pVect2);
-            pVect2 += 8;
-            diff = _mm256_sub_ps(v1, v2);
-            sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
+                v1 = _mm256_loadu_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_loadu_ps(pVect2);
+                pVect2 += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
+            }
+        } else {
+            __m256 w;
+
+            while (pVect1 < pEnd1) {
+                v1 = _mm256_loadu_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_loadu_ps(pVect2);
+                pVect2 += 8;
+                w = _mm256_loadu_ps(pWeights);
+                pWeights += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(w, _mm256_mul_ps(diff, diff)));
+
+                v1 = _mm256_loadu_ps(pVect1);
+                pVect1 += 8;
+                v2 = _mm256_loadu_ps(pVect2);
+                pVect2 += 8;
+                w = _mm256_loadu_ps(pWeights);
+                pWeights += 8;
+                diff = _mm256_sub_ps(v1, v2);
+                sum = _mm256_add_ps(sum, _mm256_mul_ps(w, _mm256_mul_ps(diff, diff)));
+            }
         }
-
         _mm256_store_ps(TmpRes, sum);
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
 
@@ -57,9 +90,10 @@ namespace hnswlib {
 #elif defined(USE_SSE)
 
     static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeightsv=NULL) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
+        float *pWeights = (float *) pWeightsv;
         size_t qty = *((size_t *) qty_ptr);
         float PORTABLE_ALIGN32 TmpRes[8];
         // size_t qty4 = qty >> 2;
@@ -72,35 +106,78 @@ namespace hnswlib {
         __m128 diff, v1, v2;
         __m128 sum = _mm_set1_ps(0);
 
-        while (pVect1 < pEnd1) {
-            //_mm_prefetch((char*)(pVect2 + 16), _MM_HINT_T0);
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+        if (pWeights==NULL) {
+            while (pVect1 < pEnd1) {
+                //_mm_prefetch((char*)(pVect2 + 16), _MM_HINT_T0);
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
 
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
 
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
 
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+            }
+        } else {
+            __m128 w;
+
+            while (pVect1 < pEnd1) {
+                //_mm_prefetch((char*)(pVect2 + 16), _MM_HINT_T0);
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                w = _mm_loadu_ps(pWeights);
+                pWeights += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(w, _mm_mul_ps(diff, diff)));
+
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                w = _mm_loadu_ps(pWeights);
+                pWeights += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(w, _mm_mul_ps(diff, diff)));
+
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                w = _mm_loadu_ps(pWeights);
+                pWeights += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(w, _mm_mul_ps(diff, diff)));
+
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                w = _mm_loadu_ps(pWeights);
+                pWeights += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(w, _mm_mul_ps(diff, diff)));
+            }
         }
         _mm_store_ps(TmpRes, sum);
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
@@ -112,10 +189,11 @@ namespace hnswlib {
 
 #ifdef USE_SSE
     static float
-    L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr, const void *pWeightsv=NULL) {
         float PORTABLE_ALIGN32 TmpRes[8];
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
+        float *pWeights = (float *) pWeightsv;
         size_t qty = *((size_t *) qty_ptr);
 
 
@@ -127,14 +205,29 @@ namespace hnswlib {
         __m128 diff, v1, v2;
         __m128 sum = _mm_set1_ps(0);
 
-        while (pVect1 < pEnd1) {
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+        if (pWeights==NULL) {
+            while (pVect1 < pEnd1) {
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+            }
+        } else {
+            __m128 w;
+            while (pVect1 < pEnd1) {
+                v1 = _mm_loadu_ps(pVect1);
+                pVect1 += 4;
+                v2 = _mm_loadu_ps(pVect2);
+                pVect2 += 4;
+                w = _mm_loadu_ps(pWeights);
+                pWeights += 4;
+                diff = _mm_sub_ps(v1, v2);
+                sum = _mm_add_ps(sum, _mm_mul_ps(w, _mm_mul_ps(diff, diff)));
+            }
         }
+
         _mm_store_ps(TmpRes, sum);
         float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 
@@ -179,7 +272,8 @@ namespace hnswlib {
     };
 
     static int
-    L2SqrI(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+    L2SqrI(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr,
+            const void *__restrict pWeights=NULL) {
 
         size_t qty = *((size_t *) qty_ptr);
         int res = 0;

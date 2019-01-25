@@ -41,7 +41,7 @@ namespace hnswlib {
     }
 
     template<typename MTYPE>
-    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
+    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *, const void *);
 
 
     template<typename MTYPE>
@@ -61,7 +61,8 @@ namespace hnswlib {
     class AlgorithmInterface {
     public:
         virtual void addPoint(void *datapoint, labeltype label)=0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
+        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t,
+                const void *pWeights=NULL) const = 0;
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }
