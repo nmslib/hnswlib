@@ -170,7 +170,6 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Online HNSW (C++): https://github.com/andrusha97/online-hnsw) 
 * Go implementation: https://github.com/Bithack/go-hnsw
 * Python implementation (as a part of the clustring code by by Matteo Dell'Amico): https://github.com/matteodellamico/flexible-clustering 
-* OCaml implementaion: https://github.com/lehy/ocaml-hnsw 
 
 
 ### 200M SIFT test reproduction 
