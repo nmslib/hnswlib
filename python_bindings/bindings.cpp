@@ -106,6 +106,14 @@ public:
         appr_alg->ef_ = ef;
     }
 
+    size_t get_ef_construction() {
+        return appr_alg->ef_construction_;
+    }
+
+    size_t get_M() {
+        return appr_alg->M_;
+    }
+
     void set_num_threads(int num_threads) {
         this->num_threads_default = num_threads;
     }
@@ -373,6 +381,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
+        .def("get_ef_construction", &Index<float>::get_ef_construction)
+        .def("get_M", &Index<float>::get_M)
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
