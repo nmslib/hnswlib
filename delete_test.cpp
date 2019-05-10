@@ -5,21 +5,21 @@
 #include "hnswlib/hnswlib.h"
 
 int testDelete() {
-    hnswlib::HierarchicalNSW<int> *appr_alg;
+    hnswlib::HierarchicalNSW<int>* appr_alg;
     int dim = 128, size = 2000;
     hnswlib::L2SpaceI l2space(dim);
     appr_alg = new hnswlib::HierarchicalNSW<int>(&l2space, size + 10, 128, 200, 100);
 
     srand(time(NULL));
-    int *buffer = new int[dim];
+    int* buffer = new int[dim];
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < dim; j++) {
             buffer[j] = rand() % 10000;
         }
-        appr_alg->addPoint((void *) buffer, i+1);
+        appr_alg->addPoint((void*) buffer, i + 1);
     }
 
-    int *sample  = new int[dim];
+    int* sample = new int[dim];
     for (int j = 0; j < dim; j++) {
         sample[j] = rand() % 10000;
     }
@@ -27,7 +27,7 @@ int testDelete() {
     std::set<hnswlib::labeltype> deletedSet;
 
     for (int i = 0; i < 2; i++) {
-        std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void *)sample, 200);
+        std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void*) sample, 200);
         hnswlib::labeltype toDel;
         while (!result.empty()) {
             if (result.size() == 1) {
@@ -51,7 +51,6 @@ int testDelete() {
         }
     }
 
-    appr_alg->DEBUG = true;
     appr_alg->recycle();
     std::cout << "reusable starts at " << appr_alg->reusable_entry << std::endl;
 
@@ -59,12 +58,19 @@ int testDelete() {
         for (int j = 0; j < dim; j++) {
             buffer[j] = rand() % 10000;
         }
-        appr_alg->addPoint((void *) buffer, i+1+size);
+        appr_alg->addPoint((void*) buffer, i + 1 + size);
+
+        std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void*) buffer, 5);
+        while (!result.empty()) {
+            std::cout << ' ' << result.top().second << "(" << result.top().first << ") ";
+            result.pop();
+        }
+        std::cout << std::endl;
     }
-    
+
     delete appr_alg;
-    delete []buffer;
-    delete []sample;
+    delete[] buffer;
+    delete[] sample;
     return 0;
 };
 
