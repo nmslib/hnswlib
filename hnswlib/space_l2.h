@@ -225,6 +225,7 @@ namespace hnswlib {
             data_size_ = dim * sizeof(unsigned char);
         }
 
+        //  单条数据占据的内存大小
         size_t get_data_size() {
             return data_size_;
         }

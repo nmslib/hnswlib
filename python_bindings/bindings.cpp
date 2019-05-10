@@ -76,6 +76,7 @@ public:
     Index(const std::string &space_name, const int dim) :
             space_name(space_name), dim(dim) {
         normalize=false;
+        //  按照space类型，初始化不同的索引子类。
         if(space_name=="l2") {
             l2space = new hnswlib::L2Space(dim);
         }
@@ -214,6 +215,10 @@ public:
             };
             cur_l+=rows;
         }
+    }
+
+    void markDeleted(size_t label) {
+        appr_alg->markDelete(label);
     }
 
     std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
@@ -371,6 +376,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
+        .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
+        .def("recycle", &Index<float>::recycle)
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))

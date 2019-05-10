@@ -1,8 +1,4 @@
-
-
-void sift_test1B();
+void testDelete();
 int main() {
-    sift_test1B();
-
-    return 0;
-};
+    testDelete();
+}
