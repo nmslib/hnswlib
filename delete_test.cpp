@@ -6,9 +6,9 @@
 
 int testDelete() {
     hnswlib::HierarchicalNSW<int> *appr_alg;
-    int dim = 128, size = 10000;
+    int dim = 128, size = 2000;
     hnswlib::L2SpaceI l2space(dim);
-    appr_alg = new hnswlib::HierarchicalNSW<int>(&l2space, size, 128, 200, 100);
+    appr_alg = new hnswlib::HierarchicalNSW<int>(&l2space, size + 10, 128, 200, 100);
 
     srand(time(NULL));
     int *buffer = new int[dim];
@@ -26,7 +26,7 @@ int testDelete() {
 
     std::set<hnswlib::labeltype> deletedSet;
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 2; i++) {
         std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void *)sample, 200);
         hnswlib::labeltype toDel;
         while (!result.empty()) {
@@ -51,7 +51,16 @@ int testDelete() {
         }
     }
 
+    appr_alg->DEBUG = true;
     appr_alg->recycle();
+    std::cout << "reusable starts at " << appr_alg->reusable_entry << std::endl;
+
+    for (int i = 0; i < 12; i++) {
+        for (int j = 0; j < dim; j++) {
+            buffer[j] = rand() % 10000;
+        }
+        appr_alg->addPoint((void *) buffer, i+1+size);
+    }
     
     delete appr_alg;
     delete []buffer;

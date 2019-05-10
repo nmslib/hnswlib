@@ -92,6 +92,8 @@ namespace hnswlib {
             delete visited_list_pool_;
         }
 
+        bool DEBUG;
+
         size_t max_elements_;
         size_t cur_element_count;
         size_t size_data_per_element_;
@@ -180,9 +182,7 @@ namespace hnswlib {
             visited_array[ep_id] = visited_array_tag;
 
             while (!candidateSet.empty()) {
-
                 std::pair<dist_t, tableint> curr_el_pair = candidateSet.top();
-
                 if ((-curr_el_pair.first) > lowerBound) {
                     break;
                 }
@@ -710,7 +710,6 @@ namespace hnswlib {
         void markDeletedInternal(tableint internalId) {
             linklistsizeint *ll_cur = get_linklist0(internalId);
             *ll_cur |= (DELETE_MARK << 24);
-            std::cout << "mark deleted at " << internalId << std::endl;
         }
 
         /**
@@ -747,19 +746,17 @@ namespace hnswlib {
             templock.unlock();
 
             for (int level = maxlevelcopy; level > 0; level--) {
-                std::cout << "doing recycle at layer " << level << std::endl;
                 recycleLayer(maxlevelcopy, level, new_ep, 0);
             }
 
             std::unordered_set <tableint> removeNodes;
-            std::cout << "doing recycle at layer 0" << std::endl;
             recycleLayer(maxlevelcopy, 0, new_ep, &removeNodes);
 
-            std::cout << "done recycle at layer 0" << std::endl;
             std::unique_lock <std::mutex> lock(cur_element_count_guard_);
             tableint head = reusable_entry;
             for (tableint nodeId : removeNodes) {
                 memset(getDataByInternalId(nodeId), 0, size_data_per_element_);
+                cur_element_count--;
                 if (reusable_tail) {
                     setExternalLabel(reusable_tail, nodeId);
                     reusable_tail = nodeId;
@@ -780,39 +777,42 @@ namespace hnswlib {
             vl_type visited_array_tag = vl->curV;
 
             candidates.push_back(enterpoint);
-            visited_array[enterpoint] = visited_array_tag;
 
             tableint curNode, *data;
             linklistsizeint *ll_data;
 
+            int total_poped = 0;
             while (!candidates.empty()) {
                 curNode = candidates.front();
                 candidates.pop_front();
+                total_poped ++;
+
+                if (visited_array[curNode] == visited_array_tag)
+                    continue;
+                visited_array[curNode] = visited_array_tag;
+
+                int count = 0;
                 if (level == 0) {
                     ll_data = get_linklist0(curNode);
+                    count = getListCountLevel0(ll_data);
                 } else {
                     ll_data = get_linklist(curNode, level);
+                    count = *ll_data;
                 }
 
                 bool curNodeDeleted = isMarkedDeleted(curNode);
                 if (removeNodes && curNodeDeleted) {
-                    std::cout << "insert to remove nodes " << curNode << "\t" << removeNodes << std::endl;
                     removeNodes->insert(curNode);
-                    std::cout << "insert finished" << std::endl;
                 }
 
                 data = (tableint*) (ll_data + 1);
 
-                for (int i = 0; i < *ll_data; i++) {
+                for (int i = 0; i < count; i++) {
                     tableint* d = data + i;
                     if (d == 0) continue;
                     bool deleted = isMarkedDeleted(*d);
 
-                    if (visited_array[*d] == visited_array_tag)
-                        continue;
-
                     candidates.push_back(*d);
-                    visited_array[*d] = visited_array_tag;
 
                     if (curNodeDeleted && !deleted)
                         reconnections.insert(*d);
@@ -822,6 +822,7 @@ namespace hnswlib {
             }
 
             //  reconnects
+            std::cout << " to reconnect nodes " << reconnections.size() << std::endl;
             for (tableint nodeId : reconnections) {
                 markDeletedInternal(nodeId);    //  mark deleted, so that the node will not be found in the following searchBaseLayer
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
@@ -856,19 +857,18 @@ namespace hnswlib {
 
                 if (reusable_entry == 0) {
                     cur_c = cur_element_count;
-                    cur_element_count++;
                 } else {
                     cur_c = reusable_entry;
                     reusable_entry = getExternalLabel(reusable_entry);
                     reuse = true;
                 }
+                cur_element_count++;
 
                 auto search = label_lookup_.find(label);
                 if (search != label_lookup_.end()) {
                     markDeletedInternal(search->second);
                 }
                 label_lookup_[label] = cur_c;
-                std::cout << "add point at " << cur_c << std::endl;
             }
 
             std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
@@ -894,7 +894,6 @@ namespace hnswlib {
 
 
             if (curlevel) {
-                //  TODO: delete during recycle
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
                 memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
             }
