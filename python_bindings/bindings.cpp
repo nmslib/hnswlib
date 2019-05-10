@@ -220,7 +220,7 @@ public:
         appr_alg->markDelete(label);
     }
 
-    void recycle() {
+    void recycle_in_test() {
         appr_alg->recycle();
     }
 
@@ -380,7 +380,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
-        .def("recycle", &Index<float>::recycle)
+        .def("recycle_in_test", &Index<float>::recycle_in_test)
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))

@@ -51,7 +51,7 @@ int testDelete() {
         }
     }
 
-    appr_alg->recycle();
+    appr_alg->recycle_in_test();
     std::cout << "reusable starts at " << appr_alg->reusable_entry << std::endl;
 
     for (int i = 0; i < 12; i++) {

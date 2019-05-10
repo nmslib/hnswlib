@@ -736,7 +736,7 @@ namespace hnswlib {
         /**
          * Finds all the elements marked deleted, remove them from the memory, then re-organize the graph.
          */
-        void recycle() {
+        void recycle_in_test() {
             //  TODO:
             std::unique_lock <std::mutex> templock(global);
             tableint new_ep = enterpoint_node_;
