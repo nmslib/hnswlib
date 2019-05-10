@@ -92,8 +92,6 @@ namespace hnswlib {
             delete visited_list_pool_;
         }
 
-        bool DEBUG;
-
         size_t max_elements_;
         size_t cur_element_count;
         size_t size_data_per_element_;
