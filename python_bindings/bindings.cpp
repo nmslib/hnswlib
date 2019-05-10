@@ -76,7 +76,6 @@ public:
     Index(const std::string &space_name, const int dim) :
             space_name(space_name), dim(dim) {
         normalize=false;
-        //  按照space类型，初始化不同的索引子类。
         if(space_name=="l2") {
             l2space = new hnswlib::L2Space(dim);
         }
@@ -219,6 +218,10 @@ public:
 
     void markDeleted(size_t label) {
         appr_alg->markDelete(label);
+    }
+
+    void recycle() {
+        appr_alg->recycle();
     }
 
     std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
