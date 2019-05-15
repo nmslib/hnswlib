@@ -12,7 +12,7 @@ int testDelete() {
 
     srand(time(NULL));
     int* buffer = new int[dim];
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < 200; i++) {
         for (int j = 0; j < dim; j++) {
             buffer[j] = rand() % 10000;
         }
@@ -23,11 +23,11 @@ int testDelete() {
     for (int j = 0; j < dim; j++) {
         sample[j] = rand() % 10000;
     }
-
     std::set<hnswlib::labeltype> deletedSet;
 
-    for (int i = 0; i < 2; i++) {
-        std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void*) sample, 200);
+    for (int i = 0; i < 10; i++) {
+        std::priority_queue<std::pair<int, hnswlib::labeltype>> result = appr_alg->searchKnn((void*) sample, 20);
+        std::cout << "result size:" << result.size() << std::endl;
         hnswlib::labeltype toDel;
         while (!result.empty()) {
             if (result.size() == 1) {
@@ -52,9 +52,12 @@ int testDelete() {
     }
 
     appr_alg->recycle_in_test();
-    std::cout << "reusable starts at " << appr_alg->reusable_entry << std::endl;
+    std::cout << "reusable starts at " << appr_alg->reusable_entry <<
+              "enter point is at " << appr_alg->enterpoint_node_ <<
+              " enter point data is " << appr_alg->getExternalLabel(appr_alg->enterpoint_node_) <<
+              "\t" << appr_alg->isMarkedDeleted(appr_alg->enterpoint_node_) << std::endl;
 
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 210; i++) {
         for (int j = 0; j < dim; j++) {
             buffer[j] = rand() % 10000;
         }
