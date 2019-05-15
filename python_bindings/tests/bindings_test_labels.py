@@ -101,7 +101,7 @@ class RandomSelfTestCase(unittest.TestCase):
             for lb in labels1:
                 if la[0] == lb[0]:
                     self.assertTrue(False)
-        print "All the data in data1 are removed"
+        print("All the data in data1 are removed")
 
 
 
