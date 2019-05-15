@@ -222,7 +222,7 @@ public:
     }
 
     void recycle_in_test() {
-        appr_alg->recycle();
+        appr_alg->recycle_in_test();
     }
 
     std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
