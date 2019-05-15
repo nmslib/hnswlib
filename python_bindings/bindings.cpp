@@ -4,6 +4,7 @@
 #include <pybind11/stl.h>
 #include "../hnswlib/hnswlib.h"
 #include <thread>
+#include <atomic>
 
 namespace py = pybind11;
 
