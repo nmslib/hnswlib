@@ -730,10 +730,9 @@ namespace hnswlib {
         }
 
         /**
-         * Finds all the elements marked deleted, remove them from the memory, then re-organize the graph.
+         * Finds all the elements marked deleted except the enter point, remove them from the memory, then re-connect the graph.
          */
         void recycle_in_test() {
-            //  TODO:
             std::unique_lock <std::mutex> templock(global);
             tableint ep_copy = enterpoint_node_;
             int maxlevelcopy = maxlevel_;
