@@ -4,6 +4,7 @@
 #include <pybind11/stl.h>
 #include "../hnswlib/hnswlib.h"
 #include <thread>
+#include <atomic>
 
 namespace py = pybind11;
 
@@ -216,6 +217,14 @@ public:
         }
     }
 
+    void markDeleted(size_t label) {
+        appr_alg->markDelete(label);
+    }
+
+    void recycle_in_test() {
+        appr_alg->recycle_in_test();
+    }
+
     std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
@@ -371,6 +380,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
+        .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
+        .def("recycle_in_test", &Index<float>::recycle_in_test)
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
