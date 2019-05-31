@@ -85,6 +85,23 @@ class RandomSelfTestCase(unittest.TestCase):
         sorted_labels=sorted(p.get_ids_list())
         self.assertEqual(np.sum(~np.asarray(sorted_labels)==np.asarray(range(num_elements))),0)
 
+        # Delete data1
+        labels1, _ = p.knn_query(data1, k=1)
+
+        for l in labels1:
+            p.mark_deleted(l[0])
+        labels2, _ = p.knn_query(data2, k=1)
+        items=p.get_items(labels2)
+        diff_with_gt_labels=np.max(np.abs(data2-items))
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
+
+
+        labels1_after, _ = p.knn_query(data1, k=1)
+        for la in labels1_after:
+            for lb in labels1:
+                if la[0] == lb[0]:
+                    self.assertTrue(False)
+        print("All the data in data1 are removed")
 
 
 
