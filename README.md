@@ -47,6 +47,7 @@ Index methods:
 * ```set_num_threads(num_threads)``` set the defualt number of cpu threads used during data insertion/querying.  
 * ```get_items(ids)``` - returns a numpy array (shape:```N*dim```) of vectors that have integer identifiers specified in ```ids``` numpy vector (shape:```N```).  
 * ```get_ids_list()```  - returns a list of all element ids.
+* ```mark_deleted(data_label)```  - marks the element as deleted, so it will be ommited from search results.
 
    
         
@@ -196,4 +197,4 @@ The size of the bigann subset (in millions) is controlled by the variable **subs
 
 ### References
 
-Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." arXiv preprint arXiv:1603.09320 (2016). https://arxiv.org/abs/1603.09320
+Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." TPAMI, preprint: https://arxiv.org/abs/1603.09320
