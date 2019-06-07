@@ -517,6 +517,37 @@ namespace hnswlib {
             return top_candidates;
         };
 
+        void resizeIndex(size_t new_max_elements){
+            if (new_max_elements<cur_element_count)
+                throw std::runtime_error("Cannot resize, max element is less than the current number of elements");
+
+
+            delete visited_list_pool_;
+            visited_list_pool_ = new VisitedListPool(1, new_max_elements);
+
+
+
+            element_levels_.resize(new_max_elements);
+
+            std::vector<std::mutex>(new_max_elements).swap(link_list_locks_);
+
+
+            // Reallocate base layer
+            char * data_level0_memory_new = (char *) malloc(new_max_elements * size_data_per_element_);
+            memcpy(data_level0_memory_new, data_level0_memory_,cur_element_count * size_data_per_element_);
+            free(data_level0_memory_);
+            data_level0_memory_=data_level0_memory_new;
+
+            // Reallocate all other layers
+            char ** linkLists_new = (char **) malloc(sizeof(void *) * new_max_elements);
+            memcpy(linkLists_new, linkLists_,cur_element_count * sizeof(void *));
+            free(linkLists_);
+            linkLists_=linkLists_new;
+
+            max_elements_=new_max_elements;
+
+        }
+
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
             std::streampos position;
