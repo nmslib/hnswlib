@@ -36,11 +36,13 @@ Index methods:
 * ```add_items(data, data_labels, num_threads = -1)``` - inserts the ```data```(numpy array of vectors, shape:```N*dim```) into the structure. 
     * ```labels``` is an optional N-size numpy array of integer labels for all elements in ```data```.
     * ```num_threads``` sets the number of cpu threads to use (-1 means use default).
+    * Thread-safe with other ```add_items``` calls, but not with ```knn_query```.
 * ```set_ef(ef)``` - sets the query time accuracy/speed tradeoff, defined by the ```ef``` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)).
 * ```knn_query(data, k = 1, num_threads = -1)``` make a batch query for ```k``` closests elements for each element of the 
     * ```data``` (shape:```N*dim```). Returns a numpy array of (shape:```N*k```).
     * ```num_threads``` sets the number of cpu threads to use (-1 means use default).
+    * Thread-safe with other ```knn_query``` calls, but not with ```add_items```.
 * ```load_index(path_to_index, max_elements = 0)``` loads the index from persistence to the unintialized index.
     * ```max_elements```(optional) resets the maximum number of elements in the structure.  
 * ```save_index(path_to_index)``` saves the index from persistence.
@@ -48,6 +50,7 @@ Index methods:
 * ```get_items(ids)``` - returns a numpy array (shape:```N*dim```) of vectors that have integer identifiers specified in ```ids``` numpy vector (shape:```N```).  
 * ```get_ids_list()```  - returns a list of all element ids.
 * ```mark_deleted(data_label)```  - marks the element as deleted, so it will be ommited from search results.
+* ```resize_index(new_size)``` - changes the maximum capacity of the index. Not thread safe with add and search.
 
    
         
