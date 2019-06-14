@@ -3,6 +3,8 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
+
+        print("\n**** Index resize test ****\n")
         import hnswlib
         import numpy as np
 
@@ -27,7 +29,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Controlling the recall by setting ef:
         # higher ef leads to better accuracy, but slower search
-        p.set_ef(300)
+        p.set_ef(100)
 
         p.set_num_threads(4)  # by default using all available cores
 
