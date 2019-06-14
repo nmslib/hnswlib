@@ -4,6 +4,7 @@
 #include <pybind11/stl.h>
 #include "../hnswlib/hnswlib.h"
 #include <thread>
+#include <atomic>
 
 namespace py = pybind11;
 
@@ -350,6 +351,14 @@ public:
 
     }
 
+    void markDeleted(size_t label) {
+        appr_alg->markDelete(label);
+    }
+
+    void resizeIndex(size_t new_size) {
+        appr_alg->resizeIndex(new_size);
+    }
+
     std::string space_name;
     int dim;
 
@@ -386,6 +395,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
+        .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
+        .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
         .def("__repr__",
         [](const Index<float> &a) {
             return "<HNSW-lib index>";
