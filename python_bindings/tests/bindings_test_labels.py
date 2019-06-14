@@ -3,6 +3,7 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
+        print("\n**** Index save-load test ****\n")
         import hnswlib
         import numpy as np
 
@@ -27,7 +28,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Controlling the recall by setting ef:
         # higher ef leads to better accuracy, but slower search
-        p.set_ef(300)
+        p.set_ef(100)
 
         p.set_num_threads(4)  # by default using all available cores
 
@@ -60,12 +61,14 @@ class RandomSelfTestCase(unittest.TestCase):
         del p
         print("Deleted")
 
+        print("\n**** Mark delete test ****\n")
         # Reiniting, loading the index
         print("Reiniting")
-        p = hnswlib.Index(space='l2', dim=dim)  # you can change the sa
+        p = hnswlib.Index(space='l2', dim=dim)
 
         print("\nLoading index from 'first_half.bin'\n")
         p.load_index("first_half.bin")
+        p.set_ef(100)
 
         print("Adding the second batch of %d elements" % (len(data2)))
         p.add_items(data2)
@@ -79,9 +82,9 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Check that the returned element data is correct:
         diff_with_gt_labels=np.max(np.abs(data-items))
-        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4) # deleting index.
 
-        # Checking that all labels are returned correcly:
+        # Checking that all labels are returned correctly:
         sorted_labels=sorted(p.get_ids_list())
         self.assertEqual(np.sum(~np.asarray(sorted_labels)==np.asarray(range(num_elements))),0)
 
@@ -93,7 +96,7 @@ class RandomSelfTestCase(unittest.TestCase):
         labels2, _ = p.knn_query(data2, k=1)
         items=p.get_items(labels2)
         diff_with_gt_labels=np.max(np.abs(data2-items))
-        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4) # console
 
 
         labels1_after, _ = p.knn_query(data1, k=1)
