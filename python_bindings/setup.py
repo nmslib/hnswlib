@@ -4,7 +4,7 @@ from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
 
-__version__ = '0.2'
+__version__ = '0.3'
 
 
 source_files = ['bindings.cpp']
