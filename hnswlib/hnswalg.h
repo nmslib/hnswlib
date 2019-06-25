@@ -856,7 +856,6 @@ namespace hnswlib {
                 }
 
 
-
             } else {
                 // Do nothing for the first element
                 enterpoint_node_ = 0;
