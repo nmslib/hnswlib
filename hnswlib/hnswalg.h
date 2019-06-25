@@ -851,6 +851,8 @@ namespace hnswlib {
                             top_candidates.pop();
                     }
                     mutuallyConnectNewElement(data_point, cur_c, top_candidates, level);
+
+                    currObj = top_candidates.top().second;
                 }
 
 
