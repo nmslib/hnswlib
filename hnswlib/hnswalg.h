@@ -739,7 +739,7 @@ namespace hnswlib {
          * @param internalId
          */
         void markDeletedInternal(tableint internalId) {
-            unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+3;
+            unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+2;
             *ll_cur |= DELETE_MARK;
         }
 
@@ -748,7 +748,7 @@ namespace hnswlib {
          * @param internalId
          */
         void unmarkDeletedInternal(tableint internalId) {
-            unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+3;
+            unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+2;
             *ll_cur &= ~DELETE_MARK;
         }
 
@@ -758,20 +758,16 @@ namespace hnswlib {
          * @return
          */
         bool isMarkedDeleted(tableint internalId) const {
-            unsigned char *ll_cur = ((unsigned char*)get_linklist0(internalId))+3;
+            unsigned char *ll_cur = ((unsigned char*)get_linklist0(internalId))+2;
             return *ll_cur & DELETE_MARK;
         }
 
-        int getListCount(linklistsizeint * ptr) const {
-            int i32=0;
-            *((short int*)&i32)=*((short int *)ptr);
-            *(((char*)&i32)+2)=*(((char *)ptr)+2);
-            return i32;
+        unsigned short int getListCount(linklistsizeint * ptr) const {
+            return *((unsigned short int *)ptr);
         }
 
-        void setListCount(linklistsizeint * ptr, int size) const {
-            *((short int*)(ptr))=*((short int *)&size);
-            *(((char*)ptr)+2)=*(((char *)&size)+2);
+        void setListCount(linklistsizeint * ptr, unsigned short int size) const {
+            *((unsigned short int*)(ptr))=*((unsigned short int *)&size);
         }
 
         void addPoint(void *data_point, labeltype label) {
@@ -791,6 +787,7 @@ namespace hnswlib {
 
                 auto search = label_lookup_.find(label);
                 if (search != label_lookup_.end()) {
+                    std::unique_lock <std::mutex> lock_el(link_list_locks_[search->second]);
                     markDeletedInternal(search->second);
                 }
                 label_lookup_[label] = cur_c;
