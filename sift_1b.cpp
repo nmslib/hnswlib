@@ -263,7 +263,8 @@ void sift_test1B() {
             return;
         }
     }
-
+    inputGT.close();
+	
     cout << "Loading queries:\n";
     unsigned char *massQ = new unsigned char[qsize * vecdim];
     ifstream inputQ(path_q, ios::binary);
