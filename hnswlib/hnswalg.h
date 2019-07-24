@@ -197,7 +197,7 @@ namespace hnswlib {
                 _mm_prefetch(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
 #endif
 
-                for (int j = 0; j < size; j++) {
+                for (size_t j = 0; j < size; j++) {
                     tableint candidate_id = *(datal + j);
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
@@ -275,7 +275,7 @@ namespace hnswlib {
                 _mm_prefetch((char *) (data + 2), _MM_HINT_T0);
 #endif
 
-                for (int j = 1; j <= size; j++) {
+                for (size_t j = 1; j <= size; j++) {
                     int candidate_id = *(data + j);
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
