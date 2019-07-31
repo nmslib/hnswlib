@@ -131,7 +131,7 @@ namespace hnswlib {
             return return_label;
         }
 
-        inline labeltype setExternalLabel(tableint internal_id, labeltype label) const {
+        inline void setExternalLabel(tableint internal_id, labeltype label) const {
             memcpy((data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), &label, sizeof(labeltype));
         }
 
