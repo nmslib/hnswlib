@@ -188,7 +188,10 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Java implementation: https://github.com/jelmerk/hnswlib
 * .Net implementation:  https://github.com/microsoft/HNSW.Net
 
+### Contributing to the repository
+Contributions are highly welcome!
 
+Please make pull requests against the `develop` branch.
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset:
