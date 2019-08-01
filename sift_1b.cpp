@@ -319,6 +319,7 @@ void sift_test1B() {
 #pragma omp parallel for
         for (int i = 1; i < vecsize; i++) {
             unsigned char mass[128];
+            int j2=0;
 #pragma omp critical
             {
 
@@ -332,6 +333,7 @@ void sift_test1B() {
                     mass[j] = massb[j];
                 }
                 j1++;
+                j2=j1;
                 if (j1 % report_every == 0) {
                     cout << j1 / (0.01 * vecsize) << " %, "
                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips " << " Mem: "
@@ -339,7 +341,7 @@ void sift_test1B() {
                     stopw.reset();
                 }
             }
-            appr_alg->addPoint((void *) (mass), (size_t) j1);
+            appr_alg->addPoint((void *) (mass), (size_t) j2);
 
 
         }
