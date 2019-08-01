@@ -1,6 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <fstream>
+#include <mutex>
 
 namespace hnswlib {
     template<typename dist_t>
@@ -35,22 +36,37 @@ namespace hnswlib {
         size_t data_size_;
         DISTFUNC <dist_t> fstdistfunc_;
         void *dist_func_param_;
+        std::mutex index_lock;
 
         std::unordered_map<labeltype,size_t > dict_external_to_internal;
 
         void addPoint(void *datapoint, labeltype label) {
-            if(dict_external_to_internal.count(label))
-                throw std::runtime_error("Ids have to be unique");
+
+            int idx;
+            {
+                std::unique_lock<std::mutex> lock(index_lock);
 
 
-            if (cur_element_count >= maxelements_) {
-                throw std::runtime_error("The number of elements exceeds the specified limit\n");
-            };
-            memcpy(data_ + size_per_element_ * cur_element_count + data_size_, &label, sizeof(labeltype));
-            memcpy(data_ + size_per_element_ * cur_element_count, datapoint, data_size_);
-            dict_external_to_internal[label]=cur_element_count;
 
-            cur_element_count++;
+                auto search=dict_external_to_internal.find(label);
+                if (search != dict_external_to_internal.end()) {
+                    idx=search->second;
+                }
+                else{
+                    if (cur_element_count >= maxelements_) {
+                        throw std::runtime_error("The number of elements exceeds the specified limit\n");
+                    }
+                    idx=cur_element_count;
+                    dict_external_to_internal[label] = idx;
+                    cur_element_count++;
+                }
+            }
+            memcpy(data_ + size_per_element_ * idx + data_size_, &label, sizeof(labeltype));
+            memcpy(data_ + size_per_element_ * idx, datapoint, data_size_);
+
+
+
+
         };
 
         void removePoint(labeltype cur_external) {
@@ -123,7 +139,6 @@ namespace hnswlib {
 
             input.close();
 
-            return;
         }
 
     };
