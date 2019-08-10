@@ -2,9 +2,9 @@
 #ifndef NO_MANUAL_VECTORIZATION
 #ifdef __SSE__
 #define USE_SSE
+#endif
 #ifdef __AVX__
 #define USE_AVX
-#endif
 #endif
 #endif
 
