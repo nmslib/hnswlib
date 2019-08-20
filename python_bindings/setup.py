@@ -18,6 +18,7 @@ ext_modules = [
         'hnswlib',
         source_files,
         # include_dirs=[os.path.join(libdir, "include")],
+        include_dirs=["hnswlib"],
         libraries=libraries,
         language='c++',
         extra_objects=extra_objects,
