@@ -8,3 +8,5 @@ dist:
 
 clean:
 	rm -rf *.egg-info build dist
+
+.PHONY: dist
