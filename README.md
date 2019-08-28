@@ -1,6 +1,10 @@
 # Hnswlib - fast approximate nearest neighbor search
 Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
 
+**NEWS:**
+
+**Thanks to Louis Abraham (@louisabraham) hnswlib is now can be installed via pip!**
+
 Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11.
 2) Interfaces for C++, python and R (https://github.com/jlmelville/rcpphnsw).
@@ -26,7 +30,7 @@ Note that inner product is not an actual metric. An element can be closer to som
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
-#### short API description
+#### Short API description
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 Index methods:
@@ -45,7 +49,7 @@ Index methods:
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
-[ALGO_PARAMS.md](ALGO_PARAMS.md)).
+[ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
 * `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closests elements for each element of the 
     * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
@@ -166,12 +170,17 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 ```
 
 ### Bindings installation
+
+You can install from sources:
 ```bash
 apt-get install -y python-setuptools python-pip
 pip3 install pybind11 numpy setuptools
 cd python_bindings
 python3 setup.py install
 ```
+
+or you can install via pip:
+`pip install hnswlib`
 
 ### Other implementations
 * Non-metric space library (nmslib) - main library(python, C++), supports exotic distances: https://github.com/nmslib/nmslib
