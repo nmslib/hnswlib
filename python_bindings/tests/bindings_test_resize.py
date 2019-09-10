@@ -3,7 +3,7 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
-      for idx in range(32):
+      for idx in range(16):
         print("\n**** Index resize test ****\n")
         import hnswlib
         import numpy as np

@@ -22,6 +22,8 @@ namespace hnswlib {
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
             loadIndex(location, s, max_elements);
+            std::cout<<has_deletions_<<"!!!!!!!!!!\n";
+            //has_deletions_ = false; // this flag is not saved
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
@@ -625,16 +627,11 @@ namespace hnswlib {
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
 
-            /// Legacy, check that everything is ok
-
-            bool old_index=false;
-
             auto pos=input.tellg();
             input.seekg(cur_element_count * size_data_per_element_,input.cur);
             for (size_t i = 0; i < cur_element_count; i++) {
                 if(input.tellg() < 0 || input.tellg()>=total_filesize){
-                    old_index = true;
-                    break;
+                    throw std::runtime_error("Index seems to be corrupted or unsupported");
                 }
 
                 unsigned int linkListSize;
@@ -646,12 +643,8 @@ namespace hnswlib {
 
             // check if file is ok, if not this is either corrupted or old index
             if(input.tellg()!=total_filesize)
-                old_index = true;
+                throw std::runtime_error("Index seems to be corrupted or unsupported");
 
-            if (old_index) {
-                std::cerr << "Warning: loading of old indexes will be deprecated before 2019.\n"
-                          << "Please resave the index in the new format.\n";
-            }
             input.clear();
             input.seekg(pos,input.beg);
 
@@ -659,9 +652,7 @@ namespace hnswlib {
             data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
 
-            if(old_index)
-                input.seekg(((max_elements_-cur_element_count) * size_data_per_element_), input.cur);
-
+            
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
