@@ -22,8 +22,6 @@ namespace hnswlib {
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
             loadIndex(location, s, max_elements);
-            std::cout<<has_deletions_<<"!!!!!!!!!!\n";
-            //has_deletions_ = false; // this flag is not saved
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
@@ -628,6 +626,10 @@ namespace hnswlib {
             dist_func_param_ = s->get_dist_func_param();
 
             auto pos=input.tellg();
+            
+            
+            /// Optional - check if index is ok:
+
             input.seekg(cur_element_count * size_data_per_element_,input.cur);
             for (size_t i = 0; i < cur_element_count; i++) {
                 if(input.tellg() < 0 || input.tellg()>=total_filesize){
@@ -641,11 +643,14 @@ namespace hnswlib {
                 }
             }
 
-            // check if file is ok, if not this is either corrupted or old index
+            // throw exception if it either corrupted or old index
             if(input.tellg()!=total_filesize)
                 throw std::runtime_error("Index seems to be corrupted or unsupported");
 
             input.clear();
+
+            /// Optional check end
+
             input.seekg(pos,input.beg);
 
 
@@ -653,6 +658,7 @@ namespace hnswlib {
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
 
             
+
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -682,6 +688,14 @@ namespace hnswlib {
                     input.read(linkLists_[i], linkListSize);
                 }
             }
+
+            has_deletions_=false;
+
+            for (size_t i = 0; i < cur_element_count; i++) {
+                if(isMarkedDeleted(i))
+                    has_deletions_=true;
+            }
+            std::cout<<"Index loaded, has_deletions="<<has_deletions_<<"\n";
             input.close();
 
             return;
