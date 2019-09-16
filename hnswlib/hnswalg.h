@@ -699,7 +699,7 @@ namespace hnswlib {
                 if(isMarkedDeleted(i))
                     has_deletions_=true;
             }
-            std::cout<<"Index loaded, has_deletions="<<has_deletions_<<"\n";
+            
             input.close();
 
             return;
