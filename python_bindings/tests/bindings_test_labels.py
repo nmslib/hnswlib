@@ -98,7 +98,7 @@ class RandomSelfTestCase(unittest.TestCase):
         labels2, _ = p.knn_query(data2, k=1)
         items=p.get_items(labels2)
         diff_with_gt_labels=np.mean(np.abs(data2-items))
-        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4) # console
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-3) # console
 
 
         labels1_after, _ = p.knn_query(data1, k=1)
