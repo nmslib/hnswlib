@@ -3,10 +3,12 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
+      for idx in range(16):
         print("\n**** Index save-load test ****\n")
         import hnswlib
         import numpy as np
-
+        
+        np.random.seed(idx)
         dim = 16
         num_elements = 10000
 
@@ -95,8 +97,8 @@ class RandomSelfTestCase(unittest.TestCase):
             p.mark_deleted(l[0])
         labels2, _ = p.knn_query(data2, k=1)
         items=p.get_items(labels2)
-        diff_with_gt_labels=np.max(np.abs(data2-items))
-        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4) # console
+        diff_with_gt_labels=np.mean(np.abs(data2-items))
+        self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-3) # console
 
 
         labels1_after, _ = p.knn_query(data1, k=1)
@@ -105,6 +107,18 @@ class RandomSelfTestCase(unittest.TestCase):
                 if la[0] == lb[0]:
                     self.assertTrue(False)
         print("All the data in data1 are removed")
+
+        # checking saving/loading index with elements marked as deleted
+        p.save_index("with_deleted.bin")
+        p = hnswlib.Index(space='l2', dim=dim)
+        p.load_index("with_deleted.bin")
+        p.set_ef(100)
+
+        labels1_after, _ = p.knn_query(data1, k=1)
+        for la in labels1_after:
+            for lb in labels1:
+                if la[0] == lb[0]:
+                    self.assertTrue(False)
 
 
 

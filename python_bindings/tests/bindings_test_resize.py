@@ -3,11 +3,11 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
-
+      for idx in range(16):
         print("\n**** Index resize test ****\n")
         import hnswlib
         import numpy as np
-
+        np.random.seed(idx)
         dim = 16
         num_elements = 10000
 
@@ -29,9 +29,9 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Controlling the recall by setting ef:
         # higher ef leads to better accuracy, but slower search
-        p.set_ef(100)
+        p.set_ef(20)
 
-        p.set_num_threads(4)  # by default using all available cores
+        p.set_num_threads(idx%8)  # by default using all available cores
 
         # We split the data in two batches:
         data1 = data[:num_elements // 2]
@@ -43,7 +43,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # Query the elements for themselves and measure recall:
         labels, distances = p.knn_query(data1, k=1)
 
-        items=p.get_items(labels)
+        items=p.get_items(list(range(len(data1))))
 
         # Check the recall:
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
@@ -62,7 +62,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Query the elements for themselves and measure recall:
         labels, distances = p.knn_query(data, k=1)
-        items=p.get_items(labels)
+        items=p.get_items(list(range(num_elements)))
 
         # Check the recall:
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
