@@ -895,7 +895,10 @@ namespace hnswlib {
             return cur_c;
         };
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
+        retType<dist_t> searchKnn(const void *query_data, size_t k) const {
+            retType<dist_t> result;
+            if (cur_element_count == 0) return result;
+
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -934,16 +937,15 @@ namespace hnswlib {
                         currObj, query_data, std::max(ef_, k));
                 top_candidates.swap(top_candidates1);
             }
-            std::priority_queue<std::pair<dist_t, labeltype >> results;
             while (top_candidates.size() > k) {
                 top_candidates.pop();
             }
             while (top_candidates.size() > 0) {
                 std::pair<dist_t, tableint> rez = top_candidates.top();
-                results.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+                result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
                 top_candidates.pop();
             }
-            return results;
+            return result;
         };
 
 
