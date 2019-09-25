@@ -40,7 +40,7 @@ namespace hnswlib {
 
         std::unordered_map<labeltype,size_t > dict_external_to_internal;
 
-        void addPoint(void *datapoint, labeltype label) {
+        void addPoint(const void *datapoint, labeltype label) {
 
             int idx;
             {
