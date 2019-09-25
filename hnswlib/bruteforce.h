@@ -84,7 +84,10 @@ namespace hnswlib {
         }
 
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
+        retType<dist_t> searchKnn(const void *query_data, size_t k) const {
+            retType<dist_t> result;
+            if (cur_element_count == 0) return result;
+
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
@@ -103,7 +106,12 @@ namespace hnswlib {
                 }
 
             }
-            return topResults;
+            while (!topResults.empty()) {
+                auto each = topResults.top();
+                result.push(each);
+                topResults.pop();
+            }
+            return result;
         };
 
         void saveIndex(const std::string &location) {
