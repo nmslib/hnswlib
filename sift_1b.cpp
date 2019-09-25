@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <queue>
 #include <chrono>
 #include "hnswlib/hnswlib.h"
 
