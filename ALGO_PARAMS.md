@@ -20,10 +20,10 @@ The range ```M```=12-48 is ok for the most of the use cases. When ```M``` is cha
 Nonetheless, ef and ef_construction parameters can be roughly estimated by assuming that ```M```*```ef_{construction}``` is 
 a constant.
 
-* ```ef_constrution``` - the parameter has the same meaning as ```ef```, but controls the index_time/index_accuracy. Bigger 
+* ```ef_construction``` - the parameter has the same meaning as ```ef```, but controls the index_time/index_accuracy. Bigger 
 ef_construction leads to longer construction, but better index quality. At some point, increasing ef_construction does
 not improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure a recall 
-for M nearest neighbor search when ```ef``` =```ef_constuction```: if the recall is lower than 0.9, than there is room 
+for M nearest neighbor search when ```ef``` =```ef_construction```: if the recall is lower than 0.9, than there is room 
 for improvement.
 * ```num_elements``` - defines the maximum number of elements in the index. The index can be extened by saving/loading(load_index
 function has a parameter which defines the new maximum number of elements).
