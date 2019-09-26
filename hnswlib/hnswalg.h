@@ -484,6 +484,8 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, tableint>> searchKnnInternal(void *query_data, int k) {
+            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
+            if (cur_element_count == 0) return top_candidates;
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -510,8 +512,6 @@ namespace hnswlib {
                 }
             }
 
-
-            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
             if (has_deletions_) {
                 std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchBaseLayerST<true>(currObj, query_data,
                                                                                                              ef_);
@@ -895,8 +895,9 @@ namespace hnswlib {
             return cur_c;
         };
 
-        retType<dist_t> searchKnn(const void *query_data, size_t k) const {
-            retType<dist_t> result;
+        std::priority_queue<std::pair<dist_t, labeltype >>
+        searchKnn(const void *query_data, size_t k) const {
+            std::priority_queue<std::pair<dist_t, labeltype >> result;
             if (cur_element_count == 0) return result;
 
             tableint currObj = enterpoint_node_;
@@ -948,6 +949,27 @@ namespace hnswlib {
             return result;
         };
 
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>>
+        searchKnn(const void* query_data, size_t k, Comp comp) {
+            std::vector<std::pair<dist_t, labeltype>> result;
+            if (cur_element_count == 0) return result;
+
+            auto ret = searchKnn(query_data, k);
+
+            while (!ret.empty()) {
+                result.push_back(ret.top());
+                ret.pop();
+            }
+
+            if (result.size() > 1) {
+                if (!comp(result.front(), result.back())) {
+                    std::reverse(result.begin(), result.end());
+                }
+            }
+
+            return result;
+        }
 
     };
 

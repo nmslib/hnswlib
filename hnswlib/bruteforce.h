@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <mutex>
+#include <algorithm>
 
 namespace hnswlib {
     template<typename dist_t>
@@ -84,11 +85,10 @@ namespace hnswlib {
         }
 
 
-        retType<dist_t> searchKnn(const void *query_data, size_t k) const {
-            retType<dist_t> result;
-            if (cur_element_count == 0) return result;
-
+        std::priority_queue<std::pair<dist_t, labeltype >>
+        searchKnn(const void *query_data, size_t k) const {
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
+            if (cur_element_count == 0) return topResults;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
@@ -106,13 +106,30 @@ namespace hnswlib {
                 }
 
             }
-            while (!topResults.empty()) {
-                auto each = topResults.top();
-                result.push(each);
-                topResults.pop();
-            }
-            return result;
+            return topResults;
         };
+
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>>
+        searchKnn(const void* query_data, size_t k, Comp comp) {
+            std::vector<std::pair<dist_t, labeltype>> result;
+            if (cur_element_count == 0) return result;
+
+            auto ret = searchKnn(query_data, k);
+
+            while (!ret.empty()) {
+                result.push_back(ret.top());
+                ret.pop();
+            }
+
+            if (result.size() > 1) {
+                if (!comp(result.front(), result.back())) {
+                    std::reverse(result.begin(), result.end());
+                }
+            }
+
+            return result;
+        }
 
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
