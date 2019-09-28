@@ -962,11 +962,7 @@ namespace hnswlib {
                 ret.pop();
             }
 
-            if (result.size() > 1) {
-                if (!comp(result.front(), result.back())) {
-                    std::reverse(result.begin(), result.end());
-                }
-            }
+            std::sort(result.begin(), result.end(), comp);
 
             return result;
         }
