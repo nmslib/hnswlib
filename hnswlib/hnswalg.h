@@ -150,7 +150,7 @@ namespace hnswlib {
         }
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayer(tableint ep_id, void *data_point, int layer) {
+        searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -371,7 +371,7 @@ namespace hnswlib {
             return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
         };
 
-        void mutuallyConnectNewElement(void *data_point, tableint cur_c,
+        void mutuallyConnectNewElement(const void *data_point, tableint cur_c,
                                        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates,
                                        int level) {
 
@@ -484,6 +484,8 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, tableint>> searchKnnInternal(void *query_data, int k) {
+            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
+            if (cur_element_count == 0) return top_candidates;
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -510,8 +512,6 @@ namespace hnswlib {
                 }
             }
 
-
-            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
             if (has_deletions_) {
                 std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchBaseLayerST<true>(currObj, query_data,
                                                                                                              ef_);
@@ -779,11 +779,11 @@ namespace hnswlib {
             *((unsigned short int*)(ptr))=*((unsigned short int *)&size);
         }
 
-        void addPoint(void *data_point, labeltype label) {
+        void addPoint(const void *data_point, labeltype label) {
             addPoint(data_point, label,-1);
         }
 
-        tableint addPoint(void *data_point, labeltype label, int level) {
+        tableint addPoint(const void *data_point, labeltype label, int level) {
             tableint cur_c = 0;
             {
                 std::unique_lock <std::mutex> lock(cur_element_count_guard_);
@@ -895,7 +895,11 @@ namespace hnswlib {
             return cur_c;
         };
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
+        std::priority_queue<std::pair<dist_t, labeltype >>
+        searchKnn(const void *query_data, size_t k) const {
+            std::priority_queue<std::pair<dist_t, labeltype >> result;
+            if (cur_element_count == 0) return result;
+
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -934,18 +938,34 @@ namespace hnswlib {
                         currObj, query_data, std::max(ef_, k));
                 top_candidates.swap(top_candidates1);
             }
-            std::priority_queue<std::pair<dist_t, labeltype >> results;
             while (top_candidates.size() > k) {
                 top_candidates.pop();
             }
             while (top_candidates.size() > 0) {
                 std::pair<dist_t, tableint> rez = top_candidates.top();
-                results.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+                result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
                 top_candidates.pop();
             }
-            return results;
+            return result;
         };
 
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>>
+        searchKnn(const void* query_data, size_t k, Comp comp) {
+            std::vector<std::pair<dist_t, labeltype>> result;
+            if (cur_element_count == 0) return result;
+
+            auto ret = searchKnn(query_data, k);
+
+            while (!ret.empty()) {
+                result.push_back(ret.top());
+                ret.pop();
+            }
+
+            std::sort(result.begin(), result.end(), comp);
+
+            return result;
+        }
 
     };
 
