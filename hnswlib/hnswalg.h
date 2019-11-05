@@ -797,6 +797,7 @@ namespace hnswlib {
                 auto search = label_lookup_.find(label);
                 if (search != label_lookup_.end()) {
                     std::unique_lock <std::mutex> lock_el(link_list_locks_[search->second]);
+                    has_deletions_ = true;
                     markDeletedInternal(search->second);
                 }
                 label_lookup_[label] = cur_c;
