@@ -50,7 +50,7 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
 
         # Check that the returned element data is correct:
-        diff_with_gt_labels=np.max(np.abs(data1-items))
+        diff_with_gt_labels=np.mean(np.abs(data1-items))
         self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
 
         # Serializing and deleting the index.
@@ -83,7 +83,7 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
 
         # Check that the returned element data is correct:
-        diff_with_gt_labels=np.max(np.abs(data-items))
+        diff_with_gt_labels=np.mean(np.abs(data-items))
         self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4) # deleting index.
 
         # Checking that all labels are returned correctly:
