@@ -359,6 +359,14 @@ public:
         appr_alg->resizeIndex(new_size);
     }
 
+    size_t getMaxElements() const {
+        return appr_alg->max_elements_;
+    }
+
+    size_t getCurrentCount() const {
+        return appr_alg->cur_element_count;
+    }
+
     std::string space_name;
     int dim;
 
@@ -397,6 +405,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
+        .def("get_max_elements", &Index<float>::getMaxElements)
+        .def("get_current_count", &Index<float>::getCurrentCount)
         .def("__repr__",
         [](const Index<float> &a) {
             return "<HNSW-lib index>";

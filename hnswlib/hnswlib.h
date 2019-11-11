@@ -24,11 +24,20 @@
 #endif
 
 #include <queue>
+#include <vector>
 
 #include <string.h>
 
 namespace hnswlib {
     typedef size_t labeltype;
+
+    template <typename T>
+    class pairGreater {
+    public:
+        bool operator()(const T& p1, const T& p2) {
+            return p1.first > p2.first;
+        }
+    };
 
     template<typename T>
     static void writeBinaryPOD(std::ostream &out, const T &podRef) {
@@ -60,8 +69,11 @@ namespace hnswlib {
     template<typename dist_t>
     class AlgorithmInterface {
     public:
-        virtual void addPoint(void *datapoint, labeltype label)=0;
+        virtual void addPoint(const void *datapoint, labeltype label)=0;
         virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>> searchKnn(const void*, size_t, Comp) {
+        }
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }
