@@ -67,7 +67,9 @@ Index methods:
   
 * `get_ids_list()`  - returns a list of all elements' ids.
 
+* `get_max_elements()` - returns the current capacity of the index
 
+* `get_current_count()` - returns the current number of element stored in the index
 
    
         
