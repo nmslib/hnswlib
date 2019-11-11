@@ -61,6 +61,8 @@ namespace hnswlib {
             maxlevel_ = -1;
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
+            if (linkLists_ == nullptr)
+                throw std::runtime_error("Not enough memory: HierarchicalNSW failed to allocate linklists");
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
             mult_ = 1 / log(1.0 * M_);
             revSize_ = 1.0 / mult_;
@@ -546,12 +548,16 @@ namespace hnswlib {
 
             // Reallocate base layer
             char * data_level0_memory_new = (char *) malloc(new_max_elements * size_data_per_element_);
+            if (data_level0_memory_new == nullptr)
+                throw std::runtime_error("Not enough memory: resizeIndex failed to allocate base layer");
             memcpy(data_level0_memory_new, data_level0_memory_,cur_element_count * size_data_per_element_);
             free(data_level0_memory_);
             data_level0_memory_=data_level0_memory_new;
 
             // Reallocate all other layers
             char ** linkLists_new = (char **) malloc(sizeof(void *) * new_max_elements);
+            if (linkLists_new == nullptr)
+                throw std::runtime_error("Not enough memory: resizeIndex failed to allocate other layers");
             memcpy(linkLists_new, linkLists_,cur_element_count * sizeof(void *));
             free(linkLists_);
             linkLists_=linkLists_new;
@@ -659,6 +665,8 @@ namespace hnswlib {
 
 
             data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
+            if (data_level0_memory_ == nullptr)
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
 
             
@@ -675,6 +683,8 @@ namespace hnswlib {
 
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
+            if (linkLists_ == nullptr)
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklists");
             element_levels_ = std::vector<int>(max_elements);
             revSize_ = 1.0 / mult_;
             ef_ = 10;
@@ -689,6 +699,8 @@ namespace hnswlib {
                 } else {
                     element_levels_[i] = linkListSize / size_links_per_element_;
                     linkLists_[i] = (char *) malloc(linkListSize);
+                    if (linkLists_[i] == nullptr)
+                        throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
                     input.read(linkLists_[i], linkListSize);
                 }
             }
@@ -828,6 +840,8 @@ namespace hnswlib {
 
             if (curlevel) {
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
+                if (linkLists_[cur_c] == nullptr)
+                    throw std::runtime_error("Not enough memory: addPoint failed to allocate linklist");
                 memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
             }
 
