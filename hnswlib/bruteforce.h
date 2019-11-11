@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <mutex>
+#include <algorithm>
 
 namespace hnswlib {
     template<typename dist_t>
@@ -21,6 +22,8 @@ namespace hnswlib {
             dist_func_param_ = s->get_dist_func_param();
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxElements * size_per_element_);
+            if (data_ == nullptr)
+                std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
             cur_element_count = 0;
         }
 
@@ -40,7 +43,7 @@ namespace hnswlib {
 
         std::unordered_map<labeltype,size_t > dict_external_to_internal;
 
-        void addPoint(void *datapoint, labeltype label) {
+        void addPoint(const void *datapoint, labeltype label) {
 
             int idx;
             {
@@ -84,8 +87,10 @@ namespace hnswlib {
         }
 
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
+        std::priority_queue<std::pair<dist_t, labeltype >>
+        searchKnn(const void *query_data, size_t k) const {
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
+            if (cur_element_count == 0) return topResults;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
@@ -105,6 +110,24 @@ namespace hnswlib {
             }
             return topResults;
         };
+
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>>
+        searchKnn(const void* query_data, size_t k, Comp comp) {
+            std::vector<std::pair<dist_t, labeltype>> result;
+            if (cur_element_count == 0) return result;
+
+            auto ret = searchKnn(query_data, k);
+
+            while (!ret.empty()) {
+                result.push_back(ret.top());
+                ret.pop();
+            }
+            
+            std::sort(result.begin(), result.end(), comp);
+
+            return result;
+        }
 
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
@@ -134,6 +157,8 @@ namespace hnswlib {
             dist_func_param_ = s->get_dist_func_param();
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxelements_ * size_per_element_);
+            if (data_ == nullptr)
+                std::runtime_error("Not enough memory: loadIndex failed to allocate data");
 
             input.read(data_, maxelements_ * size_per_element_);
 

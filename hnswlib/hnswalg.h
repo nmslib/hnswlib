@@ -61,6 +61,8 @@ namespace hnswlib {
             maxlevel_ = -1;
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
+            if (linkLists_ == nullptr)
+                throw std::runtime_error("Not enough memory: HierarchicalNSW failed to allocate linklists");
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
             mult_ = 1 / log(1.0 * M_);
             revSize_ = 1.0 / mult_;
@@ -150,7 +152,7 @@ namespace hnswlib {
         }
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayer(tableint ep_id, void *data_point, int layer) {
+        searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -371,7 +373,7 @@ namespace hnswlib {
             return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
         };
 
-        void mutuallyConnectNewElement(void *data_point, tableint cur_c,
+        void mutuallyConnectNewElement(const void *data_point, tableint cur_c,
                                        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates,
                                        int level) {
 
@@ -484,6 +486,8 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, tableint>> searchKnnInternal(void *query_data, int k) {
+            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
+            if (cur_element_count == 0) return top_candidates;
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -510,8 +514,6 @@ namespace hnswlib {
                 }
             }
 
-
-            std::priority_queue<std::pair<dist_t, tableint  >> top_candidates;
             if (has_deletions_) {
                 std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchBaseLayerST<true>(currObj, query_data,
                                                                                                              ef_);
@@ -546,12 +548,16 @@ namespace hnswlib {
 
             // Reallocate base layer
             char * data_level0_memory_new = (char *) malloc(new_max_elements * size_data_per_element_);
+            if (data_level0_memory_new == nullptr)
+                throw std::runtime_error("Not enough memory: resizeIndex failed to allocate base layer");
             memcpy(data_level0_memory_new, data_level0_memory_,cur_element_count * size_data_per_element_);
             free(data_level0_memory_);
             data_level0_memory_=data_level0_memory_new;
 
             // Reallocate all other layers
             char ** linkLists_new = (char **) malloc(sizeof(void *) * new_max_elements);
+            if (linkLists_new == nullptr)
+                throw std::runtime_error("Not enough memory: resizeIndex failed to allocate other layers");
             memcpy(linkLists_new, linkLists_,cur_element_count * sizeof(void *));
             free(linkLists_);
             linkLists_=linkLists_new;
@@ -659,6 +665,8 @@ namespace hnswlib {
 
 
             data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
+            if (data_level0_memory_ == nullptr)
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
 
             
@@ -675,6 +683,8 @@ namespace hnswlib {
 
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
+            if (linkLists_ == nullptr)
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklists");
             element_levels_ = std::vector<int>(max_elements);
             revSize_ = 1.0 / mult_;
             ef_ = 10;
@@ -689,6 +699,8 @@ namespace hnswlib {
                 } else {
                     element_levels_[i] = linkListSize / size_links_per_element_;
                     linkLists_[i] = (char *) malloc(linkListSize);
+                    if (linkLists_[i] == nullptr)
+                        throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
                     input.read(linkLists_[i], linkListSize);
                 }
             }
@@ -779,11 +791,11 @@ namespace hnswlib {
             *((unsigned short int*)(ptr))=*((unsigned short int *)&size);
         }
 
-        void addPoint(void *data_point, labeltype label) {
+        void addPoint(const void *data_point, labeltype label) {
             addPoint(data_point, label,-1);
         }
 
-        tableint addPoint(void *data_point, labeltype label, int level) {
+        tableint addPoint(const void *data_point, labeltype label, int level) {
             tableint cur_c = 0;
             {
                 std::unique_lock <std::mutex> lock(cur_element_count_guard_);
@@ -797,6 +809,7 @@ namespace hnswlib {
                 auto search = label_lookup_.find(label);
                 if (search != label_lookup_.end()) {
                     std::unique_lock <std::mutex> lock_el(link_list_locks_[search->second]);
+                    has_deletions_ = true;
                     markDeletedInternal(search->second);
                 }
                 label_lookup_[label] = cur_c;
@@ -827,6 +840,8 @@ namespace hnswlib {
 
             if (curlevel) {
                 linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
+                if (linkLists_[cur_c] == nullptr)
+                    throw std::runtime_error("Not enough memory: addPoint failed to allocate linklist");
                 memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
             }
 
@@ -895,7 +910,11 @@ namespace hnswlib {
             return cur_c;
         };
 
-        std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *query_data, size_t k) const {
+        std::priority_queue<std::pair<dist_t, labeltype >>
+        searchKnn(const void *query_data, size_t k) const {
+            std::priority_queue<std::pair<dist_t, labeltype >> result;
+            if (cur_element_count == 0) return result;
+
             tableint currObj = enterpoint_node_;
             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
@@ -934,18 +953,34 @@ namespace hnswlib {
                         currObj, query_data, std::max(ef_, k));
                 top_candidates.swap(top_candidates1);
             }
-            std::priority_queue<std::pair<dist_t, labeltype >> results;
             while (top_candidates.size() > k) {
                 top_candidates.pop();
             }
             while (top_candidates.size() > 0) {
                 std::pair<dist_t, tableint> rez = top_candidates.top();
-                results.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+                result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
                 top_candidates.pop();
             }
-            return results;
+            return result;
         };
 
+        template <typename Comp>
+        std::vector<std::pair<dist_t, labeltype>>
+        searchKnn(const void* query_data, size_t k, Comp comp) {
+            std::vector<std::pair<dist_t, labeltype>> result;
+            if (cur_element_count == 0) return result;
+
+            auto ret = searchKnn(query_data, k);
+
+            while (!ret.empty()) {
+                result.push_back(ret.top());
+                ret.pop();
+            }
+
+            std::sort(result.begin(), result.end(), comp);
+
+            return result;
+        }
 
     };
 
