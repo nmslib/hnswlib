@@ -27,6 +27,7 @@
 #include <vector>
 
 #include <string.h>
+#include <functional>
 
 namespace hnswlib {
     typedef size_t labeltype;
@@ -50,7 +51,7 @@ namespace hnswlib {
     }
 
     template<typename MTYPE>
-    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
+    using DISTFUNC = std::function<MTYPE(const void *, const void *, const void *)>;
 
 
     template<typename MTYPE>
@@ -61,7 +62,7 @@ namespace hnswlib {
 
         virtual DISTFUNC<MTYPE> get_dist_func() = 0;
 
-        virtual void *get_dist_func_param() = 0;
+        virtual std::shared_ptr<void> get_dist_func_param() = 0;
 
         virtual ~SpaceInterface() {}
     };

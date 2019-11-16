@@ -171,8 +171,8 @@ namespace hnswlib {
             return fstdistfunc_;
         }
 
-        void *get_dist_func_param() {
-            return &dim_;
+        std::shared_ptr<void> get_dist_func_param() {
+            return std::make_shared<size_t>(dim_);
         }
 
         ~L2Space() {}
@@ -233,8 +233,8 @@ namespace hnswlib {
             return fstdistfunc_;
         }
 
-        void *get_dist_func_param() {
-            return &dim_;
+		std::shared_ptr<void> get_dist_func_param() {
+            return std::make_shared<size_t>(dim_);
         }
 
         ~L2SpaceI() {}
