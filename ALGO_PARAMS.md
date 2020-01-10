@@ -19,7 +19,7 @@
   As an example for `d`=4 random vectors optimal `M` for search is somewhere around 6, while for high dimensional datasets
   (word embeddings, good face descriptors), higher `M` are required (e.g. `M`=48, 64) for optimal performance at high recall.
   The range `M`=12-48 is ok for the most of the use cases. When `M` is changed one has to update the other parameters.
-  Nonetheless, ef and ef*construction parameters can be roughly estimated by assuming that `M`*```ef_{construction}``` is
+  Nonetheless, ef and ef_construction parameters can be roughly estimated by assuming that `M * ef_{construction}` is
   a constant.
 
 - `ef_construction` - the parameter has the same meaning as `ef`, but controls the index_time/index_accuracy. Bigger
@@ -32,7 +32,7 @@
 
 ## Optimal Values
 
-- `M` - This parameter is similar to parameter `k` in previous works. Its value can be set to `M = 3 x d` where `d` is dimensionality of data.
+- `M` - This parameter is similar to parameter `k` in previous works. Its value can be set to `M = 3 * d` where `d` is dimensionality of data.
 - `efConst` - This parameter is similar to parameter `w` (sometimes `m`) in previous works.Its optimal value can be set to `efConst = 3 * log(n)` where `n` is the size of dataset.
 
 ### References:
