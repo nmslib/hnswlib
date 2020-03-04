@@ -63,7 +63,7 @@ Index methods:
 
 * `set_num_threads(num_threads)` set the default number of cpu threads used during data insertion/querying.
   
-* `get_items(ids)` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`).
+* `get_items(ids)` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`). Note that for cosine similarity it currently returns **normalized** vectors.
   
 * `get_ids_list()`  - returns a list of all elements' ids.
 
