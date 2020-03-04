@@ -244,9 +244,9 @@ public:
         return data;
     }
 
-    std::vector<unsigned int> getIdsList() {
+    std::vector<hnswlib::labeltype> getIdsList() {
 
-        std::vector<unsigned int> ids;
+        std::vector<hnswlib::labeltype> ids;
 
         for(auto kv : appr_alg->label_lookup_) {
             ids.push_back(kv.first);
