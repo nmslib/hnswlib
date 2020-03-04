@@ -63,7 +63,7 @@ Index methods:
 
 * `set_num_threads(num_threads)` set the default number of cpu threads used during data insertion/querying.
   
-* `get_items(ids)` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`).
+* `get_items(ids)` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`). Note that for cosine similarity it currently returns **normalized** vectors.
   
 * `get_ids_list()`  - returns a list of all elements' ids.
 
@@ -197,6 +197,7 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Go implementation: https://github.com/Bithack/go-hnsw
 * Python implementation (as a part of the clustering code by by Matteo Dell'Amico): https://github.com/matteodellamico/flexible-clustering
 * Java implementation: https://github.com/jelmerk/hnswlib
+* Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
 * .Net implementation:  https://github.com/microsoft/HNSW.Net
 
 ### Contributing to the repository
