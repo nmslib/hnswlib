@@ -20,7 +20,9 @@ namespace hnswlib {
 
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
+        // set search_only to save memory if searchKnn only is used (index modification is not supported)
+        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0, bool search_only = false) :
+                search_only_(search_only) {
             loadIndex(location, s, max_elements);
         }
 
@@ -118,7 +120,7 @@ namespace hnswlib {
         size_t data_size_;
 
         bool has_deletions_;
-
+        bool search_only_ = false;
 
         size_t label_offset_;
         DISTFUNC<dist_t> fstdistfunc_;
@@ -532,6 +534,9 @@ namespace hnswlib {
         };
 
         void resizeIndex(size_t new_max_elements){
+            if (search_only_)
+                throw std::runtime_error("resizeIndex is not supported in search only mode");
+
             if (new_max_elements<cur_element_count)
                 throw std::runtime_error("Cannot resize, max element is less than the current number of elements");
 
@@ -676,7 +681,9 @@ namespace hnswlib {
 
 
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-            std::vector<std::mutex>(max_elements).swap(link_list_locks_);
+
+            if (!search_only_)
+                std::vector<std::mutex>(max_elements).swap(link_list_locks_);
 
 
             visited_list_pool_ = new VisitedListPool(1, max_elements);
@@ -689,7 +696,8 @@ namespace hnswlib {
             revSize_ = 1.0 / mult_;
             ef_ = 10;
             for (size_t i = 0; i < cur_element_count; i++) {
-                label_lookup_[getExternalLabel(i)]=i;
+                if (!search_only_)
+                    label_lookup_[getExternalLabel(i)]=i;
                 unsigned int linkListSize;
                 readBinaryPOD(input, linkListSize);
                 if (linkListSize == 0) {
@@ -720,6 +728,9 @@ namespace hnswlib {
         template<typename data_t>
         std::vector<data_t> getDataByLabel(labeltype label)
         {
+            if (search_only_)
+                throw std::runtime_error("getDataByLabel is not supported in search only mode");
+
             tableint label_c;
             auto search = label_lookup_.find(label);
             if (search == label_lookup_.end() || isMarkedDeleted(search->second)) {
@@ -746,6 +757,9 @@ namespace hnswlib {
          */
         void markDelete(labeltype label)
         {
+            if (search_only_)
+                throw std::runtime_error("markDelete is not supported in search only mode");
+
             has_deletions_=true;
             auto search = label_lookup_.find(label);
             if (search == label_lookup_.end()) {
@@ -792,6 +806,9 @@ namespace hnswlib {
         }
 
         void addPoint(const void *data_point, labeltype label) {
+            if (search_only_)
+                throw std::runtime_error("addPoint is not supported in search only mode");
+
             addPoint(data_point, label,-1);
         }
 
