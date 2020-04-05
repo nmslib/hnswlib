@@ -3,7 +3,8 @@
 
 namespace hnswlib {
 
-    static float L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    static float
+    L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
@@ -51,11 +52,8 @@ namespace hnswlib {
         }
 
         _mm256_store_ps(TmpRes, sum);
-        float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
-        size_t qty_left = qty - (qty16 << 4);
-        float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
-        return (res + res_tail);
-}
+        return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
+    }
 
 #elif defined(USE_SSE)
 
@@ -104,8 +102,20 @@ namespace hnswlib {
         }
 
         _mm_store_ps(TmpRes, sum);
-        float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
-        size_t qty_left = qty - (qty16 << 4);
+        return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
+    }
+#endif
+
+#if defined(USE_SSE) || defined(USE_AVX)
+    static float
+    L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        size_t qty = *((size_t *) qty_ptr);
+        size_t qty16 = qty >> 4 << 4;
+        float res = L2SqrSIMD16Ext(pVect1v, pVect2v, &qty16);
+        float *pVect1 = (float *) pVect1v + qty16;
+        float *pVect2 = (float *) pVect2v + qty16;
+
+        size_t qty_left = qty - qty16;
         float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
         return (res + res_tail);
     }
@@ -137,8 +147,19 @@ namespace hnswlib {
             sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
         }
         _mm_store_ps(TmpRes, sum);
-        float res = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
-        size_t qty_left = qty - (qty4 << 2);
+        return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
+    }
+
+    static float
+    L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        size_t qty = *((size_t *) qty_ptr);
+        size_t qty4 = qty >> 2 << 2;
+
+        float res = L2SqrSIMD4Ext(pVect1v, pVect2v, &qty4);
+        size_t qty_left = qty - qty4;
+
+        float *pVect1 = (float *) pVect1v + qty4;
+        float *pVect2 = (float *) pVect2v + qty4;
         float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
 
         return (res + res_tail);
@@ -154,10 +175,14 @@ namespace hnswlib {
         L2Space(size_t dim) {
             fstdistfunc_ = L2Sqr;
         #if defined(USE_SSE) || defined(USE_AVX)
-            if (dim >= 16)
+            if (dim % 16 == 0)
                 fstdistfunc_ = L2SqrSIMD16Ext;
-            else if (dim >= 4)
+            else if (dim % 4 == 0)
                 fstdistfunc_ = L2SqrSIMD4Ext;
+            else if (dim > 16)
+                fstdistfunc_ = L2SqrSIMD16ExtResiduals;
+            else if (dim > 4)
+                fstdistfunc_ = L2SqrSIMD4ExtResiduals;
         #endif
             dim_ = dim;
             data_size_ = dim * sizeof(float);
