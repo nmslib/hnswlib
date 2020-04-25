@@ -7,7 +7,7 @@ class RandomSelfTestCase(unittest.TestCase):
         import numpy as np
         for dim in [3,4,7,8,12,16,19,20,23,29,32,33]:
             for space in ['l2', 'cosine']:
-                print("Testing dim=%d space=%s"%())
+                print("Testing dim=%d space=%s"%(dim, space))
                 
                 num_elements = 10000
 
