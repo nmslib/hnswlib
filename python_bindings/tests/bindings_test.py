@@ -3,10 +3,11 @@ import unittest
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
+        import hnswlib
+        import numpy as np
         for dim in [3,4,7,8,12,16,19,20,23,29,32,33]:
             for space in ['l2', 'cosine']:
-                import hnswlib
-                import numpy as np
+                print("Testing dim=%d space=%s"%())
                 
                 num_elements = 10000
 
@@ -24,11 +25,11 @@ class RandomSelfTestCase(unittest.TestCase):
                 # M - is tightly connected with internal dimensionality of the data
                 #     stronlgy affects the memory consumption
 
-                p.init_index(max_elements = num_elements, ef_construction = 100, M = 16)
+                p.init_index(max_elements = num_elements, ef_construction = 150, M = 16)
 
                 # Controlling the recall by setting ef:
                 # higher ef leads to better accuracy, but slower search
-                p.set_ef(20)
+                p.set_ef(30)
 
                 p.set_num_threads(4)  # by default using all available cores
 
