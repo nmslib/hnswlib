@@ -5,8 +5,7 @@ class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
         import hnswlib
         import numpy as np
-        for _ in range(500):
-         for dim in [3,4,5,7,8,12,16,19,20,23,29,32,33]:
+        for dim in [3,4,5,7,8,12,16,19,20,23,29,32,33]:
             if dim<5:
                 round_dec=1
             else:
