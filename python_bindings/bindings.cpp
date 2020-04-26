@@ -104,14 +104,23 @@ public:
     }
 
     void set_ef(size_t ef) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         appr_alg->ef_ = ef;
     }
 
     size_t get_ef_construction() {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         return appr_alg->ef_construction_;
     }
 
     size_t get_M() {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         return appr_alg->M_;
     }
 
@@ -120,6 +129,9 @@ public:
     }
 
     void saveIndex(const std::string &path_to_index) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         appr_alg->saveIndex(path_to_index);
     }
 
@@ -141,6 +153,9 @@ public:
 	}
 
     void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         if (num_threads <= 0)
@@ -226,6 +241,9 @@ public:
     }
 
     std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
@@ -245,7 +263,9 @@ public:
     }
 
     std::vector<hnswlib::labeltype> getIdsList() {
-
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         std::vector<hnswlib::labeltype> ids;
 
         for(auto kv : appr_alg->label_lookup_) {
@@ -352,18 +372,30 @@ public:
     }
 
     void markDeleted(size_t label) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         appr_alg->markDelete(label);
     }
 
     void resizeIndex(size_t new_size) {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         appr_alg->resizeIndex(new_size);
     }
 
     size_t getMaxElements() const {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         return appr_alg->max_elements_;
     }
 
     size_t getCurrentCount() const {
+        if (!appr_alg) {
+            throw new std::runtime_error("The index is not initalized");
+        }
         return appr_alg->cur_element_count;
     }
 

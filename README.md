@@ -56,7 +56,7 @@ Index methods:
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
     
-* `load_index(path_to_index, max_elements = 0)` loads the index from persistence to the uninitialized index.
+* `load_index(path_to_index, max_elements = 0)` loads the index from persistence to the uninitialized index. Note that it does not initialize the ef parameter.
     * `max_elements`(optional) resets the maximum number of elements in the structure.
       
 * `save_index(path_to_index)` saves the index from persistence.
@@ -165,6 +165,9 @@ p.load_index("first_half.bin", max_elements = num_elements)
 
 print("Adding the second batch of %d elements" % (len(data2)))
 p.add_items(data2)
+
+# Set the ef parameter for the search (it is not saved with the index!!!!)
+p.set_ef(10)
 
 # Query the elements for themselves and measure recall:
 labels, distances = p.knn_query(data, k=1)

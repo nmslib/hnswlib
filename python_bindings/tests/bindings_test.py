@@ -5,7 +5,12 @@ class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
         import hnswlib
         import numpy as np
-        for dim in [3,4,7,8,12,16,19,20,23,29,32,33]:
+        for _ in range(500):
+         for dim in [3,4,5,7,8,12,16,19,20,23,29,32,33]:
+            if dim<5:
+                round_dec=1
+            else:
+                round_dec=2
             for space in ['l2', 'cosine']:
                 print("Testing dim=%d space=%s"%(dim, space))
                 
@@ -25,11 +30,11 @@ class RandomSelfTestCase(unittest.TestCase):
                 # M - is tightly connected with internal dimensionality of the data
                 #     stronlgy affects the memory consumption
 
-                p.init_index(max_elements = num_elements, ef_construction = 150, M = 16)
+                p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 
                 # Controlling the recall by setting ef:
                 # higher ef leads to better accuracy, but slower search
-                p.set_ef(30)
+                p.set_ef(100)
 
                 p.set_num_threads(4)  # by default using all available cores
 
@@ -42,7 +47,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
                 # Query the elements for themselves and measure recall:
                 labels, distances = p.knn_query(data1, k=1)
-                self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
+                self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,round_dec)
 
                 # Serializing and deleting the index:
                 index_path='first_half.bin'
@@ -51,10 +56,11 @@ class RandomSelfTestCase(unittest.TestCase):
                 del p
 
                 # Reiniting, loading the index
-                p = hnswlib.Index(space='l2', dim=dim)  # you can change the sa
-
-                print("\nLoading index from 'first_half.bin'\n")
+                p = hnswlib.Index(space=space, dim=dim)  # you can change the sa
+                
+                print("\nLoading index from 'first_half.bin'\n")                
                 p.load_index("first_half.bin")
+                p.set_ef(100)
 
                 print("Adding the second batch of %d elements" % (len(data2)))
                 p.add_items(data2)
@@ -62,7 +68,7 @@ class RandomSelfTestCase(unittest.TestCase):
                 # Query the elements for themselves and measure recall:
                 labels, distances = p.knn_query(data, k=1)
 
-                self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
+                self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,round_dec)
 
 
 if __name__ == "__main__":
