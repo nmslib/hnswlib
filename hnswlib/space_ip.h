@@ -3,6 +3,7 @@
 
 namespace hnswlib {
 
+    /* 1 - a*b */
     static float
     InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
         size_t qty = *((size_t *) qty_ptr);

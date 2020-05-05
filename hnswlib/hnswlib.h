@@ -49,10 +49,11 @@ namespace hnswlib {
         in.read((char *) &podRef, sizeof(T));
     }
 
+    /* 声明一个返回函数的指针: 算两元素距离 */
     template<typename MTYPE>
     using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
 
-
+    /* 定义距离的类接口 */
     template<typename MTYPE>
     class SpaceInterface {
     public:
@@ -70,6 +71,10 @@ namespace hnswlib {
     class AlgorithmInterface {
     public:
         virtual void addPoint(const void *datapoint, labeltype label)=0;
+        
+        /* 
+         * 返回一个队列：每个元素包含：1. 和输入元素的距离，2.返回元素的位置
+         */
         virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
         template <typename Comp>
         std::vector<std::pair<dist_t, labeltype>> searchKnn(const void*, size_t, Comp) {
@@ -84,5 +89,6 @@ namespace hnswlib {
 
 #include "space_l2.h"
 #include "space_ip.h"
+#include "space_ld.h"
 #include "bruteforce.h"
 #include "hnswalg.h"

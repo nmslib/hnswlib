@@ -5,6 +5,9 @@
 #include <algorithm>
 
 namespace hnswlib {
+    /*
+     * 穷举法
+     */
     template<typename dist_t>
     class BruteforceSearch : public AlgorithmInterface<dist_t> {
     public:
@@ -31,6 +34,7 @@ namespace hnswlib {
             free(data_);
         }
 
+        // 依次存放的：【数据，外部label】，【数据，外部label】，...
         char *data_;
         size_t maxelements_;
         size_t cur_element_count;
@@ -41,8 +45,10 @@ namespace hnswlib {
         void *dist_func_param_;
         std::mutex index_lock;
 
+        // key: label; value: point id, incremental
         std::unordered_map<labeltype,size_t > dict_external_to_internal;
 
+        // 直接把点加到map中，把数据存到data_中
         void addPoint(const void *datapoint, labeltype label) {
 
             int idx;
@@ -76,9 +82,11 @@ namespace hnswlib {
             size_t cur_c=dict_external_to_internal[cur_external];
 
             dict_external_to_internal.erase(cur_external);
-
+            // 获取data_最后的一组数据的lable id
             labeltype label=*((labeltype*)(data_ + size_per_element_ * (cur_element_count-1) + data_size_));
+            // 将label id的内部id改为删除的内部id
             dict_external_to_internal[label]=cur_c;
+            // 将最后一组数据，覆盖删除的数据
             memcpy(data_ + size_per_element_ * cur_c,
                    data_ + size_per_element_ * (cur_element_count-1),
                    data_size_+sizeof(labeltype));
@@ -131,7 +139,7 @@ namespace hnswlib {
 
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
-            std::streampos position;
+            std::streampos position; // TODO：这个是用来干嘛的
 
             writeBinaryPOD(output, maxelements_);
             writeBinaryPOD(output, size_per_element_);

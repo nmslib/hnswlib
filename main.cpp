@@ -1,8 +1,8 @@
 
 
-void sift_test1B();
+void pctest();
 int main() {
-    sift_test1B();
+    pctest();
 
     return 0;
 };

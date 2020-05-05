@@ -4,10 +4,15 @@
 #include <string.h>
 
 namespace hnswlib {
+    /* visited_list type */
     typedef unsigned short int vl_type;
 
+    /*
+     * 访问过的List
+     */
     class VisitedList {
     public:
+        // 该list被用过的次数
         vl_type curV;
         vl_type *mass;
         unsigned int numelements;
@@ -37,6 +42,7 @@ namespace hnswlib {
     class VisitedListPool {
         std::deque<VisitedList *> pool;
         std::mutex poolguard;
+        // visted_list size
         int numelements;
 
     public:
@@ -49,6 +55,7 @@ namespace hnswlib {
         VisitedList *getFreeVisitedList() {
             VisitedList *rez;
             {
+                // 在用完之后再回收
                 std::unique_lock <std::mutex> lock(poolguard);
                 if (pool.size() > 0) {
                     rez = pool.front();
@@ -62,6 +69,7 @@ namespace hnswlib {
         };
 
         void releaseVisitedList(VisitedList *vl) {
+            // 用完后回收
             std::unique_lock <std::mutex> lock(poolguard);
             pool.push_front(vl);
         };

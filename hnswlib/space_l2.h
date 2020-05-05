@@ -6,6 +6,7 @@ namespace hnswlib {
     static float
     L2Sqr(const void *pVect1, const void *pVect2, const void *qty_ptr) {
         //return *((float *)pVect2);
+        // 强制将qty_ptr转化为size_t类型的指针，并赋值给qty， qty为前两个vector的size
         size_t qty = *((size_t *) qty_ptr);
         float res = 0;
         for (unsigned i = 0; i < qty; i++) {
@@ -17,6 +18,7 @@ namespace hnswlib {
     }
 
 #if defined(USE_AVX)
+// Advanced Vector Extensions，SIMD 硬件加速指令
 
     // Favor using AVX if available.
     static float
@@ -40,6 +42,7 @@ namespace hnswlib {
             diff = _mm256_sub_ps(v1, v2);
             sum = _mm256_add_ps(sum, _mm256_mul_ps(diff, diff));
 
+            // TODO：为什么要写两遍？
             v1 = _mm256_loadu_ps(pVect1);
             pVect1 += 8;
             v2 = _mm256_loadu_ps(pVect2);
@@ -55,6 +58,7 @@ namespace hnswlib {
 }
 
 #elif defined(USE_SSE)
+// Streaming SIMD Extensions
 
     static float
     L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
@@ -145,7 +149,9 @@ namespace hnswlib {
     class L2Space : public SpaceInterface<float> {
 
         DISTFUNC<float> fstdistfunc_;
+        // TODO: data_size_ 用来干什么
         size_t data_size_;
+        // TODO: dim_是用来干什么的？data_size_为什么和dim_有关
         size_t dim_;
     public:
         L2Space(size_t dim) {

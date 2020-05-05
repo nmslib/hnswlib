@@ -38,8 +38,10 @@ namespace hnswlib {
             ef_construction_ = std::max(ef_construction,M_);
             ef_ = 10;
 
+            // 随机生成point所在层级
             level_generator_.seed(random_seed);
 
+            // storage offsets: [边个数，所有边[点的id列表], data, external_label]
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
             size_data_per_element_ = size_links_level0_ + data_size_ + sizeof(labeltype);
             offsetData_ = size_links_level0_;
@@ -60,10 +62,13 @@ namespace hnswlib {
             enterpoint_node_ = -1;
             maxlevel_ = -1;
 
+            // linkLists_: 每个point一个指针，用于存放每个point每一层的边
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
             if (linkLists_ == nullptr)
                 throw std::runtime_error("Not enough memory: HierarchicalNSW failed to allocate linklists");
+            // 每个元素的linkList的大小 = 最大连接数 * 每个元素id大小 + count的大小
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
+
             mult_ = 1 / log(1.0 * M_);
             revSize_ = 1.0 / mult_;
         }
@@ -96,6 +101,7 @@ namespace hnswlib {
         size_t maxM0_;
         size_t ef_construction_;
 
+        // mult_ 用于生成level
         double mult_, revSize_;
         int maxlevel_;
 
@@ -112,7 +118,11 @@ namespace hnswlib {
 
 
         char *data_level0_memory_;
+
+        // 每个point在每层的边
         char **linkLists_;
+
+        // 标是元素ID，值是该元素值的level
         std::vector<int> element_levels_;
 
         size_t data_size_;
@@ -123,6 +133,8 @@ namespace hnswlib {
         size_t label_offset_;
         DISTFUNC<dist_t> fstdistfunc_;
         void *dist_func_param_;
+
+        // key：label， value：自增ID
         std::unordered_map<labeltype, tableint> label_lookup_;
 
         std::default_random_engine level_generator_;
@@ -151,6 +163,7 @@ namespace hnswlib {
             return (int) r;
         }
 
+        // 返回ef_construction_个
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
         searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
@@ -170,6 +183,7 @@ namespace hnswlib {
                 lowerBound = std::numeric_limits<dist_t>::max();
                 candidateSet.emplace(-lowerBound, ep_id);
             }
+            // 这个visited_array_tag好像没什么用
             visited_array[ep_id] = visited_array_tag;
 
             while (!candidateSet.empty()) {
@@ -285,6 +299,7 @@ namespace hnswlib {
                     _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
                                  _MM_HINT_T0);////////////
 #endif
+                    // TODO: visited_array_tag 用来干嘛
                     if (!(visited_array[candidate_id] == visited_array_tag)) {
 
                         visited_array[candidate_id] = visited_array_tag;
@@ -317,6 +332,9 @@ namespace hnswlib {
             return top_candidates;
         }
 
+        /* 
+         * 从最远的点开始，如果最远点和结果集中所有点的距离都 > 该点和目标点的距离。 说明该点和目标点距离最近，不属于之前的数据集，可以建立连接，避免陷入局部最优。
+         */
         void getNeighborsByHeuristic2(
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
                 const size_t M) {
@@ -329,7 +347,9 @@ namespace hnswlib {
                 queue_closest.emplace(-top_candidates.top().first, top_candidates.top().second);
                 top_candidates.pop();
             }
+            // now queue_closet = top_candidates, and top_candidates is empty.
 
+            // 从最大距离开始遍历
             while (queue_closest.size()) {
                 if (return_list.size() >= M)
                     break;
@@ -342,6 +362,7 @@ namespace hnswlib {
                             fstdistfunc_(getDataByInternalId(second_pair.second),
                                          getDataByInternalId(curent_pair.second),
                                          dist_func_param_);;
+                    // 如果新的点和结果集中所有点的距离都 > 该点和目标点的距离。 说明该点和目标点距离最近，可以建立连接。
                     if (curdist < dist_to_query) {
                         good = false;
                         break;
@@ -373,6 +394,11 @@ namespace hnswlib {
             return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
         };
 
+        /* 
+         * 重新计算cur_c的neighbors，并连接。如果neighbor的连接超出限制，重新计算neighbor的neighbors，并连接。
+         * 连接只会改变cur_c的连接和neighbors的连接，而不会改变neighbors的neighbors的连接。
+         * 并且，连接只会创建在level层上。
+         */
         void mutuallyConnectNewElement(const void *data_point, tableint cur_c,
                                        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates,
                                        int level) {
@@ -389,6 +415,7 @@ namespace hnswlib {
                 top_candidates.pop();
             }
 
+            // 连接cur_c和neighbors
             {
                 linklistsizeint *ll_cur;
                 if (level == 0)
@@ -413,6 +440,7 @@ namespace hnswlib {
 
                 }
             }
+            // 遍历neighbors，如果该neighbor连接数不够，直接连接；否则重新计算该neighbor的neighbors，并建立连接。
             for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
 
                 std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
@@ -566,30 +594,63 @@ namespace hnswlib {
 
         }
 
+        /*
+         * 为了方便寻址，定义了每个元素point的data最大长度size_data_per_element_，写入数据格式为
+         * <HEADER>
+         * <Data>
+         * 
+         * Data包含两部分——第一部分：第0层数据 data_level0_memory_，共 cur_element_count 个,  每个的大小：size_data_per_element_
+         *  [边个数，所有边[点的id列表], data, external_label]
+         *  [边个数，所有边[点的id列表], data, external_label] 
+         *   ... 
+         *  [边个数，所有边[点的id列表], data, external_label] 
+         * Data的第二部分：每一个point在每一层上的边
+         *  [边个数，所有边[点的id列表]]
+         */
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
             std::streampos position;
 
             writeBinaryPOD(output, offsetLevel0_);
+
             writeBinaryPOD(output, max_elements_);
+
             writeBinaryPOD(output, cur_element_count);
+
             writeBinaryPOD(output, size_data_per_element_);
+
             writeBinaryPOD(output, label_offset_);
+
             writeBinaryPOD(output, offsetData_);
+
             writeBinaryPOD(output, maxlevel_);
+
             writeBinaryPOD(output, enterpoint_node_);
+
+            // 除第0层外，其他层最多多少边
             writeBinaryPOD(output, maxM_);
 
+            // 第0层，最多多少边
             writeBinaryPOD(output, maxM0_);
+
             writeBinaryPOD(output, M_);
+
             writeBinaryPOD(output, mult_);
+
             writeBinaryPOD(output, ef_construction_);
 
+            // 写入level0层数据
             output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
 
+            // 按照外部ID，依次写入每个元素
             for (size_t i = 0; i < cur_element_count; i++) {
+                // linkListSize为该元素的size
                 unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+                
+                // 写入元素的长度
                 writeBinaryPOD(output, linkListSize);
+
+                // 写入元素的值
                 if (linkListSize)
                     output.write(linkLists_[i], linkListSize);
             }
@@ -635,11 +696,13 @@ namespace hnswlib {
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
 
+            // 这个变量没用到
             auto pos=input.tellg();
             
             
             /// Optional - check if index is ok:
 
+            // TODO：这个没看懂，指针移动到文件末尾吗？
             input.seekg(cur_element_count * size_data_per_element_,input.cur);
             for (size_t i = 0; i < cur_element_count; i++) {
                 if(input.tellg() < 0 || input.tellg()>=total_filesize){
@@ -847,6 +910,7 @@ namespace hnswlib {
 
             if ((signed)currObj != -1) {
 
+                // 如果插入点，低于ep的level，通过遍历这中间的层，找到更好的ep。
                 if (curlevel < maxlevelcopy) {
 
                     dist_t curdist = fstdistfunc_(data_point, getDataByInternalId(currObj), dist_func_param_);
