@@ -1,9 +1,9 @@
 # Hnswlib - fast approximate nearest neighbor search
-Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
+Header-only C++ HNSW implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
 
 **NEWS:**
 
-**Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib is now can be installed via pip!**
+**Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib can now be installed via pip!**
 
 Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11.
