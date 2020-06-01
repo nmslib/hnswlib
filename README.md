@@ -223,6 +223,29 @@ To run the test on 200M SIFT subset:
 
 The size of the bigann subset (in millions) is controlled by the variable **subset_size_milllions** hardcoded in **sift_1b.cpp**.
 
+### Updates test
+To generate testing data (from root directory):
+```bash
+cd examples
+python update_gen_data.py
+```
+To compile (from root directory):
+```bash
+mkdir build
+cd build
+cmake ..
+make 
+```
+To run test **without** updates (from `build` directory)
+```bash
+./test_updates
+```
+
+To run test **with** updates (from `build` directory)
+```bash
+./test_updates update
+```
+
 ### HNSW example demos
 
 - Visual search engine for 1M amazon products (MXNet + HNSW): [website](https://thomasdelteil.github.io/VisualSearch_MXNet/), [code](https://github.com/ThomasDelteil/VisualSearch_MXNet), demo by [@ThomasDelteil](https://github.com/ThomasDelteil)
