@@ -25,7 +25,7 @@
 
 #include <queue>
 #include <vector>
-
+#include <iostream>
 #include <string.h>
 
 namespace hnswlib {
