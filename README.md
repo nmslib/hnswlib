@@ -1,9 +1,13 @@
 # Hnswlib - fast approximate nearest neighbor search
-Header-only C++ HNSW implementation with python bindings. Paper code for the HNSW 200M SIFT experiment
+Header-only C++ HNSW implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
 
 **NEWS:**
 
-**Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib is now can be installed via pip!**
+* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddinds).**
+
+* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not mutiple of 4** 
+
+* **Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib can now be installed via pip!**
 
 Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11.
@@ -23,10 +27,10 @@ Description of the algorithm parameters can be found in [ALGO_PARAMS.md](ALGO_PA
 | Distance         | parameter       | Equation                |
 | -------------    |:---------------:| -----------------------:|
 |Squared L2        |'l2'             | d = sum((Ai-Bi)^2)      |
-|Inner product     |'ip'             | d = 1.0 - sum(Ai\*Bi))  |
+|Inner product     |'ip'             | d = 1.0 - sum(Ai\*Bi)   |
 |Cosine similarity |'cosine'         | d = 1.0 - sum(Ai\*Bi) / sqrt(sum(Ai\*Ai) * sum(Bi\*Bi))|
 
-Note that inner product is not an actual metric. An element can be closer to some other element than to itself.
+Note that inner product is not an actual metric. An element can be closer to some other element than to itself. That allows some speedup if you remove all elements that are not the closest to themselves from the index.
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
@@ -42,6 +46,7 @@ Index methods:
 * `add_items(data, data_labels, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `labels` is an optional N-size numpy array of integer labels for all elements in `data`.
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
+    * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
 * `mark_deleted(data_label)`  - marks the element as deleted, so it will be ommited from search results.
@@ -222,6 +227,29 @@ To run the test on 200M SIFT subset:
 ```
 
 The size of the bigann subset (in millions) is controlled by the variable **subset_size_milllions** hardcoded in **sift_1b.cpp**.
+
+### Updates test
+To generate testing data (from root directory):
+```bash
+cd examples
+python update_gen_data.py
+```
+To compile (from root directory):
+```bash
+mkdir build
+cd build
+cmake ..
+make 
+```
+To run test **without** updates (from `build` directory)
+```bash
+./test_updates
+```
+
+To run test **with** updates (from `build` directory)
+```bash
+./test_updates update
+```
 
 ### HNSW example demos
 
