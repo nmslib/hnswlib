@@ -235,7 +235,13 @@ namespace hnswlib {
 
         float *pVect1 = (float *) pVect1v + qty4;
         float *pVect2 = (float *) pVect2v + qty4;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        float res_tail;
+        if (qty_left >= 4) {
+            res_tail = InnerProductSIMD4ExtResiduals(pVect1, pVect2, &qty_left);
+        }
+        else {
+            res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        }
 
         return res + res_tail - 1.0f;
     }

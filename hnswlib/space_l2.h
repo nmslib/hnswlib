@@ -116,7 +116,13 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v + qty16;
 
         size_t qty_left = qty - qty16;
-        float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
+        float res_tail;
+        if (qty_left >= 4) {
+            res_tail = L2SqrSIMD4ExtResiduals(pVect1, pVect2, &qty_left);
+        }
+        else {
+            res_tail = L2Sqr(pVect1, pVect2, &qty_left);
+        }
         return (res + res_tail);
     }
 #endif
