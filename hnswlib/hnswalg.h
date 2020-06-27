@@ -407,7 +407,7 @@ namespace hnswlib {
                 top_candidates.pop();
             }
 
-            tableint next_closest_entry_point = selectedNeighbors.back();
+            tableint next_closest_entry_point = selectedNeighbors[0];
 
             {
                 linklistsizeint *ll_cur;
