@@ -71,9 +71,8 @@ namespace hnswlib {
     public:
         virtual void addPoint(const void *datapoint, labeltype label)=0;
         virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>> searchKnn(const void*, size_t, Comp) {
-        }
+        virtual int searchKnn(const void* x,
+            int k, labeltype* labels, dist_t* dists) const = 0;
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }

@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <list>
 
+#include <assert.h>
 
 namespace hnswlib {
     typedef unsigned int tableint;
@@ -406,7 +407,7 @@ namespace hnswlib {
                 top_candidates.pop();
             }
 
-            tableint next_closest_entry_point = selectedNeighbors[0];
+            tableint next_closest_entry_point = selectedNeighbors.back();
 
             {
                 linklistsizeint *ll_cur;
@@ -1156,23 +1157,18 @@ namespace hnswlib {
             return result;
         };
 
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>>
-        searchKnn(const void* query_data, size_t k, Comp comp) {
-            std::vector<std::pair<dist_t, labeltype>> result;
-            if (cur_element_count == 0) return result;
-
-            auto ret = searchKnn(query_data, k);
-
-            while (!ret.empty()) {
-                result.push_back(ret.top());
-                ret.pop();
+        int searchKnn(const void* x,
+            int k, labeltype* labels, dist_t* dists = nullptr) const override {
+            if (labels == nullptr) return -1;
+            auto ret = searchKnn(x, k);
+            for (int i = k - 1; i >= 0; --i) {
+                if (dists) 
+                    dists[i] = ret.top().first;
+                labels[i] = ret.top().second;
             }
-
-            std::sort(result.begin(), result.end(), comp);
-
-            return result;
+            return 0;
         }
+
 
         void checkIntegrity(){
             int connections_checked=0;
