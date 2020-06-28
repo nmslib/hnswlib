@@ -19,6 +19,50 @@ namespace hnswlib {
         return (res);
     }
 
+#ifdef USE_SSE
+    static float
+    L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float PORTABLE_ALIGN32 TmpRes[8];
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
+
+
+        size_t qty4 = qty >> 2;
+
+        const float *pEnd1 = pVect1 + (qty4 << 2);
+
+        __m128 diff, v1, v2;
+        __m128 sum = _mm_set1_ps(0);
+
+        while (pVect1 < pEnd1) {
+            v1 = _mm_loadu_ps(pVect1);
+            pVect1 += 4;
+            v2 = _mm_loadu_ps(pVect2);
+            pVect2 += 4;
+            diff = _mm_sub_ps(v1, v2);
+            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+        }
+        _mm_store_ps(TmpRes, sum);
+        return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
+    }
+
+    static float
+    L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        size_t qty = *((size_t *) qty_ptr);
+        size_t qty4 = qty >> 2 << 2;
+
+        float res = L2SqrSIMD4Ext(pVect1v, pVect2v, &qty4);
+        size_t qty_left = qty - qty4;
+
+        float *pVect1 = (float *) pVect1v + qty4;
+        float *pVect2 = (float *) pVect2v + qty4;
+        float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
+
+        return (res + res_tail);
+    }
+#endif
+
 #if defined(USE_AVX)
 
     // Favor using AVX if available.
@@ -116,52 +160,13 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v + qty16;
 
         size_t qty_left = qty - qty16;
-        float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
-        return (res + res_tail);
-    }
-#endif
-
-
-#ifdef USE_SSE
-    static float
-    L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        float PORTABLE_ALIGN32 TmpRes[8];
-        float *pVect1 = (float *) pVect1v;
-        float *pVect2 = (float *) pVect2v;
-        size_t qty = *((size_t *) qty_ptr);
-
-
-        size_t qty4 = qty >> 2;
-
-        const float *pEnd1 = pVect1 + (qty4 << 2);
-
-        __m128 diff, v1, v2;
-        __m128 sum = _mm_set1_ps(0);
-
-        while (pVect1 < pEnd1) {
-            v1 = _mm_loadu_ps(pVect1);
-            pVect1 += 4;
-            v2 = _mm_loadu_ps(pVect2);
-            pVect2 += 4;
-            diff = _mm_sub_ps(v1, v2);
-            sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
+        float res_tail;
+        if (qty_left >= 4) {
+            res_tail = L2SqrSIMD4ExtResiduals(pVect1, pVect2, &qty_left);
         }
-        _mm_store_ps(TmpRes, sum);
-        return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
-    }
-
-    static float
-    L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        size_t qty = *((size_t *) qty_ptr);
-        size_t qty4 = qty >> 2 << 2;
-
-        float res = L2SqrSIMD4Ext(pVect1v, pVect2v, &qty4);
-        size_t qty_left = qty - qty4;
-
-        float *pVect1 = (float *) pVect1v + qty4;
-        float *pVect2 = (float *) pVect2v + qty4;
-        float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
-
+        else {
+            res_tail = L2Sqr(pVect1, pVect2, &qty_left);
+        }
         return (res + res_tail);
     }
 #endif

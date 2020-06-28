@@ -212,18 +212,6 @@ namespace hnswlib {
 #endif
 
 #if defined(USE_SSE) || defined(USE_AVX)
-    static float
-    InnerProductSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        size_t qty = *((size_t *) qty_ptr);
-        size_t qty16 = qty >> 4 << 4;
-        float res = InnerProductSIMD16Ext(pVect1v, pVect2v, &qty16);
-        float *pVect1 = (float *) pVect1v + qty16;
-        float *pVect2 = (float *) pVect2v + qty16;
-
-        size_t qty_left = qty - qty16;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
-        return res + res_tail - 1.0f;
-    }
 
     static float
     InnerProductSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
@@ -238,7 +226,27 @@ namespace hnswlib {
         float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
 
         return res + res_tail - 1.0f;
+    }   
+
+    static float
+    InnerProductSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        size_t qty = *((size_t *) qty_ptr);
+        size_t qty16 = qty >> 4 << 4;
+        float res = InnerProductSIMD16Ext(pVect1v, pVect2v, &qty16);
+        float *pVect1 = (float *) pVect1v + qty16;
+        float *pVect2 = (float *) pVect2v + qty16;
+
+        size_t qty_left = qty - qty16;
+        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        if (qty_left >= 4) {
+            res_tail = InnerProductSIMD4ExtResiduals(pVect1, pVect2, &qty_left);
+        }
+        else {
+            res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        }
+        return res + res_tail - 1.0f;
     }
+
 #endif
 
     class InnerProductSpace : public SpaceInterface<float> {
