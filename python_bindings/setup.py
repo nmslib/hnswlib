@@ -69,8 +69,7 @@ class BuildExt(build_ext):
         c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
         link_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
     else:
-        c_opts['unix'].append("-fopenmp")
-        link_opts['unix'].extend(['-fopenmp', '-pthread'])
+        link_opts['unix'].extend(['-pthread', '-Wl,-rpath=.'])
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
@@ -110,7 +109,7 @@ setup(
     url='https://github.com/yurymalkov/hnsw',
     long_description="""hnsw""",
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.0', 'numpy'],
+    install_requires=['pybind11>=2.5.0', 'numpy'],
     cmdclass={'build_ext': BuildExt},
     test_suite="tests",
     zip_safe=False,

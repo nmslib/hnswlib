@@ -41,7 +41,24 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # After adding them, all labels should be retrievable
         returned_items = p.get_items(labels)
-        self.assertSequenceEqual(data.tolist(), returned_items)
+        self.assertSequenceEqual(data.tolist(), np.stack(returned_items).tolist())
+
+        # Serializing and deleting the index:
+        index_path = 'full.bin'
+        print("Saving index to '%s'" % index_path)
+        p.save_index(index_path)
+        del p
+
+        # Reiniting, loading the index
+        p = hnswlib.Index(space='l2', dim=dim)  # you can change the sa
+
+        print("\nLoading index from '%s'\n" % index_path)
+        p.load_index(index_path, use_mmap=True)
+
+        # Labels should be retrievable
+        returned_items = p.get_items(labels)
+        self.assertSequenceEqual(data.tolist(), np.stack(returned_items).tolist())
+
 
 if __name__ == "__main__":
     unittest.main()

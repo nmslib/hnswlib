@@ -10,6 +10,8 @@
 using namespace std;
 using namespace hnswlib;
 
+typedef size_t labeltype;
+
 class StopW {
     std::chrono::steady_clock::time_point time_begin;
 public:
@@ -151,7 +153,6 @@ get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t v
 
 
     (vector<std::priority_queue<std::pair<int, labeltype >>>(qsize)).swap(answers);
-    DISTFUNC<int> fstdistfunc_ = l2space.get_dist_func();
     cout << qsize << "\n";
     for (int i = 0; i < qsize; i++) {
         for (int j = 0; j < k; j++) {
@@ -163,13 +164,15 @@ get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t v
 static float
 test_approx(unsigned char *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<int> &appr_alg, size_t vecdim,
             vector<std::priority_queue<std::pair<int, labeltype >>> &answers, size_t k) {
+    typedef hnswlib::AlgorithmInterface<int, labeltype>::Neighbour neighbour_t;
+
     size_t correct = 0;
     size_t total = 0;
     //uncomment to test in parallel mode:
     //#pragma omp parallel for
     for (int i = 0; i < qsize; i++) {
 
-        std::priority_queue<std::pair<int, labeltype >> result = appr_alg.searchKnn(massQ + vecdim * i, k);
+        std::vector<neighbour_t> result = appr_alg.searchKnn((int *) (massQ + vecdim * i), k);
         std::priority_queue<std::pair<int, labeltype >> gt(answers[i]);
         unordered_set<labeltype> g;
         total += gt.size();
@@ -181,13 +184,10 @@ test_approx(unsigned char *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<
             gt.pop();
         }
 
-        while (result.size()) {
-            if (g.find(result.top().second) != g.end()) {
-
+        for (int j = 0; j < result.size(); j++) {
+            if (g.find(result[j].label) != g.end()) {
                 correct++;
-            } else {
             }
-            result.pop();
         }
 
     }
@@ -311,7 +311,7 @@ void sift_test1B() {
             mass[j] = massb[j] * (1.0f);
         }
 
-        appr_alg->addPoint((void *) (massb), (size_t) 0);
+        appr_alg->addPoint((int *) massb, (size_t) 0);
         int j1 = 0;
         StopW stopw = StopW();
         StopW stopw_full = StopW();
@@ -341,7 +341,7 @@ void sift_test1B() {
                     stopw.reset();
                 }
             }
-            appr_alg->addPoint((void *) (mass), (size_t) j2);
+            appr_alg->addPoint((int *) mass, (size_t) j2);
 
 
         }

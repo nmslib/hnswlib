@@ -44,7 +44,6 @@ Index methods:
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     
 * `add_items(data, data_labels, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
-    * `labels` is an optional N-size numpy array of integer labels for all elements in `data`.
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
@@ -56,15 +55,19 @@ Index methods:
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
-* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closests elements for each element of the 
-    * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
+* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closest elements for each element of the 
+    * `data` (shape:`N*dim`). `data` can be a contiguous C-array or `pandas.Series.value`.
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
+    * Returns a numpy array of (shape:`N*k`).
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
     
-* `load_index(path_to_index, max_elements = 0)` loads the index from persistence to the uninitialized index.
-    * `max_elements`(optional) resets the maximum number of elements in the structure.
-      
+* `load_index(path_to_index, use_mmap = False, max_elements = 0)` loads the index from persistence to the uninitialized index.
+    * `use_mmap` (optional) uses mmap to load the index. Will disallow changes to the index. Supported OS: *nix and Apple OS. 
+    * `max_elements` (optional) resets the maximum number of elements in the structure.
+
 * `save_index(path_to_index)` saves the index from persistence.
+
+* `write_index(write_function)` saves the index using a Python callback instead of using C++ IO.
 
 * `set_num_threads(num_threads)` set the default number of cpu threads used during data insertion/querying.
   
@@ -105,7 +108,7 @@ p.add_items(data, data_labels)
 p.set_ef(50) # ef should always be > k
 
 # Query dataset, k - number of closest elements (returns 2 numpy arrays)
-labels, distances = p.knn_query(data, k = 1)
+result = p.knn_query(data, k = 1)
 ```
 
 An example with updates after serialization/deserialization:
@@ -148,11 +151,12 @@ p.set_num_threads(4)
 
 
 print("Adding first batch of %d elements" % (len(data1)))
-p.add_items(data1)
+p.add_items(data1, np.arange(len(data1)))
 
 # Query the elements for themselves and measure recall:
-labels, distances = p.knn_query(data1, k=1)
-print("Recall for the first batch:", np.mean(labels.reshape(-1) == np.arange(len(data1))), "\n")
+result = p.knn_query(data1, k=1)
+labels = np.array([i[0][1] for i in result])
+print("Recall for the first batch:", np.mean(labels == np.arange(len(data1))), "\n")
 
 # Serializing and deleting the index:
 index_path='first_half.bin'
@@ -169,11 +173,12 @@ print("\nLoading index from 'first_half.bin'\n")
 p.load_index("first_half.bin", max_elements = num_elements)
 
 print("Adding the second batch of %d elements" % (len(data2)))
-p.add_items(data2)
+p.add_items(data2, np.arange(len(data1), len(data)))
 
 # Query the elements for themselves and measure recall:
-labels, distances = p.knn_query(data, k=1)
-print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
+result = p.knn_query(data, k=1)
+labels = np.array([i[0][1] for i in result])
+print("Recall for two batches:", np.mean(labels == np.arange(len(data))), "\n")
 ```
 
 ### Bindings installation

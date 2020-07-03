@@ -11,6 +11,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Generating sample data
         data = np.float32(np.random.random((num_elements, dim)))
+        elabels = np.arange(len(data))
 
         # Declaring index
         p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
@@ -34,13 +35,16 @@ class RandomSelfTestCase(unittest.TestCase):
         # We split the data in two batches:
         data1 = data[:num_elements // 2]
         data2 = data[num_elements // 2:]
+        elabels1 = elabels[:num_elements // 2]
+        elabels2 = elabels[num_elements // 2:]
 
         print("Adding first batch of %d elements" % (len(data1)))
-        p.add_items(data1)
+        p.add_items(data1, elabels1)
 
         # Query the elements for themselves and measure recall:
-        labels, distances = p.knn_query(data1, k=1)
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
+        results = p.knn_query(data1, k=1)
+        labels = np.array([i[0][1] for i in results])
+        self.assertAlmostEqual(np.mean(labels == elabels1),1.0,3)
 
         # Serializing and deleting the index:
         index_path='first_half.bin'
@@ -52,15 +56,16 @@ class RandomSelfTestCase(unittest.TestCase):
         p = hnswlib.Index(space='l2', dim=dim)  # you can change the sa
 
         print("\nLoading index from 'first_half.bin'\n")
-        p.load_index("first_half.bin")
+        p.load_index("first_half.bin", use_mmap=False)
 
         print("Adding the second batch of %d elements" % (len(data2)))
-        p.add_items(data2)
+        p.add_items(data2, elabels2)
 
         # Query the elements for themselves and measure recall:
-        labels, distances = p.knn_query(data, k=1)
+        results = p.knn_query(data, k=1)
+        labels = np.array([i[0][1] for i in results])
 
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
+        self.assertAlmostEqual(np.mean(labels == elabels),1.0,3)
 
 
 if __name__ == "__main__":
