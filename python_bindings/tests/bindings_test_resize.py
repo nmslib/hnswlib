@@ -13,6 +13,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Generating sample data
         data = np.float32(np.random.random((num_elements, dim)))
+        elabels = np.arange(len(data))
 
         # Declaring index
         p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
@@ -36,17 +37,21 @@ class RandomSelfTestCase(unittest.TestCase):
         # We split the data in two batches:
         data1 = data[:num_elements // 2]
         data2 = data[num_elements // 2:]
+        elabels1 = elabels[:num_elements // 2]
+        elabels2 = elabels[num_elements // 2:]
 
         print("Adding first batch of %d elements" % (len(data1)))
-        p.add_items(data1)
+        p.add_items(data1, elabels1)
 
         # Query the elements for themselves and measure recall:
-        labels, distances = p.knn_query(data1, k=1)
+        print("Doing knn query")
+        results = p.knn_query(data1, k=1)
+        labels = np.array([i[0][1] for i in results])
 
-        items=p.get_items(list(range(len(data1))))
+        items = p.get_items(elabels1)
 
         # Check the recall:
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
+        self.assertAlmostEqual(np.mean(labels == elabels1),1.0,3)
 
         # Check that the returned element data is correct:
         diff_with_gt_labels=np.max(np.abs(data1-items))
@@ -58,16 +63,17 @@ class RandomSelfTestCase(unittest.TestCase):
 
 
         print("Adding the second batch of %d elements" % (len(data2)))
-        p.add_items(data2)
+        p.add_items(data2, elabels2)
 
         # Query the elements for themselves and measure recall:
-        labels, distances = p.knn_query(data, k=1)
-        items=p.get_items(list(range(num_elements)))
+        results = p.knn_query(data, k=1)
+        labels = np.array([i[0][1] for i in results])
 
         # Check the recall:
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
+        self.assertAlmostEqual(np.mean(labels == elabels),1.0,3)
 
         # Check that the returned element data is correct:
+        items=p.get_items(elabels)
         diff_with_gt_labels=np.max(np.abs(data-items))
         self.assertAlmostEqual(diff_with_gt_labels, 0, delta = 1e-4)
 

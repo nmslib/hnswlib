@@ -58,12 +58,10 @@ get_gt(unsigned int *massQA, float *massQ, float *mass, size_t vecsize, size_t q
 
     //answers.swap(vector<std::priority_queue< std::pair< float, labeltype >>>(qsize));
     (vector<std::priority_queue<std::pair<float, labeltype >>>(qsize)).swap(answers);
-    DISTFUNC<float> fstdistfunc_ = l2space.get_dist_func();
     cout << qsize << "\n";
     for (int i = 0; i < qsize; i++) {
         for (int j = 0; j < k; j++) {
-            float other = fstdistfunc_(massQ + i * vecdim, mass + massQA[100 * i + j] * vecdim,
-                                       l2space.get_dist_func_param());
+            float other = l2space.calculate_distance(massQ + i * vecdim, mass + massQA[100 * i + j] * vecdim);
             answers[i].emplace(other, massQA[100 * i + j]);
         }
     }

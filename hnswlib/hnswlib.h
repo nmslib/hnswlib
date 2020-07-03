@@ -29,8 +29,6 @@
 #include <string.h>
 
 namespace hnswlib {
-    typedef size_t labeltype;
-
     template <typename T>
     class pairGreater {
     public:
@@ -39,47 +37,76 @@ namespace hnswlib {
         }
     };
 
+    static void checkIOError(std::istream &in) {
+        if (in.eof())
+            throw std::runtime_error("Error loading index: eof reached before expectation.");
+        if (in.fail())
+            throw std::runtime_error("Error loading index: failed to read file.");
+    }
+
+    static void checkIOError(std::ostream &out) {
+        if (!out.good())
+            throw std::runtime_error("Error saving index.");
+    }
+
     template<typename T>
     static void writeBinaryPOD(std::ostream &out, const T &podRef) {
         out.write((char *) &podRef, sizeof(T));
+        checkIOError(out);
     }
 
     template<typename T>
     static void readBinaryPOD(std::istream &in, T &podRef) {
         in.read((char *) &podRef, sizeof(T));
+        checkIOError(in);
     }
 
-    template<typename MTYPE>
-    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
-
-
-    template<typename MTYPE>
+    template<typename vec_t, typename dist_t>
     class SpaceInterface {
+    protected:
+        const size_t dim_;
+
     public:
-        //virtual void search(void *);
-        virtual size_t get_data_size() = 0;
+        SpaceInterface(size_t dim) : dim_(dim) {
+        }
 
-        virtual DISTFUNC<MTYPE> get_dist_func() = 0;
+        size_t get_dimension() {
+            return dim_;
+        }
 
-        virtual void *get_dist_func_param() = 0;
+        virtual dist_t calculate_distance(const vec_t *pVect1, const vec_t *pVect2) = 0;
 
         virtual ~SpaceInterface() {}
     };
 
-    template<typename dist_t>
+    template<typename src_t, typename vec_t>
+    class NormalizerInterface {
+        protected:
+            const size_t dim_;
+
+        public:
+            NormalizerInterface(size_t dim) : dim_(dim) {
+            }
+
+            virtual void normalize_vector(const src_t *data, vec_t *norm_array) = 0;
+
+            virtual ~NormalizerInterface() {}
+    };
+
+    template<typename vec_t, typename dist_t, typename labeltype>
     class AlgorithmInterface {
     public:
-        virtual void addPoint(const void *datapoint, labeltype label)=0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>> searchKnn(const void*, size_t, Comp) {
-        }
+        struct Neighbour {
+            dist_t distance;
+            labeltype label;
+        };
+
+        virtual void addPoint(const vec_t *datapoint, const labeltype& label)=0;
+        virtual std::vector<Neighbour> searchKnn(const vec_t *, size_t) const = 0;
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }
     };
-
-
 }
 
 #include "space_l2.h"

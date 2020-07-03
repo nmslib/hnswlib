@@ -109,8 +109,8 @@ std::vector<datatype> load_batch(std::string path, int size)
 
 template <typename d_type>
 static float
-test_approx(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<d_type> &appr_alg, size_t vecdim,
-            std::vector<std::unordered_set<hnswlib::labeltype>> &answers, size_t K)
+test_approx(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<float, d_type> &appr_alg, size_t vecdim,
+            std::vector<std::unordered_set<size_t>> &answers, size_t K)
 {
     size_t correct = 0;
     size_t total = 0;
@@ -119,27 +119,22 @@ test_approx(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<
 
     for (int i = 0; i < qsize; i++)
     {
-
-        std::priority_queue<std::pair<d_type, hnswlib::labeltype>> result = appr_alg.searchKnn((char *)(queries.data() + vecdim * i), K);
+        auto result = appr_alg.searchKnn((queries.data() + vecdim * i), K);
         total += K;
-        while (result.size())
+        for (int j = 0; i < result.size(); j++)
         {
-            if (answers[i].find(result.top().second) != answers[i].end())
+            if (answers[i].find(result[j].label) != answers[i].end())
             {
                 correct++;
             }
-            else
-            {
-            }
-            result.pop();
         }
     }
     return 1.0f * correct / total;
 }
 
 static void
-test_vs_recall(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<float> &appr_alg, size_t vecdim,
-               std::vector<std::unordered_set<hnswlib::labeltype>> &answers, size_t k)
+test_vs_recall(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<float, float> &appr_alg, size_t vecdim,
+               std::vector<std::unordered_set<size_t>> &answers, size_t k)
 {
     std::vector<size_t> efs = {1};
     for (int i = k; i < 30; i++)
@@ -227,13 +222,13 @@ int main(int argc, char **argv)
     }
 
     hnswlib::L2Space l2space(d);
-    hnswlib::HierarchicalNSW<float> appr_alg(&l2space, N + 1, M, efConstruction);
+    hnswlib::HierarchicalNSW<float, float> appr_alg(&l2space, N + 1, M, efConstruction);
 
     std::vector<float> dummy_batch = load_batch<float>(path + "batch_dummy_00.bin", N * d);
 
     // Adding enterpoint:
 
-    appr_alg.addPoint((void *)dummy_batch.data(), (size_t)0);
+    appr_alg.addPoint(dummy_batch.data(), (size_t)0);
 
     StopW stopw = StopW();
 
@@ -243,12 +238,12 @@ int main(int argc, char **argv)
 
         
         ParallelFor(1, N, num_threads, [&](size_t i, size_t threadId) {
-            appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
+            appr_alg.addPoint((dummy_batch.data() + i * d), i);
         });
         appr_alg.checkIntegrity();
 
         ParallelFor(1, N, num_threads, [&](size_t i, size_t threadId) {
-            appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
+            appr_alg.addPoint((dummy_batch.data() + i * d), i);
         });
         appr_alg.checkIntegrity();
 
@@ -260,7 +255,7 @@ int main(int argc, char **argv)
             std::vector<float> dummy_batchb = load_batch<float>(path + cpath, N * d);
             
             ParallelFor(0, N, num_threads, [&](size_t i, size_t threadId) {            
-                appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
+                appr_alg.addPoint((dummy_batch.data() + i * d), i);
             });
             appr_alg.checkIntegrity();
         }
@@ -271,7 +266,7 @@ int main(int argc, char **argv)
     
     stopw.reset();
     ParallelFor(0, N, num_threads, [&](size_t i, size_t threadId) {
-                    appr_alg.addPoint((void *)(final_batch.data() + i * d), i);
+                    appr_alg.addPoint((final_batch.data() + i * d), i);
                 });
     std::cout<<"Finished. Time taken:" << stopw.getElapsedTimeMicro()*1e-6 << " s\n";
     std::cout << "Running tests\n";
@@ -279,7 +274,7 @@ int main(int argc, char **argv)
 
     std::vector<int> gt = load_batch<int>(path + "gt.bin", N_queries * K);
 
-    std::vector<std::unordered_set<hnswlib::labeltype>> answers(N_queries);
+    std::vector<std::unordered_set<size_t>> answers(N_queries);
     for (int i = 0; i < N_queries; i++)
     {
         for (int j = 0; j < K; j++)
