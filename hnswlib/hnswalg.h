@@ -5,6 +5,7 @@
 #include <atomic>
 #include <random>
 #include <stdlib.h>
+#include <assert.h>
 #include <unordered_set>
 #include <list>
 
