@@ -1,28 +1,25 @@
 #pragma once
+#include <cmath>
+#include <limits>
 #include "hnswlib.h"
 
 namespace hnswlib {
 
     static float
-    InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
-        size_t qty = *((size_t *) qty_ptr);
+    InnerProduct(const float *pVect1, const float *pVect2, const size_t qty) {
         float res = 0;
-        for (unsigned i = 0; i < qty; i++) {
-            res += ((float *) pVect1)[i] * ((float *) pVect2)[i];
+        for (size_t i = 0; i < qty; i++) {
+            res += pVect1[i] * pVect2[i];
         }
         return (1.0f - res);
-
     }
 
 #if defined(USE_AVX)
 
 // Favor using AVX if available.
     static float
-    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD4Ext(const float *pVect1, const float *pVect2, const size_t qty) {
         float PORTABLE_ALIGN32 TmpRes[8];
-        float *pVect1 = (float *) pVect1v;
-        float *pVect2 = (float *) pVect2v;
-        size_t qty = *((size_t *) qty_ptr);
 
         size_t qty16 = qty / 16;
         size_t qty4 = qty / 4;
@@ -67,11 +64,8 @@ namespace hnswlib {
 #elif defined(USE_SSE)
 
     static float
-    InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD4Ext(const float *pVect1, const float *pVect2, const size_t qty) {
         float PORTABLE_ALIGN32 TmpRes[8];
-        float *pVect1 = (float *) pVect1v;
-        float *pVect2 = (float *) pVect2v;
-        size_t qty = *((size_t *) qty_ptr);
 
         size_t qty16 = qty / 16;
         size_t qty4 = qty / 4;
@@ -127,11 +121,8 @@ namespace hnswlib {
 #if defined(USE_AVX)
 
     static float
-    InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    InnerProductSIMD16Ext(const float *pVect1, const float *pVect2, const size_t qty) {
         float PORTABLE_ALIGN32 TmpRes[8];
-        float *pVect1 = (float *) pVect1v;
-        float *pVect2 = (float *) pVect2v;
-        size_t qty = *((size_t *) qty_ptr);
 
         size_t qty16 = qty / 16;
 
@@ -165,11 +156,8 @@ namespace hnswlib {
 #elif defined(USE_SSE)
 
       static float
-      InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      InnerProductSIMD16Ext(const float *pVect1, const float *pVect2, const size_t qty) {
         float PORTABLE_ALIGN32 TmpRes[8];
-        float *pVect1 = (float *) pVect1v;
-        float *pVect2 = (float *) pVect2v;
-        size_t qty = *((size_t *) qty_ptr);
 
         size_t qty16 = qty / 16;
 
@@ -213,29 +201,27 @@ namespace hnswlib {
 
 #if defined(USE_SSE) || defined(USE_AVX)
     static float
-    InnerProductSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        size_t qty = *((size_t *) qty_ptr);
+    InnerProductSIMD16ExtResiduals(const float *pVect1v, const float *pVect2v, const size_t qty) {
         size_t qty16 = qty >> 4 << 4;
-        float res = InnerProductSIMD16Ext(pVect1v, pVect2v, &qty16);
+        float res = InnerProductSIMD16Ext(pVect1v, pVect2v, qty16);
         float *pVect1 = (float *) pVect1v + qty16;
         float *pVect2 = (float *) pVect2v + qty16;
 
         size_t qty_left = qty - qty16;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        float res_tail = InnerProduct(pVect1, pVect2, qty_left);
         return res + res_tail - 1.0f;
     }
 
     static float
-    InnerProductSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        size_t qty = *((size_t *) qty_ptr);
+    InnerProductSIMD4ExtResiduals(const float *pVect1v, const float *pVect2v, const size_t qty) {
         size_t qty4 = qty >> 2 << 2;
 
-        float res = InnerProductSIMD4Ext(pVect1v, pVect2v, &qty4);
+        float res = InnerProductSIMD4Ext(pVect1v, pVect2v, qty4);
         size_t qty_left = qty - qty4;
 
         float *pVect1 = (float *) pVect1v + qty4;
         float *pVect2 = (float *) pVect2v + qty4;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        float res_tail = InnerProduct(pVect1, pVect2, qty_left);
 
         return res + res_tail - 1.0f;
     }
@@ -243,13 +229,11 @@ namespace hnswlib {
 
     class InnerProductSpace : public SpaceInterface<float> {
 
-        DISTFUNC<float> fstdistfunc_;
-        size_t data_size_;
-        size_t dim_;
+        float (*fstdistfunc_)(const float *pVect1, const float *pVect2, const size_t qty);
     public:
-        InnerProductSpace(size_t dim) {
+        InnerProductSpace(size_t dim) : SpaceInterface<float>(dim) {
             fstdistfunc_ = InnerProduct;
-    #if defined(USE_AVX) || defined(USE_SSE)
+#if defined(USE_AVX) || defined(USE_SSE)
             if (dim % 16 == 0)
                 fstdistfunc_ = InnerProductSIMD16Ext;
             else if (dim % 4 == 0)
@@ -258,25 +242,27 @@ namespace hnswlib {
                 fstdistfunc_ = InnerProductSIMD16ExtResiduals;
             else if (dim > 4)
                 fstdistfunc_ = InnerProductSIMD4ExtResiduals;
-    #endif
-            dim_ = dim;
-            data_size_ = dim * sizeof(float);
+#endif
         }
 
-        size_t get_data_size() {
-            return data_size_;
+        float calculate_distance(const float *pVect1, const float *pVect2) {
+            return fstdistfunc_(pVect1, pVect2, dim_);
         }
 
-        DISTFUNC<float> get_dist_func() {
-            return fstdistfunc_;
-        }
-
-        void *get_dist_func_param() {
-            return &dim_;
-        }
-
-    ~InnerProductSpace() {}
+        ~InnerProductSpace() {}
     };
 
+    class FloatNormalizer : public NormalizerInterface<float, float> {
+    public:
+        using NormalizerInterface<float, float>::NormalizerInterface;
 
+        void normalize_vector(const float *data, float *norm_array) {
+            float norm = 0.0f;
+            for(size_t i = 0; i < dim_; i++)
+                norm += data[i] * data[i];
+            norm = 1.0f / (sqrtf(norm) + 1e-30f);
+            for (size_t i = 0; i < dim_; i++)
+                norm_array[i] = data[i] * norm;
+        }
+    };
 }
