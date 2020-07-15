@@ -27,7 +27,7 @@ namespace hnswlib {
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
-                link_list_locks_(max_elements), element_levels_(max_elements), link_list_update_locks_(max_update_element_locks) {
+                link_list_locks_(max_elements), link_list_update_locks_(max_update_element_locks), element_levels_(max_elements) {
             max_elements_ = max_elements;
 
             has_deletions_=false;
@@ -869,12 +869,12 @@ namespace hnswlib {
 //                        continue;
 
                     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidates;
-                    int size = sCand.find(neigh) == sCand.end() ? sCand.size() : sCand.size() - 1;
-                    int elementsToKeep = std::min(int(ef_construction_), size);
+                    size_t size = sCand.find(neigh) == sCand.end() ? sCand.size() : sCand.size() - 1; // sCand guaranteed to have size >= 1
+                    size_t elementsToKeep = std::min(ef_construction_, size);
                     for (auto&& cand : sCand) {
                         if (cand == neigh)
                             continue;
-
+                        
                         dist_t distance = fstdistfunc_(getDataByInternalId(neigh), getDataByInternalId(cand), dist_func_param_);
                         if (candidates.size() < elementsToKeep) {
                             candidates.emplace(distance, cand);
@@ -893,7 +893,7 @@ namespace hnswlib {
                         std::unique_lock <std::mutex> lock(link_list_locks_[neigh]);
                         linklistsizeint *ll_cur;
                         ll_cur = get_linklist_at_level(neigh, layer);
-                        int candSize = candidates.size();
+                        size_t candSize = candidates.size();
                         setListCount(ll_cur, candSize);
                         tableint *data = (tableint *) (ll_cur + 1);
                         for (size_t idx = 0; idx < candSize; idx++) {
