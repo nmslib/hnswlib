@@ -28,11 +28,11 @@ HNSW algorithm is being leveraged globally for performing fast and efficient sim
 
 1) Supports batch(offline) and realtime(online) index.
 2) Supports multi-threaded incremental query, insert, update and deletion of vectors.
-3) Highly performant and efficient locking implementation to support multi-threaded reads and writes in parallel i.e multi-threaded query/insert/update/delete in parallel (Currently in C++ version only). Performance scales with number of cpu cores in machine .
+3) Highly performant and efficient locking implementation to support multi-threaded reads and writes in parallel i.e multi-threaded query/insert/update/delete in parallel (Currently exposed in C++ version only).
 4) Supports efficient serialization and deserialization of index to/from disk.
 5) Can support user defined arbitrary and exotic similarity metrics like Hyperbolic distances (Poincare/Lorentzian), Jaccard distance, Manhattan distance etc. (In C++ version)
 
-*Note: Currently deletions of elements from the index does not free the associated memory of the  vectors to be deleted.*
+*Note: Currently deletions of elements from the index does not free the associated memory of the  vectors to be deleted and performance of read/writes scales with number of cpu cores in machine.*
 
 ### Installation
 It can be installed from sources:
