@@ -1,9 +1,10 @@
 
 
+
 # HNSWLIB - Fast Approximate Nearest Neighbor Search
 
 Hnswlib is a C++ library with Python bindings for highly performant implementation of [HNSW](https://arxiv.org/abs/1603.09320) *(Hierarchical Navigable Small World Graphs)* algorithm to perform fast and efficient vector similarity search in high dimensional spaces . It achieves state-of-the-art performance on diverse datasets and one of the top-most leaders in ANN performance benchmarks as show in *[ann-benchmarks.com](http://ann-benchmarks.com)*. 
-HNSW algorithm is being leveraged globally for performing fast and efficient similarity search. Some public examples for the usage are  ***Facebook*** ([Faiss](https://github.com/facebookresearch/faiss)), ***Twitter*** ([Paper](KDD paper link)), ***Pinterest*** ([Paper]([https://arxiv.org/pdf/2007.03634.pdf](https://arxiv.org/pdf/2007.03634.pdf))), ***Amazon*** ([Amazon SageMaker](https://docs.aws.amazon.com/sagemaker/latest/dg/k-nearest-neighbors.html)), ***Microsoft*** ([HNSW .NET]([https://github.com/microsoft/HNSW.Net](https://github.com/microsoft/HNSW.Net))), ***Open Distro*** ([Blog](https://opendistro.github.io/for-elasticsearch/blog/odfe-updates/2020/04/Building-k-Nearest-Neighbor-(k-NN)-Similarity-Search-Engine-with-Elasticsearch)) etc. 
+HNSW algorithm is being leveraged globally for performing fast and efficient similarity search. Some public examples for the usage in the industry are  *[Facebook](https://github.com/facebookresearch/faiss)*,  *[Twitter](link)*,  *[Pinterest](https://arxiv.org/pdf/2007.03634.pdf)*,  *[Amazon](https://docs.aws.amazon.com/sagemaker/latest/dg/k-nearest-neighbors.html)*,  *[Microsoft](https://github.com/microsoft/HNSW.Net)* and *[Open Distro](https://opendistro.github.io/for-elasticsearch/blog/odfe-updates/2020/04/Building-k-Nearest-Neighbor-(k-NN)-Similarity-Search-Engine-with-Elasticsearch)* . 
 
 
 ### News
@@ -20,7 +21,7 @@ HNSW algorithm is being leveraged globally for performing fast and efficient sim
 2) Works well for both low and high dimensional datasets.
 3) It belongs to unrestricted memory ANN that allow the vectors to be stored in memory. No bound on RAM allows the best performance in terms of speed and resulting accuracy. 
 4) Interfaces and bindings for C++, Python. External bindings for [R](https://github.com/jlmelville/rcpphnsw) and [Java](https://github.com/stepstone-tech/hnswlib-jna) contributed by community.
-5) Other external implementation of the algorithm available in diverse languages like .Net, Go, Java, Python etc. Refer [other implementations](#other-implementations)
+5) Other external implementation of the algorithm available in diverse languages like .Net, Go, Java, Python, Rust, Julia etc. Refer this [section](#other-implementations) for more details. 
 6) Significantly less memory footprint and faster build time compared to current NMSLIB's implementation.
 
 
@@ -178,6 +179,8 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Java implementation: https://github.com/jelmerk/hnswlib
 * Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
 * .Net implementation:  https://github.com/microsoft/HNSW.Net
+* Rust implementation: https://github.com/rust-cv/hnsw
+* Julia implementation: https://juliapackages.com/p/hnsw
 
 ### HNSW example demos
 
