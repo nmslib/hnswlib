@@ -27,8 +27,8 @@ HNSW algorithm is being leveraged globally for performing fast and efficient sim
 ### Supported Operations
 
 1) Supports batch(offline) and realtime(online) index.
-2) Supports incremental query, insert, update and deletion of vectors.
-3) Highly performant and efficient support for multi-threaded reads and writes in parallel (query/insert/update/delete). Multi-thread Performance scales with number of cpu cores in machine.
+2) Supports multi-threaded incremental query, insert, update and deletion of vectors.
+3) Highly performant and efficient locking implementation to support multi-threaded reads and writes in parallel i.e multi-threaded query/insert/update/delete in parallel (Currently in C++ version only). Performance scales with number of cpu cores in machine .
 4) Supports efficient serialization and deserialization of index to/from disk.
 5) Can support user defined arbitrary and exotic similarity metrics like Hyperbolic distances (Poincare/Lorentzian), Jaccard distance, Manhattan distance etc. (In C++ version)
 
@@ -120,7 +120,6 @@ For other spaces [nmslib](https://github.com/nmslib/nmslib) library can be used 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their feature vectors will be updated. Note that update procedure is slower than insertion of a new element, but more memory and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
-    * ####### May be expose multi-threaded query method  and add documentation ####
     
 * `mark_deleted(data_label)`  - marks the element as **deleted**, so it will be omitted from search results.
 
@@ -151,7 +150,7 @@ For other spaces [nmslib](https://github.com/nmslib/nmslib) library can be used 
 ### Tests
 To reproduce performance benchmark results on 200M SIFT dataset as described in HNSW paper or to run tests for feature vector updates please refer [Tests](TESTS.md).
 
-### Authors
+### Authors and Contributors
 
 - [Yury Malkov](https://github.com/yurymalkov) is the lead author and developer of the HNSW algorithm and Hnswlib library.
 - [Apoorv Sharma](https://github.com/apoorv-sharma)  co-authored an algorithm for performing dynamic updates of feature vectors in HNSW with [Yury Malkov](https://github.com/yurymalkov) and implemented it in HnswLib.
