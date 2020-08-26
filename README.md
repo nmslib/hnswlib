@@ -1,11 +1,7 @@
-
-
-
-
 # HNSWLIB - Fast Approximate Nearest Neighbor Search
 
 Hnswlib is a C++ library with Python bindings to perform fast and efficient vector similarity search in high dimensional spaces. It is high performance implementation of  [HNSW](https://arxiv.org/abs/1603.09320) *(Hierarchical Navigable Small World Graphs)* algorithm. It achieves state-of-the-art performance on diverse datasets and one of the top-most leaders in ANN performance benchmarks as shown in *[ann-benchmarks.com](http://ann-benchmarks.com)*.
-It is a popular algorithm globally for performing similarity search. Some public examples for the algorithm usage in the industry are  *[Facebook](https://github.com/facebookresearch/faiss)*,  *[Twitter](link)*,  *[Pinterest](https://arxiv.org/pdf/2007.03634.pdf)*,  *[Amazon](https://docs.aws.amazon.com/sagemaker/latest/dg/k-nearest-neighbors.html)*,  *[Microsoft](https://github.com/microsoft/HNSW.Net)* and *[Open Distro](https://opendistro.github.io/for-elasticsearch/blog/odfe-updates/2020/04/Building-k-Nearest-Neighbor-(k-NN)-Similarity-Search-Engine-with-Elasticsearch)* . 
+It is a popular algorithm globally for performing similarity search. Some public examples for the algorithm usage in the industry are  *[Facebook](https://github.com/facebookresearch/faiss)*,  *[Twitter](https://irsworkshop.github.io/2020/publications/paper_2_%20Virani_Twitter.pdf)*,  *[Pinterest](https://arxiv.org/pdf/2007.03634.pdf)*,  *[Amazon](https://docs.aws.amazon.com/sagemaker/latest/dg/k-nearest-neighbors.html)*,  *[Microsoft](https://github.com/microsoft/HNSW.Net)* and *[Open Distro](https://opendistro.github.io/for-elasticsearch/blog/odfe-updates/2020/04/Building-k-Nearest-Neighbor-(k-NN)-Similarity-Search-Engine-with-Elasticsearch)* . 
 
 
 ### News
