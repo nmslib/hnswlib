@@ -26,6 +26,10 @@ namespace hnswlib {
             loadIndex(location, s, max_elements);
         }
 
+        HierarchicalNSW(SpaceInterface<dist_t> *s, std::istream & input, bool nmslib = false, size_t max_elements=0) {
+            loadIndexFromStream(input, s, max_elements);
+        }
+
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
                 link_list_locks_(max_elements), link_list_update_locks_(max_update_element_locks), element_levels_(max_elements) {
             max_elements_ = max_elements;
@@ -56,8 +60,6 @@ namespace hnswlib {
             cur_element_count = 0;
 
             visited_list_pool_ = new VisitedListPool(1, max_elements);
-
-
 
             //initializations for special treatment of the first node
             enterpoint_node_ = -1;
@@ -102,6 +104,8 @@ namespace hnswlib {
         double mult_, revSize_;
         int maxlevel_;
 
+        std::mutex global;
+        size_t ef_;
 
         VisitedListPool *visited_list_pool_;
         std::mutex cur_element_count_guard_;
@@ -511,8 +515,6 @@ namespace hnswlib {
             return next_closest_entry_point;
         }
 
-        std::mutex global;
-        size_t ef_;
 
         void setEf(size_t ef) {
             ef_ = ef;
@@ -598,10 +600,7 @@ namespace hnswlib {
             max_elements_=new_max_elements;
 
         }
-
-        void saveIndex(const std::string &location) {
-            std::ofstream output(location, std::ios::binary);
-            std::streampos position;
+        void saveIndexToStream(std::ostream &output) {
 
             writeBinaryPOD(output, offsetLevel0_);
             writeBinaryPOD(output, max_elements_);
@@ -626,17 +625,17 @@ namespace hnswlib {
                 if (linkListSize)
                     output.write(linkLists_[i], linkListSize);
             }
+
+        }
+
+        void saveIndex(const std::string &location) {
+            std::ofstream output(location, std::ios::binary);
+            std::streampos position;
+            saveIndexToStream(output);
             output.close();
         }
 
-        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
-
-
-            std::ifstream input(location, std::ios::binary);
-
-            if (!input.is_open())
-                throw std::runtime_error("Cannot open file");
-
+        void loadIndexFromStream(std::istream & input, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
 
             // get file size:
             input.seekg(0,input.end);
@@ -663,13 +662,11 @@ namespace hnswlib {
             readBinaryPOD(input, mult_);
             readBinaryPOD(input, ef_construction_);
 
-
             data_size_ = s->get_data_size();
             fstdistfunc_ = s->get_dist_func();
             dist_func_param_ = s->get_dist_func_param();
 
             auto pos=input.tellg();
-
 
             /// Optional - check if index is ok:
 
@@ -696,14 +693,10 @@ namespace hnswlib {
 
             input.seekg(pos,input.beg);
 
-
             data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
             if (data_level0_memory_ == nullptr)
                 throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
             input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
-
-
-
 
             size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -714,7 +707,6 @@ namespace hnswlib {
 
 
             visited_list_pool_ = new VisitedListPool(1, max_elements);
-
 
             linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
             if (linkLists_ == nullptr)
@@ -746,8 +738,19 @@ namespace hnswlib {
                     has_deletions_=true;
             }
 
-            input.close();
 
+            return;
+        }
+
+
+
+        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
+            std::ifstream input(location, std::ios::binary);
+            if (!input.is_open())
+                throw std::runtime_error("Cannot open file");
+
+            loadIndexFromStream(input, s, max_elements_i);
+            input.close();
             return;
         }
 
@@ -874,7 +877,7 @@ namespace hnswlib {
                     for (auto&& cand : sCand) {
                         if (cand == neigh)
                             continue;
-                        
+
                         dist_t distance = fstdistfunc_(getDataByInternalId(neigh), getDataByInternalId(cand), dist_func_param_);
                         if (candidates.size() < elementsToKeep) {
                             candidates.emplace(distance, cand);
@@ -1137,7 +1140,7 @@ namespace hnswlib {
             }
 
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            if (has_deletions_) {                
+            if (has_deletions_) {
                 top_candidates=searchBaseLayerST<true,true>(
                         currObj, query_data, std::max(ef_, k));
             }
@@ -1186,19 +1189,19 @@ namespace hnswlib {
                     std::unordered_set<tableint> s;
                     for (int j=0; j<size; j++){
                         assert(data[j] > 0);
-                        assert(data[j] < cur_element_count);                                                
+                        assert(data[j] < cur_element_count);
                         assert (data[j] != i);
                         inbound_connections_num[data[j]]++;
                         s.insert(data[j]);
                         connections_checked++;
-                        
+
                     }
                     assert(s.size() == size);
                 }
             }
             if(cur_element_count > 1){
                 int min1=inbound_connections_num[0], max1=inbound_connections_num[0];
-                for(int i=0; i < cur_element_count; i++){                
+                for(int i=0; i < cur_element_count; i++){
                     assert(inbound_connections_num[i] > 0);
                     min1=std::min(inbound_connections_num[i],min1);
                     max1=std::max(inbound_connections_num[i],max1);
@@ -1206,7 +1209,7 @@ namespace hnswlib {
                 std::cout << "Min inbound: " << min1 << ", Max inbound:" << max1 << "\n";
             }
             std::cout << "integrity ok, checked " << connections_checked << " connections\n";
-            
+
         }
 
     };
