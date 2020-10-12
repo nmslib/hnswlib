@@ -13,7 +13,7 @@ namespace py = pybind11;
  * only handles a subset of functionality (no reductions etc)
  * Process ids from start (inclusive) to end (EXCLUSIVE)
  *
- * The method is borrowed from nmslib 
+ * The method is borrowed from nmslib
  */
 template<class Function>
 inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn) {
@@ -74,24 +74,24 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 template<typename dist_t, typename data_t=float>
 class Index {
 public:
-    Index(const std::string &space_name, const int dim) :
-            space_name(space_name), dim(dim) {
-        normalize=false;
-        if(space_name=="l2") {
-            l2space = new hnswlib::L2Space(dim);
-        }
-        else if(space_name=="ip") {
-            l2space = new hnswlib::InnerProductSpace(dim);
-        }
-        else if(space_name=="cosine") {
-            l2space = new hnswlib::InnerProductSpace(dim);
-            normalize=true;
-        }
-        appr_alg = NULL;
-        ep_added = true;
-        index_inited = false;
-        num_threads_default = std::thread::hardware_concurrency();
+  Index(const std::string &space_name, const int dim) :
+  space_name(space_name), dim(dim) {
+    normalize=false;
+    if(space_name=="l2") {
+      l2space = new hnswlib::L2Space(dim);
     }
+    else if(space_name=="ip") {
+      l2space = new hnswlib::InnerProductSpace(dim);
+    }
+    else if(space_name=="cosine") {
+      l2space = new hnswlib::InnerProductSpace(dim);
+      normalize=true;
+    }
+    appr_alg = NULL;
+    ep_added = true;
+    index_inited = false;
+    num_threads_default = std::thread::hardware_concurrency();
+  }
 
     void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
         if (appr_alg) {
@@ -103,17 +103,12 @@ public:
         ep_added = false;
     }
 
+
+
     void set_ef(size_t ef) {
         appr_alg->ef_ = ef;
     }
 
-    size_t get_ef_construction() {
-        return appr_alg->ef_construction_;
-    }
-
-    size_t get_M() {
-        return appr_alg->M_;
-    }
 
     void set_num_threads(int num_threads) {
         this->num_threads_default = num_threads;
@@ -122,15 +117,28 @@ public:
     void saveIndex(const std::string &path_to_index) {
         appr_alg->saveIndex(path_to_index);
     }
+    void saveIndexToStream(std::ostream & output) const {
+        appr_alg->saveIndexToStream(output);
+    }
+
+    void loadIndexFromStream(std::istream & input, size_t max_elements) {
+      if (appr_alg) {
+          std::cerr<<"Warning: Calling load_index from istream for an already inited index. Old index is being deallocated." << std::endl;
+          delete appr_alg;
+      }
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, input, false, max_elements);
+      cur_l = appr_alg->cur_element_count;
+    }
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
-        if (appr_alg) {
-            std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
-            delete appr_alg;
-        }
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
-		cur_l = appr_alg->cur_element_count;
+      if (appr_alg) {
+          std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+          delete appr_alg;
+      }
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
+      cur_l = appr_alg->cur_element_count;
     }
+
 	void normalize_vector(float *data, float *norm_array){
 		float norm=0.0f;
 		for(int i=0;i<dim;i++)
@@ -189,20 +197,19 @@ public:
 
         {
 
-            int start = 0;
-            if (!ep_added) {
-                size_t id = ids.size() ? ids.at(0) : (cur_l);
-				float *vector_data=(float *) items.data(0);
-                                std::vector<float> norm_array(dim);
-				if(normalize){					
-					normalize_vector(vector_data, norm_array.data());					
-					vector_data = norm_array.data();
-					
-				}
-				appr_alg->addPoint((void *) vector_data, (size_t) id);
-                start = 1;
-                ep_added = true;
+          int start = 0;
+          if (!ep_added) {
+            size_t id = ids.size() ? ids.at(0) : (cur_l);
+            float *vector_data=(float *) items.data(0);
+            std::vector<float> norm_array(dim);
+            if(normalize){
+              normalize_vector(vector_data, norm_array.data());
+              vector_data = norm_array.data();
             }
+            appr_alg->addPoint((void *) vector_data, (size_t) id);
+            start = 1;
+            ep_added = true;
+          }
 
             py::gil_scoped_release l;
             if(normalize==false) {
@@ -214,7 +221,7 @@ public:
                 std::vector<float> norm_array(num_threads * dim);
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     // normalize vector:
-					size_t start_idx = threadId * dim;
+					           size_t start_idx = threadId * dim;
                     normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
@@ -370,7 +377,6 @@ public:
     std::string space_name;
     int dim;
 
-
     bool index_inited;
     bool ep_added;
     bool normalize;
@@ -386,31 +392,87 @@ public:
     }
 };
 
+
+
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
         py::class_<Index<float>>(m, "Index")
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
-        .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16,
-        py::arg("ef_construction")=200, py::arg("random_seed")=100)
+        .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16, py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads")=-1)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
-        .def("get_ef_construction", &Index<float>::get_ef_construction)
-        .def("get_M", &Index<float>::get_M)
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
-        .def("get_max_elements", &Index<float>::getMaxElements)
-        .def("get_current_count", &Index<float>::getCurrentCount)
-        .def("__repr__",
-        [](const Index<float> &a) {
-            return "<HNSW-lib index>";
-        }
-        );
+        .def_readonly("space_name", &Index<float>::space_name)
+        .def_readonly("dim", &Index<float>::dim)
+        .def_readwrite("num_threads", &Index<float>::num_threads_default)
+        .def_property("ef",
+          [](const Index<float> & index) {
+            return index.index_inited ? index.appr_alg->ef_ : 10;
+          },
+          [](Index<float> & index, const size_t ef_) {
+            if (index.index_inited)
+              index.appr_alg->ef_ = ef_;
+            else
+              throw std::runtime_error("must call init_index prior to setting ef parameter");
+        })
+        .def_property_readonly("max_elements", [](const Index<float> & index) {
+            return index.index_inited ? index.appr_alg->max_elements_ : 0;
+        })
+        .def_property_readonly("element_count", [](const Index<float> & index) {
+            return index.index_inited ? index.appr_alg->cur_element_count : 0;
+        })
+        .def_property_readonly("ef_construction", [](const Index<float> & index) {
+          return index.index_inited ? index.appr_alg->ef_construction_ : 0;
+        })
+        .def_property_readonly("M",  [](const Index<float> & index) {
+          return index.index_inited ? index.appr_alg->M_ : 0;
+        })
+        .def("__getstate__", [](const Index<float> & index) { // __getstate__
+              std::stringstream output(std::stringstream::out|std::stringstream::binary);
+
+
+              if (index.index_inited)
+                index.saveIndexToStream(output);
+
+              /* Return a tuple that fully encodes the state of the object */
+              return py::make_tuple(index.space_name, index.dim,
+                                    index.index_inited, index.ep_added,
+                                    index.normalize, index.num_threads_default,
+                                    py::bytes(output.str()),
+                                    index.index_inited == false ? 10 : index.appr_alg->ef_,
+                                    index.index_inited == false ? 0  : index.appr_alg->max_elements_,
+                                    index.index_inited == false ? 0  : index.appr_alg->cur_element_count
+                                  );
+        })
+        .def("__setstate__", [](Index<float> & index, py::tuple t) { // __setstate__
+              if (t.size() != 10)
+                  throw std::runtime_error("Invalid state!");
+
+              /* Invoke Index constructor (need to use in-place version) */
+              new (&index) Index<float>(t[0].cast<std::string>(), t[1].cast<int>());
+              index.index_inited=t[2].cast<bool>();
+              index.ep_added=t[3].cast<bool>();
+              index.normalize=t[4].cast<bool>();
+              index.num_threads_default=t[5].cast<int>();
+
+              if (index.index_inited){
+                std::stringstream input(t[6].cast<std::string>(), std::stringstream::in|std::stringstream::binary);
+                index.loadIndexFromStream(input, t[8].cast<int>()); // use max_elements from state
+                index.appr_alg->ef_=(t[7].cast<size_t>());
+              }
+
+        })
+        .def("__repr__", [](const Index<float> &a) {
+            return "<hnswlib.Index(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
+        });
+
         return m.ptr();
 }
