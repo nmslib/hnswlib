@@ -86,15 +86,15 @@ Read-only properties of Index class:
 
 * `ef_construction` - parameter that controls speed/accuracy trade-off during the index construction. 
 
-* `max_elements` - current capacity of the index (equivalent to `p.get_max_elements()`). 
+* `max_elements` - current capacity of the index. Equivalent to `p.get_max_elements()`. 
 
-* `element_count` - number of items in the index (equivalent to `p.get_current_count()`). 
+* `element_count` - number of items in the index. Equivalent to `p.get_current_count()`. 
 
 Properties of Index class that support reading and writing:
 
 * `ef` - parameter controlling query time/accuracy trade-off. Note that setting property `p.ef` prior to index initialization with `p.init_index(...)` will raise an error. 
 
-* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to `p.num_threads=3`.
+* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to setting `p.num_threads=3`.
 
   
         
@@ -133,8 +133,8 @@ p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle 
 ### Index parameters are exposed as class properties:
 print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim}") 
 print(f"Index construction: M={p_copy.M}, ef_construction={p_copy.ef_construction}")
-print(f"Index size and capacity:   element_count={p_copy.element_count}, max_elements={p_copy.max_elements}")
-print(f"Search parameter: ef={p_copy.ef}")
+print(f"Index size is {p_copy.element_count} and index capacity is {p_copy.max_elements}")
+print(f"Search speed/quality trade-off parameter: ef={p_copy.ef}")
 
 ```
 
