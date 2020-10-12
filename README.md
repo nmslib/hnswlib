@@ -76,7 +76,17 @@ Index methods:
 
 * `get_current_count()` - returns the current number of element stored in the index
 
-   
+Index properties:
+
+* `space` - name of the space (can be one of 'l2', 'ip', 'cosine'). This property is read-only.
+* `dim`   - dimensionality of the space. This property is read-only.
+* `M` - parameter that defines the maximum number of outgoing connections in the graph. This property is read-only.
+* `ef_construction` - parameter that controls speed/accuracy trade-off during the index construction. This property is read-only.
+* `ef` - parameter controlling query time/accuracy trade-off. This property supports read and write operations. Note: setting property `p.ef` prior to index initialization with `p.init_index(...)` will raise an error. 
+* `num_threads` - number of threads used in `add_items` or `knn_query` by default. This property supports read and write operations. Calling `p.set_num_threads(3)` is equivalent to `p.num_threads=3`.
+* `max_elements` - current capacity of the index (equivalent to `p.get_max_elements()`). This property is read-only.
+* `element_count` - number of items in the index (equivalent to `p.get_current_count()`). This property is read-only.
+
         
         
   
@@ -84,6 +94,7 @@ Index methods:
 ```python
 import hnswlib
 import numpy as np
+import pickle
 
 dim = 128
 num_elements = 10000
@@ -106,6 +117,12 @@ p.set_ef(50) # ef should always be > k
 
 # Query dataset, k - number of closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
+
+# Index objects support pickling:
+p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p
+
+print(f"Index parameters: space={p_copy.space}, dim={p_copy.dim}, M={p_copy.M}, ef_construction={p_copy.ef_construction} ")
+print(f"                  ef={p_copy.ef}, element_count={p_copy.element_count}, max_elements={p_copy.max_elements}")
 ```
 
 An example with updates after serialization/deserialization:
