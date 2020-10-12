@@ -128,7 +128,7 @@ p.set_ef(50) # ef should always be > k
 labels, distances = p.knn_query(data, k = 1)
 
 # Index objects support pickling:
-p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p
+p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle round-trip
 
 ### Index parameters are exposed as class properties:
 print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim}") 
