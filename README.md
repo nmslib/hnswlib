@@ -37,7 +37,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 #### Short API description
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
-Index methods:
+`hnswlib.Index` methods:
 * `init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
@@ -76,7 +76,7 @@ Index methods:
 
 * `get_current_count()` - returns the current number of element stored in the index
 
-Read-only properties of Index class:
+Read-only properties of `hnswlib.Index` class:
 
 * `space` - name of the space (can be one of "l2", "ip", or "cosine"). 
 
@@ -90,7 +90,7 @@ Read-only properties of Index class:
 
 * `element_count` - number of items in the index. Equivalent to `p.get_current_count()`. 
 
-Properties of Index class that support reading and writing:
+Properties of `hnswlib.Index` that support reading and writing:
 
 * `ef` - parameter controlling query time/accuracy trade-off. Note that setting property `p.ef` prior to index initialization with `p.init_index(...)` will raise an error. 
 
