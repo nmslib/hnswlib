@@ -55,7 +55,7 @@ class PickleSelfTestCase(unittest.TestCase):
         ef = 725
 
         num_elements = 5000
-        num_test_elements = 100
+        num_test_elements = 200
 
         num_threads = 4
         k = 15
