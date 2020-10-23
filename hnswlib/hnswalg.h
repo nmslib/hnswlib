@@ -874,7 +874,7 @@ namespace hnswlib {
                     for (auto&& cand : sCand) {
                         if (cand == neigh)
                             continue;
-                        
+
                         dist_t distance = fstdistfunc_(getDataByInternalId(neigh), getDataByInternalId(cand), dist_func_param_);
                         if (candidates.size() < elementsToKeep) {
                             candidates.emplace(distance, cand);
@@ -1137,7 +1137,7 @@ namespace hnswlib {
             }
 
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            if (has_deletions_) {                
+            if (has_deletions_) {
                 top_candidates=searchBaseLayerST<true,true>(
                         currObj, query_data, std::max(ef_, k));
             }
@@ -1186,19 +1186,19 @@ namespace hnswlib {
                     std::unordered_set<tableint> s;
                     for (int j=0; j<size; j++){
                         assert(data[j] > 0);
-                        assert(data[j] < cur_element_count);                                                
+                        assert(data[j] < cur_element_count);
                         assert (data[j] != i);
                         inbound_connections_num[data[j]]++;
                         s.insert(data[j]);
                         connections_checked++;
-                        
+
                     }
                     assert(s.size() == size);
                 }
             }
             if(cur_element_count > 1){
                 int min1=inbound_connections_num[0], max1=inbound_connections_num[0];
-                for(int i=0; i < cur_element_count; i++){                
+                for(int i=0; i < cur_element_count; i++){
                     assert(inbound_connections_num[i] > 0);
                     min1=std::min(inbound_connections_num[i],min1);
                     max1=std::max(inbound_connections_num[i],max1);
@@ -1206,7 +1206,7 @@ namespace hnswlib {
                 std::cout << "Min inbound: " << min1 << ", Max inbound:" << max1 << "\n";
             }
             std::cout << "integrity ok, checked " << connections_checked << " connections\n";
-            
+
         }
 
     };
