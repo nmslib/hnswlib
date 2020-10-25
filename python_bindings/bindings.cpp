@@ -73,43 +73,6 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 
 }
 
-//
-// std::priority_queue<std::pair<dist_t, labeltype >>
-// searchKnn(const void *query_data, size_t k) const {
-//     std::priority_queue<std::pair<dist_t, labeltype >> result;
-//     if (cur_element_count == 0) return result;
-//
-//     tableint currObj = enterpoint_node_;
-//     dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
-//
-//     for (int level = maxlevel_; level > 0; level--) {
-//         bool changed = true;
-//         while (changed) {
-//             changed = false;
-//             unsigned int *data;
-//
-//             data = (unsigned int *) get_linklist(currObj, level);
-//             int size = getListCount(data);
-//             metric_hops++;
-//             metric_distance_computations+=size;
-//
-//             tableint *datal = (tableint *) (data + 1);
-//             for (int i = 0; i < size; i++) {
-//                 tableint cand = datal[i];
-//                 if (cand < 0 || cand > max_elements_)
-//                     throw std::runtime_error("cand error");
-//                 dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
-//
-//                 if (d < curdist) {
-//                     curdist = d;
-//                     currObj = cand;
-//                     changed = true;
-//                 }
-//             }
-//         }
-//     }
-//
-
 
 template<typename dist_t, typename data_t=float>
 class Index {
@@ -321,10 +284,18 @@ public:
 
 
     py::tuple getAnnData() const {
+      std::unique_lock <std::mutex> templock(appr_alg->global);
 
       unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
-      unsigned int link_npy_size = appr_alg->cur_element_count * appr_alg->maxlevel_ * appr_alg->size_links_per_element_;
-      unsigned int link_npy_stride = appr_alg->maxlevel_ * appr_alg->size_links_per_element_;
+      unsigned int link_npy_size = 0;
+      std::vector<unsigned int> link_npy_offsets(appr_alg->cur_element_count);
+
+      for (size_t i = 0; i < appr_alg->cur_element_count; i++){
+        unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+        link_npy_offsets[i]=link_npy_size;
+        if (linkListSize)
+          link_npy_size += linkListSize;
+      }
 
       char* data_level0_npy = (char *) malloc(level0_npy_size);
       char* link_list_npy = (char *) malloc(link_npy_size);
@@ -338,7 +309,7 @@ public:
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
         unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
         if (linkListSize){
-          memcpy(link_list_npy+(link_npy_stride * i), appr_alg->linkLists_[i], linkListSize);
+          memcpy(link_list_npy+link_npy_offsets[i], appr_alg->linkLists_[i], linkListSize);
         }
       }
 
@@ -367,12 +338,12 @@ public:
                             appr_alg->size_links_per_element_,
                             appr_alg->label_lookup_,
                             appr_alg->element_levels_,
-                            new py::array_t<char>(
+                            py::array_t<char>(
                                     {level0_npy_size}, // shape
                                     {sizeof(char)}, // C-style contiguous strides for double
                                     data_level0_npy, // the data pointer
                                     free_when_done_l0),
-                            new py::array_t<char>(
+                            py::array_t<char>(
                                     {link_npy_size}, // shape
                                     {sizeof(char)}, // C-style contiguous strides for double
                                     link_list_npy, // the data pointer
@@ -401,7 +372,6 @@ public:
 
       new_index->seed = index_params[6].cast<size_t>();
 
-
       if (index_inited_){
         ////                      hnswlib::HierarchicalNSW<dist_t>(l2space,            maxElements,                  M,                             efConstruction,                random_seed);
         new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t>(new_index->l2space, ann_params[1].cast<size_t>(), ann_params[10].cast<size_t>(), ann_params[12].cast<size_t>(), new_index->seed);
@@ -420,7 +390,14 @@ public:
       return new_index;
     }
 
+    static Index<float> * createFromIndex(const Index<float> & index) {
+      return createFromParams(index.getIndexParams());
+    }
+
     void setAnnData(const py::tuple t) {
+
+      std::unique_lock <std::mutex> templock(appr_alg->global);
+
       assert_true(appr_alg->offsetLevel0_ == t[0].cast<size_t>(), "Invalid value of offsetLevel0_ ");
       assert_true(appr_alg->max_elements_ == t[1].cast<size_t>(), "Invalid value of max_elements_ ");
 
@@ -448,6 +425,8 @@ public:
       auto data_level0_npy = t[18].cast<py::array_t<char>>();
       auto link_list_npy = t[19].cast<py::array_t<char>>();
 
+
+
       for (auto el: label_lookup_dict){
         appr_alg->label_lookup_.insert(
           std::make_pair(
@@ -462,6 +441,15 @@ public:
         idx++;
       }
 
+      unsigned int link_npy_size = 0;
+      std::vector<unsigned int> link_npy_offsets(appr_alg->cur_element_count);
+
+      for (size_t i = 0; i < appr_alg->cur_element_count; i++){
+        unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+        link_npy_offsets[i]=link_npy_size;
+        if (linkListSize)
+          link_npy_size += linkListSize;
+      }
 
       memcpy(appr_alg->data_level0_memory_, data_level0_npy.data(), data_level0_npy.nbytes());
 
@@ -474,17 +462,11 @@ public:
             if (appr_alg->linkLists_[i] == nullptr)
                 throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
 
-            memcpy(appr_alg->linkLists_[i], (link_list_npy.data()+(appr_alg->maxlevel_ * appr_alg->size_links_per_element_ * i)), linkListSize);
+            memcpy(appr_alg->linkLists_[i], link_list_npy.data()+link_npy_offsets[i], linkListSize);
 
           }
       }
 
-
-      // TODO: use global lock for de-/serialization
-      // std::unique_lock <std::mutex> templock(global);
-      // int maxlevelcopy = maxlevel_;
-      // if (curlevel <= maxlevelcopy)
-      //     templock.unlock();
 
     }
 
@@ -609,9 +591,9 @@ public:
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
-        // py::class_<Index<float>, std::shared_ptr<Index<float> >>(m, "Index")
         py::class_<Index<float>>(m, "Index")
         .def(py::init(&Index<float>::createFromParams), py::arg("params")) //createFromParams(const py::tuple t)
+        .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16, py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
@@ -660,12 +642,6 @@ PYBIND11_PLUGIN(hnswlib) {
                 return Index<float>::createFromParams(t);
             }
         ))
-
-        .def("check_integrity", [](const Index<float> & index) {
-          index.appr_alg->checkIntegrity();
-          std::cout<< index.default_ef << " " << index.appr_alg->ef_ << std::endl;
-          return index.appr_alg->ef_;
-        })
 
         .def("__repr__", [](const Index<float> &a) {
             return "<hnswlib.Index(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
