@@ -360,7 +360,7 @@ public:
     }
 
 
-    static Index<float> * createFromParams(const py::tuple t) {
+    static Index<float> * createFromParams(const py::tuple & t) {
       py::tuple index_params=t[0].cast<py::tuple>();
       py::tuple ann_params=t[1].cast<py::tuple>();
 
@@ -394,7 +394,7 @@ public:
       return createFromParams(index.getIndexParams());
     }
 
-    void setAnnData(const py::tuple t) {
+    void setAnnData(const py::tuple & t) {
 
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
@@ -471,7 +471,7 @@ public:
     }
 
 
-    py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
+    py::object knnQuery_return_numpy(py::object & input, size_t k = 1, int num_threads = -1) {
 
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
@@ -636,7 +636,7 @@ PYBIND11_PLUGIN(hnswlib) {
                 /* Return a tuple that fully encodes the state of the object */
                 return ind.getIndexParams();
             },
-            [](py::tuple t) { // __setstate__
+            [](py::tuple & t) { // __setstate__
                 if (t.size() != 2)
                     throw std::runtime_error("Invalid state!");
                 return Index<float>::createFromParams(t);
