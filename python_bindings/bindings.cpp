@@ -273,7 +273,7 @@ public:
                 std::vector<float> norm_array(num_threads * dim);
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     // normalize vector:
-					           size_t start_idx = threadId * dim;
+                    size_t start_idx = threadId * dim;
                     normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l+row);
@@ -339,7 +339,6 @@ public:
         unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
         if (linkListSize){
           memcpy(link_list_npy+(link_npy_stride * i), appr_alg->linkLists_[i], linkListSize);
-          // std::cout << linkListSize << " " << appr_alg->maxlevel_ << " " << appr_alg->element_levels_[i] << " generator: " << appr_alg->level_generator_ << std::endl;
         }
       }
 
@@ -368,12 +367,12 @@ public:
                             appr_alg->size_links_per_element_,
                             appr_alg->label_lookup_,
                             appr_alg->element_levels_,
-                            py::array_t<char>(
+                            new py::array_t<char>(
                                     {level0_npy_size}, // shape
                                     {sizeof(char)}, // C-style contiguous strides for double
                                     data_level0_npy, // the data pointer
                                     free_when_done_l0),
-                            py::array_t<char>(
+                            new py::array_t<char>(
                                     {link_npy_size}, // shape
                                     {sizeof(char)}, // C-style contiguous strides for double
                                     link_list_npy, // the data pointer
@@ -546,7 +545,7 @@ public:
                                 float *data= (float *) items.data(row);
 
                                 size_t start_idx = threadId * dim;
-			                          normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
+                                normalize_vector((float *) items.data(row), (norm_array.data()+start_idx));
 
                                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                                         (void *) (norm_array.data()+start_idx), k);
@@ -633,15 +632,9 @@ PYBIND11_PLUGIN(hnswlib) {
             return index.index_inited ? index.appr_alg->ef_ : index.default_ef;
           },
           [](Index<float> & index, const size_t ef_) {
-            // index.set_ef(ef_);
             index.default_ef=ef_;
             if (index.appr_alg)
               index.appr_alg->ef_ = ef_;
-
-            // if (index.index_inited)
-              // index.appr_alg->ef_ = ef_;
-            // else
-              // throw std::runtime_error("must call init_index prior to setting ef parameter");
         })
         .def_property_readonly("max_elements", [](const Index<float> & index) {
             return index.index_inited ? index.appr_alg->max_elements_ : 0;
@@ -672,109 +665,8 @@ PYBIND11_PLUGIN(hnswlib) {
           index.appr_alg->checkIntegrity();
           std::cout<< index.default_ef << " " << index.appr_alg->ef_ << std::endl;
           return index.appr_alg->ef_;
-              // return index.getIndexParams();
-              // return index.appr_alg->element_levels_;
-
-              // std::stringstream output(std::stringstream::out|std::stringstream::binary);
-              //
-              // .def("get_params", &Index<float>::getIndexParams)
-              // .def("set_params",  &Index<float>::setIndexParams,  py::arg("t"))// [](Index<float> & index, py::tuple t) {
-              //
-              // if (index.index_inited)
-              //   index.saveIndexToStream(output);
-              //
-              // /* Return a tuple that fully encodes the state of the object */
-              // return py::make_tuple(index.space_name, index.dim,
-              //                       index.index_inited, index.ep_added,
-              //                       index.normalize, index.num_threads_default,
-              //                       py::bytes(output.str()),
-              //                       index.index_inited == false ? 10 : index.appr_alg->ef_,
-              //                       index.index_inited == false ? 0  : index.appr_alg->max_elements_,
-              //                       index.index_inited == false ? 0  : index.appr_alg->cur_element_count
-              //                     );
         })
 
-
-                    // .def(py::pickle(
-        //     [](const Index<float> & index) { // __getstate__
-        //         /* Return a tuple that fully encodes the state of the object */
-        //         return index.getIndexParams();
-        //     },
-        //     [](Index<float> & index, py::tuple t) { // __setstate__
-        //         if (t.size() != 2)
-        //             throw std::runtime_error("Invalid state!");
-        //
-        //         /* Invoke Index constructor (need to use in-place version) */
-        //         // py::tuple index_params = t[0].cast<py::tuple>();
-        //         // Index<float> new_index(index_params[0].cast<std::string>(), index_params[1].cast<int>());
-        //         index.setIndexParams(t);
-        //         return  index;
-        //
-        //         /* Create a new C++ instance */
-        //         // Pickleable p(t[0].cast<std::string>());
-        //
-        //         /* Assign any additional state */
-        //         // p.setExtra(t[1].cast<int>());
-        //
-        //         // return p;
-        //     }
-        // ))
-
-        // .def("__getstate__", &Index<float>::getIndexParams) // __getstate__
-        // .def("__setstate__", &Index<float>::setIndexParams)  // __setstate__
-          // .def("__setstate__", [](Index<float> & index, py::tuple t) { // __setstate__
-            // py::tuple index_params = t[0].cast<py::tuple>();
-            // new (&index) Index<float>(index_params[0].cast<std::string>(), index_params[1].cast<int>());
-            // index.setIndexParams(t);
-            // return index;
-        // })
-        // .def("__getstate__", [](const Index<float> & index) { // __getstate__
-        //       return index.getIndexParams();
-        //
-        //       // std::stringstream output(std::stringstream::out|std::stringstream::binary);
-        //       //
-        //       // .def("get_params", &Index<float>::getIndexParams)
-        //       // .def("set_params",  &Index<float>::setIndexParams,  py::arg("t"))// [](Index<float> & index, py::tuple t) {
-        //       //
-        //       // if (index.index_inited)
-        //       //   index.saveIndexToStream(output);
-        //       //
-        //       // /* Return a tuple that fully encodes the state of the object */
-        //       // return py::make_tuple(index.space_name, index.dim,
-        //       //                       index.index_inited, index.ep_added,
-        //       //                       index.normalize, index.num_threads_default,
-        //       //                       py::bytes(output.str()),
-        //       //                       index.index_inited == false ? 10 : index.appr_alg->ef_,
-        //       //                       index.index_inited == false ? 0  : index.appr_alg->max_elements_,
-        //       //                       index.index_inited == false ? 0  : index.appr_alg->cur_element_count
-        //       //                     );
-        // })
-        // .def("set_state", [](Index<float> & index, py::tuple t) { // __setstate__
-        //   index.setIndexParams(t);
-        // })
-        //
-        // .def("__setstate__", [](Index<float> & index, py::tuple t) { // __setstate__
-        //       // delete &index;
-        //       /* Invoke Index constructor (need to use in-place version) */
-        //       // py::tuple index_params = t[0].cast<py::tuple>();
-        //       // new (&index) Index<float>(index_params[0].cast<std::string>(), index_params[1].cast<int>());
-        //       index.setIndexParams(t);
-        //       // if (t.size() != 10)
-        //       //     throw std::runtime_error("Invalid state!");
-        //       //
-        //
-        //       // index.index_inited=t[2].cast<bool>();
-        //       // index.ep_added=t[3].cast<bool>();
-        //       // index.normalize=t[4].cast<bool>();
-        //       // index.num_threads_default=t[5].cast<int>();
-        //       //
-        //       // if (index.index_inited){
-        //       //   std::stringstream input(t[6].cast<std::string>(), std::stringstream::in|std::stringstream::binary);
-        //       //   index.loadIndexFromStream(input, t[8].cast<int>()); // use max_elements from state
-        //       //   index.appr_alg->ef_=(t[7].cast<size_t>());
-        //       // }
-        //
-        // })
         .def("__repr__", [](const Index<float> &a) {
             return "<hnswlib.Index(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
         });
