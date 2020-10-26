@@ -299,12 +299,27 @@ public:
 
       char* data_level0_npy = (char *) malloc(level0_npy_size);
       char* link_list_npy = (char *) malloc(link_npy_size);
+      int* element_levels_npy = (int *) malloc(appr_alg->element_levels_.size()*sizeof(int));
+
+      // std::unordered_map<labeltype, tableint> label_lookup_;
+      hnswlib::labeltype* label_lookup_key_npy = (hnswlib::labeltype *) malloc(appr_alg->label_lookup_.size()*sizeof(hnswlib::labeltype));
+      hnswlib::tableint*  label_lookup_val_npy = (hnswlib::tableint *)  malloc(appr_alg->label_lookup_.size()*sizeof(hnswlib::tableint));
+
+      memset(label_lookup_key_npy, -1, appr_alg->label_lookup_.size()*sizeof(hnswlib::labeltype));
+      memset(label_lookup_val_npy, -1, appr_alg->label_lookup_.size()*sizeof(hnswlib::tableint));
+
+      size_t idx=0;
+      for ( auto it = appr_alg->label_lookup_.begin(); it != appr_alg->label_lookup_.end(); ++it ){
+        label_lookup_key_npy[idx]= it->first;
+        label_lookup_val_npy[idx]= it->second;
+        idx++;
+      }
 
       memset(data_level0_npy, 0, level0_npy_size);
       memset(link_list_npy, 0, link_npy_size);
 
       memcpy(data_level0_npy, appr_alg->data_level0_memory_, level0_npy_size);
-
+      memcpy(element_levels_npy, appr_alg->element_levels_.data(), appr_alg->element_levels_.size() * sizeof(int));
 
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
         unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
@@ -314,6 +329,15 @@ public:
       }
 
       py::capsule free_when_done_l0(data_level0_npy, [](void *f) {
+          delete[] f;
+      });
+      py::capsule free_when_done_lvl(element_levels_npy, [](void *f) {
+          delete[] f;
+      });
+      py::capsule free_when_done_lb(label_lookup_key_npy, [](void *f) {
+          delete[] f;
+      });
+      py::capsule free_when_done_id(label_lookup_val_npy, [](void *f) {
           delete[] f;
       });
       py::capsule free_when_done_ll(link_list_npy, [](void *f) {
@@ -336,8 +360,21 @@ public:
                             appr_alg->ef_,
                             appr_alg->has_deletions_,
                             appr_alg->size_links_per_element_,
-                            appr_alg->label_lookup_,
-                            appr_alg->element_levels_,
+                            py::array_t<hnswlib::labeltype>(
+                                    {appr_alg->label_lookup_.size()}, // shape
+                                    {sizeof(hnswlib::labeltype)}, // C-style contiguous strides for double
+                                    label_lookup_key_npy, // the data pointer
+                                    free_when_done_lb),
+                            py::array_t<hnswlib::tableint>(
+                                    {appr_alg->label_lookup_.size()}, // shape
+                                    {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
+                                    label_lookup_val_npy, // the data pointer
+                                    free_when_done_id),
+                            py::array_t<int>(
+                                    {appr_alg->element_levels_.size()}, // shape
+                                    {sizeof(int)}, // C-style contiguous strides for double
+                                    element_levels_npy, // the data pointer
+                                    free_when_done_lvl),
                             py::array_t<char>(
                                     {level0_npy_size}, // shape
                                     {sizeof(char)}, // C-style contiguous strides for double
@@ -360,7 +397,7 @@ public:
     }
 
 
-    static Index<float> * createFromParams(const py::tuple & t) {
+    static Index<float> * createFromParams(const py::tuple t) {
       py::tuple index_params=t[0].cast<py::tuple>();
       py::tuple ann_params=t[1].cast<py::tuple>();
 
@@ -394,7 +431,7 @@ public:
       return createFromParams(index.getIndexParams());
     }
 
-    void setAnnData(const py::tuple & t) {
+    void setAnnData(const py::tuple t) {
 
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
@@ -420,26 +457,23 @@ public:
       appr_alg->has_deletions_=t[14].cast<bool>();
       assert_true(appr_alg->size_links_per_element_ == t[15].cast<size_t>(), "Invalid value of size_links_per_element_ ");
 
-      auto label_lookup_dict = t[16].cast<py::dict>();
-      auto element_levels_list = t[17].cast<py::list>();
-      auto data_level0_npy = t[18].cast<py::array_t<char>>();
-      auto link_list_npy = t[19].cast<py::array_t<char>>();
+      // std::unordered_map<labeltype, tableint> label_lookup_;
+      auto label_lookup_key_npy = t[16].cast<py::array_t < hnswlib::labeltype, py::array::c_style | py::array::forcecast > >();
+      auto label_lookup_val_npy = t[17].cast<py::array_t < hnswlib::tableint, py::array::c_style | py::array::forcecast > >();
+      auto element_levels_npy = t[18].cast<py::array_t < int, py::array::c_style | py::array::forcecast > >();
+      auto data_level0_npy = t[19].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
+      auto link_list_npy = t[20].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
 
-
-
-      for (auto el: label_lookup_dict){
-        appr_alg->label_lookup_.insert(
-          std::make_pair(
-                    el.first.cast<hnswlib::labeltype>(),
-                    el.second.cast<hnswlib::tableint>()));
+      for (size_t i = 0; i < appr_alg->cur_element_count; i++){
+        if (label_lookup_val_npy.data()[i] < 0){
+            throw std::runtime_error("internal id cannot be negative!");
+          }
+        else{
+          appr_alg->label_lookup_.insert(std::make_pair(label_lookup_key_npy.data()[i], label_lookup_val_npy.data()[i]));
+        }
       }
 
-
-      int idx = 0;
-      for (auto el : element_levels_list){
-        appr_alg->element_levels_[idx]=el.cast<int>();
-        idx++;
-      }
+      memcpy(appr_alg->element_levels_.data(), element_levels_npy.data(), element_levels_npy.nbytes());
 
       unsigned int link_npy_size = 0;
       std::vector<unsigned int> link_npy_offsets(appr_alg->cur_element_count);
@@ -467,11 +501,9 @@ public:
           }
       }
 
+}
 
-    }
-
-
-    py::object knnQuery_return_numpy(py::object & input, size_t k = 1, int num_threads = -1) {
+    py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
 
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
@@ -586,8 +618,6 @@ public:
 
 };
 
-
-
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
@@ -636,7 +666,7 @@ PYBIND11_PLUGIN(hnswlib) {
                 /* Return a tuple that fully encodes the state of the object */
                 return ind.getIndexParams();
             },
-            [](py::tuple & t) { // __setstate__
+            [](py::tuple t) { // __setstate__
                 if (t.size() != 2)
                     throw std::runtime_error("Invalid state!");
                 return Index<float>::createFromParams(t);
