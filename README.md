@@ -92,9 +92,9 @@ Read-only properties of `hnswlib.Index` class:
 
 Properties of `hnswlib.Index` that support reading and writing:
 
-* `ef` - parameter controlling query time/accuracy trade-off. Note that setting property `p.ef` prior to index initialization with `p.init_index(...)` will raise an error. 
+* `ef` - parameter controlling query time/accuracy trade-off.
 
-* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to setting `p.num_threads=3`.
+* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to `p.num_threads=3`.
 
   
         
@@ -127,7 +127,9 @@ p.set_ef(50) # ef should always be > k
 # Query dataset, k - number of closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
 
-# Index objects support pickling:
+# Index objects support pickling
+# WARNING: serialization via pickle.dumps(p) or p.__getstate__() is NOT thread-safe with p.add_items method!
+# Note: ef parameter is included in serialization; random number generator is initialized with random_seeed on Index load
 p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle round-trip
 
 ### Index parameters are exposed as class properties:
