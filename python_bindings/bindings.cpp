@@ -154,14 +154,14 @@ public:
       cur_l = appr_alg->cur_element_count;
     }
 
-	void normalize_vector(float *data, float *norm_array){
-		float norm=0.0f;
-		for(int i=0;i<dim;i++)
-			norm+=data[i]*data[i];
-		norm= 1.0f / (sqrtf(norm) + 1e-30f);
-		for(int i=0;i<dim;i++)
-			norm_array[i]=data[i]*norm;
-	}
+    void normalize_vector(float *data, float *norm_array){
+        float norm=0.0f;
+        for(int i=0;i<dim;i++)
+            norm+=data[i]*data[i];
+        norm= 1.0f / (sqrtf(norm) + 1e-30f);
+        for(int i=0;i<dim;i++)
+            norm_array[i]=data[i]*norm;
+    }
 
     void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
@@ -185,7 +185,6 @@ public:
             throw std::runtime_error("wrong dimensionality of the vectors");
 
         // avoid using threads when the number of searches is small:
-
         if(rows<=num_threads*4){
             num_threads=1;
         }
@@ -284,6 +283,7 @@ public:
 
 
     py::tuple getAnnData() const {
+      /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
@@ -301,7 +301,6 @@ public:
       char* link_list_npy = (char *) malloc(link_npy_size);
       int* element_levels_npy = (int *) malloc(appr_alg->element_levels_.size()*sizeof(int));
 
-      // std::unordered_map<labeltype, tableint> label_lookup_;
       hnswlib::labeltype* label_lookup_key_npy = (hnswlib::labeltype *) malloc(appr_alg->label_lookup_.size()*sizeof(hnswlib::labeltype));
       hnswlib::tableint*  label_lookup_val_npy = (hnswlib::tableint *)  malloc(appr_alg->label_lookup_.size()*sizeof(hnswlib::tableint));
 
@@ -315,7 +314,6 @@ public:
         idx++;
       }
 
-      memset(data_level0_npy, 0, level0_npy_size);
       memset(link_list_npy, 0, link_npy_size);
 
       memcpy(data_level0_npy, appr_alg->data_level0_memory_, level0_npy_size);
@@ -391,8 +389,12 @@ public:
 
 
     py::tuple getIndexParams() const {
+        /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
+        /*        for full reproducibility / to avoid re-initializing generators inside Index<float>::createFromParams         */
         return py::make_tuple(py::make_tuple(space_name, dim, index_inited, ep_added, normalize, num_threads_default, seed, default_ef),
                               index_inited == true ? getAnnData() : py::make_tuple());
+                           /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
+                              
 
     }
 
@@ -407,10 +409,11 @@ public:
 
       Index<float> *new_index = new Index<float>(index_params[0].cast<std::string>(), index_params[1].cast<int>());
 
+      /*  TODO: deserialize state of random generators into new_index->level_generator_ and new_index->update_probability_generator_  */
+      /*        for full reproducibility / state of generators is serialized inside Index<float>::getIndexParams                      */
       new_index->seed = index_params[6].cast<size_t>();
 
       if (index_inited_){
-        ////                      hnswlib::HierarchicalNSW<dist_t>(l2space,            maxElements,                  M,                             efConstruction,                random_seed);
         new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t>(new_index->l2space, ann_params[1].cast<size_t>(), ann_params[10].cast<size_t>(), ann_params[12].cast<size_t>(), new_index->seed);
         new_index->cur_l = ann_params[2].cast<size_t>();
       }
@@ -428,11 +431,14 @@ public:
     }
 
     static Index<float> * createFromIndex(const Index<float> & index) {
-      return createFromParams(index.getIndexParams());
+        /* WARNING:     Index<float>::getIndexParams is not thread-safe with Index<float>::addItems */
+        return createFromParams(index.getIndexParams()); 
     }
 
+    
     void setAnnData(const py::tuple t) {
-
+      /* WARNING: Index<float>::setAnnData is not thread-safe with Index<float>::addItems */
+      
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       assert_true(appr_alg->offsetLevel0_ == t[0].cast<size_t>(), "Invalid value of offsetLevel0_ ");
@@ -457,7 +463,6 @@ public:
       appr_alg->has_deletions_=t[14].cast<bool>();
       assert_true(appr_alg->size_links_per_element_ == t[15].cast<size_t>(), "Invalid value of size_links_per_element_ ");
 
-      // std::unordered_map<labeltype, tableint> label_lookup_;
       auto label_lookup_key_npy = t[16].cast<py::array_t < hnswlib::labeltype, py::array::c_style | py::array::forcecast > >();
       auto label_lookup_val_npy = t[17].cast<py::array_t < hnswlib::tableint, py::array::c_style | py::array::forcecast > >();
       auto element_levels_npy = t[18].cast<py::array_t < int, py::array::c_style | py::array::forcecast > >();
@@ -622,8 +627,9 @@ PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
         py::class_<Index<float>>(m, "Index")
-        .def(py::init(&Index<float>::createFromParams), py::arg("params")) //createFromParams(const py::tuple t)
-        .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
+        .def(py::init(&Index<float>::createFromParams), py::arg("params")) 
+           /* WARNING: Index<float>::createFromIndex is not thread-safe with Index<float>::addItems */
+        .def(py::init(&Index<float>::createFromIndex), py::arg("index")) 
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16, py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
@@ -664,6 +670,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def(py::pickle(
             [](const Index<float> &ind) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
+                /* WARNING: Index<float>::getIndexParams is not thread-safe with Index<float>::addItems */
                 return ind.getIndexParams();
             },
             [](py::tuple t) { // __setstate__
