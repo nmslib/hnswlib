@@ -19,9 +19,8 @@ def brute_force_distances(metric, items, query_items, k):
         for jj in range(query_items.shape[0]):
             dists[jj,ii]=get_dist(metric, items[ii, :], query_items[jj, :])
 
-    labels = np.argsort(dists, axis=1)
-    dists = np.sort(dists, axis=1)
-
+    labels = np.argsort(dists, axis=1) # equivalent, but faster: np.argpartition(dists, range(k), axis=1)
+    dists = np.sort(dists, axis=1)     # equivalent, but faster: np.partition(dists, range(k), axis=1)
 
     return labels[:,:k], dists[:,:k]
 
@@ -141,19 +140,14 @@ class PickleUnitTests(unittest.TestCase):
                                  ### number of value pairs that are allowed to be different in d1 and d2
                                  ### i.e., number of values that are (d1-d2)**2>1e-3
 
-    def testInnerProductSpace(self):
+    def test_inner_product_space(self):
         test_space_main(self, 'ip', 48)
 
-    def testL2Space(self):
+    def test_l2_space(self):
         test_space_main(self, 'l2', 153)
 
-    def testCosineSpace(self):
+    def test_cosine_space(self):
         test_space_main(self, 'cosine', 512)
-
-        #
-        # for space,dim in [('ip', 48), ('l2', 152), ('cosine', 512)]:
-        #     test_space_main
-
 
 if __name__ == "__main__":
     unittest.main()
