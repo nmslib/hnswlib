@@ -74,6 +74,7 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 }
 
 
+
 template<typename dist_t, typename data_t=float>
 class Index {
 public:
@@ -96,8 +97,10 @@ public:
     num_threads_default = std::thread::hardware_concurrency();
 
     default_ef=10;
-
   }
+  
+  static const int ser_version = 1; // serialization version
+
   std::string space_name;
   int dim;
   size_t seed;
@@ -282,8 +285,8 @@ public:
     }
 
 
-    py::tuple getAnnData() const {
-      /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
+    py::tuple getAnnData() const { /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
+      
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
@@ -391,7 +394,9 @@ public:
     py::tuple getIndexParams() const {
         /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
         /*        for full reproducibility / to avoid re-initializing generators inside Index<float>::createFromParams         */
-        return py::make_tuple(py::make_tuple(space_name, dim, index_inited, ep_added, normalize, num_threads_default, seed, default_ef),
+        
+        return py::make_tuple(py::int_(Index<float>::ser_version), // serialization version 
+                              py::make_tuple(space_name, dim, index_inited, ep_added, normalize, num_threads_default, seed, default_ef),
                               index_inited == true ? getAnnData() : py::make_tuple());
                            /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
                               
@@ -400,8 +405,12 @@ public:
 
 
     static Index<float> * createFromParams(const py::tuple t) {
-      py::tuple index_params=t[0].cast<py::tuple>();
-      py::tuple ann_params=t[1].cast<py::tuple>();
+    
+      if (py::int_(Index<float>::ser_version) != t[0].cast<int>()) // check serialization version 
+          throw std::runtime_error("Serialization version mismatch!");
+
+      py::tuple index_params=t[1].cast<py::tuple>();
+      py::tuple ann_params=t[2].cast<py::tuple>();
 
       auto space_name_=index_params[0].cast<std::string>();
       auto dim_=index_params[1].cast<int>();
@@ -623,6 +632,8 @@ public:
 
 };
 
+
+
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
@@ -674,7 +685,7 @@ PYBIND11_PLUGIN(hnswlib) {
                 return ind.getIndexParams();
             },
             [](py::tuple t) { // __setstate__
-                if (t.size() != 2)
+                if (t.size() != 3)
                     throw std::runtime_error("Invalid state!");
                 return Index<float>::createFromParams(t);
             }
