@@ -3,9 +3,9 @@ Header-only C++ HNSW implementation with python bindings. Paper's code for the H
 
 **NEWS:**
 
-* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddinds).**
+* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddings).**
 
-* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not mutiple of 4** 
+* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not multiple of 4** 
 
 * **Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib can now be installed via pip!**
 
@@ -49,14 +49,14 @@ Index methods:
     * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(data_label)`  - marks the element as deleted, so it will be ommited from search results.
+* `mark_deleted(data_label)`  - marks the element as deleted, so it will be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
-* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closests elements for each element of the 
+* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closest elements for each element of the 
     * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
@@ -191,7 +191,7 @@ or you can install via pip:
 
 ### Other implementations
 * Non-metric space library (nmslib) - main library(python, C++), supports exotic distances: https://github.com/nmslib/nmslib
-* Faiss libary by facebook, uses own HNSW  implementation for coarse quantization (python, C++):
+* Faiss library by facebook, uses own HNSW  implementation for coarse quantization (python, C++):
 https://github.com/facebookresearch/faiss
 * Code for the paper 
 ["Revisiting the Inverted Indices for Billion-Scale Approximate Nearest Neighbors"](https://arxiv.org/abs/1802.02422) 
