@@ -393,12 +393,14 @@ public:
 
     py::tuple getIndexParams() const {
         /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
-        /*        for full reproducibility / to avoid re-initializing generators inside Index<float>::createFromParams         */
+        /*        for full reproducibility / to avoid re-initializing generators inside Index::createFromParams         */
         
         return py::make_tuple(py::int_(Index<float>::ser_version), // serialization version 
+        
+                              /* TODO: convert the following two py::tuple's to py::dict */
                               py::make_tuple(space_name, dim, index_inited, ep_added, normalize, num_threads_default, seed, default_ef),
-                              index_inited == true ? getAnnData() : py::make_tuple());
-                           /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
+                              index_inited == true ? getAnnData() : py::make_tuple()); /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
+                           
                               
 
     }
@@ -409,8 +411,8 @@ public:
       if (py::int_(Index<float>::ser_version) != t[0].cast<int>()) // check serialization version 
           throw std::runtime_error("Serialization version mismatch!");
 
-      py::tuple index_params=t[1].cast<py::tuple>();
-      py::tuple ann_params=t[2].cast<py::tuple>();
+      py::tuple index_params=t[1].cast<py::tuple>(); /* TODO: convert this py::tuple to py::dict */
+      py::tuple ann_params=t[2].cast<py::tuple>();   /* TODO: convert this py::tuple to py::dict */
 
       auto space_name_=index_params[0].cast<std::string>();
       auto dim_=index_params[1].cast<int>();
