@@ -285,7 +285,7 @@ public:
     }
 
 
-    py::tuple getAnnData() const { /* WARNING: Index<float>::getAnnData is not thread-safe with Index<float>::addItems */
+    py::tuple getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
       
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
@@ -411,8 +411,8 @@ public:
       if (py::int_(Index<float>::ser_version) != t[0].cast<int>()) // check serialization version 
           throw std::runtime_error("Serialization version mismatch!");
 
-      py::tuple index_params=t[1].cast<py::tuple>(); /* TODO: convert this py::tuple to py::dict */
-      py::tuple ann_params=t[2].cast<py::tuple>();   /* TODO: convert this py::tuple to py::dict */
+      py::tuple index_params=t[1].cast<py::tuple>(); /* TODO: convert index_params from py::tuple to py::dict */
+      py::tuple ann_params=t[2].cast<py::tuple>();   /* TODO: convert ann_params from py::tuple to py::dict */
 
       auto space_name_=index_params[0].cast<std::string>();
       auto dim_=index_params[1].cast<int>();
@@ -421,7 +421,7 @@ public:
       Index<float> *new_index = new Index<float>(index_params[0].cast<std::string>(), index_params[1].cast<int>());
 
       /*  TODO: deserialize state of random generators into new_index->level_generator_ and new_index->update_probability_generator_  */
-      /*        for full reproducibility / state of generators is serialized inside Index<float>::getIndexParams                      */
+      /*        for full reproducibility / state of generators is serialized inside Index::getIndexParams                      */
       new_index->seed = index_params[6].cast<size_t>();
 
       if (index_inited_){
@@ -442,13 +442,13 @@ public:
     }
 
     static Index<float> * createFromIndex(const Index<float> & index) {
-        /* WARNING:     Index<float>::getIndexParams is not thread-safe with Index<float>::addItems */
+        /* WARNING:     Index::getIndexParams is not thread-safe with Index::addItems */
         return createFromParams(index.getIndexParams()); 
     }
 
     
     void setAnnData(const py::tuple t) {
-      /* WARNING: Index<float>::setAnnData is not thread-safe with Index<float>::addItems */
+      /* WARNING: Index::setAnnData is not thread-safe with Index::addItems */
       
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
@@ -641,7 +641,7 @@ PYBIND11_PLUGIN(hnswlib) {
 
         py::class_<Index<float>>(m, "Index")
         .def(py::init(&Index<float>::createFromParams), py::arg("params")) 
-           /* WARNING: Index<float>::createFromIndex is not thread-safe with Index<float>::addItems */
+           /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
         .def(py::init(&Index<float>::createFromIndex), py::arg("index")) 
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16, py::arg("ef_construction")=200, py::arg("random_seed")=100)
@@ -683,7 +683,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def(py::pickle(
             [](const Index<float> &ind) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
-                /* WARNING: Index<float>::getIndexParams is not thread-safe with Index<float>::addItems */
+                /* WARNING: Index::getIndexParams is not thread-safe with Index::addItems */
                 return ind.getIndexParams();
             },
             [](py::tuple t) { // __setstate__
