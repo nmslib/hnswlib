@@ -37,7 +37,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 #### Short API description
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
-Index methods:
+`hnswlib.Index` methods:
 * `init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
@@ -76,14 +76,34 @@ Index methods:
 
 * `get_current_count()` - returns the current number of element stored in the index
 
-   
-        
+Read-only properties of `hnswlib.Index` class:
+
+* `space` - name of the space (can be one of "l2", "ip", or "cosine"). 
+
+* `dim`   - dimensionality of the space. 
+
+* `M` - parameter that defines the maximum number of outgoing connections in the graph. 
+
+* `ef_construction` - parameter that controls speed/accuracy trade-off during the index construction. 
+
+* `max_elements` - current capacity of the index. Equivalent to `p.get_max_elements()`. 
+
+* `element_count` - number of items in the index. Equivalent to `p.get_current_count()`. 
+
+Properties of `hnswlib.Index` that support reading and writing:
+
+* `ef` - parameter controlling query time/accuracy trade-off.
+
+* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to `p.num_threads=3`.
+
+  
         
   
 #### Python bindings examples
 ```python
 import hnswlib
 import numpy as np
+import pickle
 
 dim = 128
 num_elements = 10000
@@ -106,6 +126,18 @@ p.set_ef(50) # ef should always be > k
 
 # Query dataset, k - number of closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
+
+# Index objects support pickling
+# WARNING: serialization via pickle.dumps(p) or p.__getstate__() is NOT thread-safe with p.add_items method!
+# Note: ef parameter is included in serialization; random number generator is initialized with random_seeed on Index load
+p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle round-trip
+
+### Index parameters are exposed as class properties:
+print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim}") 
+print(f"Index construction: M={p_copy.M}, ef_construction={p_copy.ef_construction}")
+print(f"Index size is {p_copy.element_count} and index capacity is {p_copy.max_elements}")
+print(f"Search speed/quality trade-off parameter: ef={p_copy.ef}")
+
 ```
 
 An example with updates after serialization/deserialization:
