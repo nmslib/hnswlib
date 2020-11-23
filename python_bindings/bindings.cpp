@@ -98,7 +98,7 @@ public:
 
     default_ef=10;
   }
-  
+
   static const int ser_version = 1; // serialization version
 
   std::string space_name;
@@ -285,8 +285,10 @@ public:
     }
 
 
-    py::tuple getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
-      
+    py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
+
+
+
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
@@ -345,140 +347,197 @@ public:
           delete[] f;
       });
 
-      return py::make_tuple(appr_alg->offsetLevel0_,
-                            appr_alg->max_elements_,
-                            appr_alg->cur_element_count,
-                            appr_alg->size_data_per_element_,
-                            appr_alg->label_offset_,
-                            appr_alg->offsetData_,
-                            appr_alg->maxlevel_,
-                            appr_alg->enterpoint_node_,
-                            appr_alg->maxM_,
-                            appr_alg->maxM0_,
-                            appr_alg->M_,
-                            appr_alg->mult_,
-                            appr_alg->ef_construction_,
-                            appr_alg->ef_,
-                            appr_alg->has_deletions_,
-                            appr_alg->size_links_per_element_,
-                            py::array_t<hnswlib::labeltype>(
-                                    {appr_alg->label_lookup_.size()}, // shape
-                                    {sizeof(hnswlib::labeltype)}, // C-style contiguous strides for double
-                                    label_lookup_key_npy, // the data pointer
-                                    free_when_done_lb),
-                            py::array_t<hnswlib::tableint>(
-                                    {appr_alg->label_lookup_.size()}, // shape
-                                    {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
-                                    label_lookup_val_npy, // the data pointer
-                                    free_when_done_id),
-                            py::array_t<int>(
-                                    {appr_alg->element_levels_.size()}, // shape
-                                    {sizeof(int)}, // C-style contiguous strides for double
-                                    element_levels_npy, // the data pointer
-                                    free_when_done_lvl),
-                            py::array_t<char>(
-                                    {level0_npy_size}, // shape
-                                    {sizeof(char)}, // C-style contiguous strides for double
-                                    data_level0_npy, // the data pointer
-                                    free_when_done_l0),
-                            py::array_t<char>(
-                                    {link_npy_size}, // shape
-                                    {sizeof(char)}, // C-style contiguous strides for double
-                                    link_list_npy, // the data pointer
-                                    free_when_done_ll)
-                          );
+      /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
+      /*        for full reproducibility / to avoid re-initializing generators inside Index::createFromParams         */
+
+      return py::dict(
+                      "offset_level0"_a=appr_alg->offsetLevel0_,
+                      "max_elements"_a=appr_alg->max_elements_,
+                      "cur_element_count"_a=appr_alg->cur_element_count,
+                      "size_data_per_element"_a=appr_alg->size_data_per_element_,
+                      "label_offset"_a=appr_alg->label_offset_,
+                      "offset_data"_a=appr_alg->offsetData_,
+                      "max_level"_a=appr_alg->maxlevel_,
+                      "enterpoint_node"_a=appr_alg->enterpoint_node_,
+                      "max_M"_a=appr_alg->maxM_,
+                      "max_M0"_a=appr_alg->maxM0_,
+                      "M"_a=appr_alg->M_,
+                      "mult"_a=appr_alg->mult_,
+                      "ef_construction"_a=appr_alg->ef_construction_,
+                      "ef"_a=appr_alg->ef_,
+                      "has_deletions"_a=appr_alg->has_deletions_,
+                      "size_links_per_element"_a=appr_alg->size_links_per_element_,
+
+                      "label_lookup_external"_a=py::array_t<hnswlib::labeltype>(
+                              {appr_alg->label_lookup_.size()}, // shape
+                              {sizeof(hnswlib::labeltype)}, // C-style contiguous strides for double
+                              label_lookup_key_npy, // the data pointer
+                              free_when_done_lb),
+
+                      "label_lookup_internal"_a=py::array_t<hnswlib::tableint>(
+                              {appr_alg->label_lookup_.size()}, // shape
+                              {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
+                              label_lookup_val_npy, // the data pointer
+                              free_when_done_id),
+
+                      "element_levels"_a=py::array_t<int>(
+                              {appr_alg->element_levels_.size()}, // shape
+                              {sizeof(int)}, // C-style contiguous strides for double
+                              element_levels_npy, // the data pointer
+                              free_when_done_lvl),
+
+                              // linkLists_,element_levels_,data_level0_memory_
+                      "data_level0"_a=py::array_t<char>(
+                              {level0_npy_size}, // shape
+                              {sizeof(char)}, // C-style contiguous strides for double
+                              data_level0_npy, // the data pointer
+                              free_when_done_l0),
+
+                      "link_lists"_a=py::array_t<char>(
+                              {link_npy_size}, // shape
+                              {sizeof(char)}, // C-style contiguous strides for double
+                              link_list_npy, // the data pointer
+                              free_when_done_ll)
+
+                    );
+
+      // return py::make_tuple(appr_alg->offsetLevel0_,
+      //                       appr_alg->max_elements_,
+      //                       appr_alg->cur_element_count,
+      //                       appr_alg->size_data_per_element_,
+      //                       appr_alg->label_offset_,
+      //                       appr_alg->offsetData_,
+      //                       appr_alg->maxlevel_,
+      //                       appr_alg->enterpoint_node_,
+      //                       appr_alg->maxM_,
+      //                       appr_alg->maxM0_,
+      //                       appr_alg->M_,
+      //                       appr_alg->mult_,
+      //                       appr_alg->ef_construction_,
+      //                       appr_alg->ef_,
+      //                       appr_alg->has_deletions_,
+      //                       appr_alg->size_links_per_element_,
+      //                       py::array_t<hnswlib::labeltype>(
+      //                               {appr_alg->label_lookup_.size()}, // shape
+      //                               {sizeof(hnswlib::labeltype)}, // C-style contiguous strides for double
+      //                               label_lookup_key_npy, // the data pointer
+      //                               free_when_done_lb),
+      //                       py::array_t<hnswlib::tableint>(
+      //                               {appr_alg->label_lookup_.size()}, // shape
+      //                               {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
+      //                               label_lookup_val_npy, // the data pointer
+      //                               free_when_done_id),
+      //                       py::array_t<int>(
+      //                               {appr_alg->element_levels_.size()}, // shape
+      //                               {sizeof(int)}, // C-style contiguous strides for double
+      //                               element_levels_npy, // the data pointer
+      //                               free_when_done_lvl),
+      //                       py::array_t<char>(
+      //                               {level0_npy_size}, // shape
+      //                               {sizeof(char)}, // C-style contiguous strides for double
+      //                               data_level0_npy, // the data pointer
+      //                               free_when_done_l0),
+      //                       py::array_t<char>(
+      //                               {link_npy_size}, // shape
+      //                               {sizeof(char)}, // C-style contiguous strides for double
+      //                               link_list_npy, // the data pointer
+      //                               free_when_done_ll)
+      //                     );
 
     }
 
 
-    py::tuple getIndexParams() const {
-        /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
-        /*        for full reproducibility / to avoid re-initializing generators inside Index::createFromParams         */
-        
-        return py::make_tuple(py::int_(Index<float>::ser_version), // serialization version 
-        
-                              /* TODO: convert the following two py::tuple's to py::dict */
-                              py::make_tuple(space_name, dim, index_inited, ep_added, normalize, num_threads_default, seed, default_ef),
-                              index_inited == true ? getAnnData() : py::make_tuple()); /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
-                           
-                              
+    py::tuple getIndexParams() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
+      auto params = py::dict(
+                            "ser_version"_a=py::int_(Index<float>::ser_version), //serialization version
+                            "space"_a=space_name,
+                            "dim"_a=dim,
+                            "index_inited"_a=index_inited,
+                            "ep_added"_a=ep_added,
+                            "normalize"_a=normalize,
+                            "num_threads"_a=num_threads_default,
+                            "seed"_a=seed,
+                            "ef"_a=default_ef
+                            );
+
+      if(index_inited == false)
+        return params;
+
+      auto ann_params = getAnnData();
+
+      return py::dict(**params, **ann_params);
 
     }
 
 
-    static Index<float> * createFromParams(const py::tuple t) {
-    
-      if (py::int_(Index<float>::ser_version) != t[0].cast<int>()) // check serialization version 
-          throw std::runtime_error("Serialization version mismatch!");
+    static Index<float> * createFromParams(const py::dict d) {
 
-      py::tuple index_params=t[1].cast<py::tuple>(); /* TODO: convert index_params from py::tuple to py::dict */
-      py::tuple ann_params=t[2].cast<py::tuple>();   /* TODO: convert ann_params from py::tuple to py::dict */
+      // check serialization version
+      assert_true(py::int_(Index<float>::ser_version) >= d["ser_version"].cast<int>(), "Invalid serialization version!");
 
-      auto space_name_=index_params[0].cast<std::string>();
-      auto dim_=index_params[1].cast<int>();
-      auto index_inited_=index_params[2].cast<bool>();
+      auto space_name_=d["space"].cast<std::string>();
+      auto dim_=d["dim"].cast<int>();
+      auto index_inited_=d["index_inited"].cast<bool>();
 
-      Index<float> *new_index = new Index<float>(index_params[0].cast<std::string>(), index_params[1].cast<int>());
+      Index<float> *new_index = new Index<float>(space_name_, dim_);
 
       /*  TODO: deserialize state of random generators into new_index->level_generator_ and new_index->update_probability_generator_  */
       /*        for full reproducibility / state of generators is serialized inside Index::getIndexParams                      */
-      new_index->seed = index_params[6].cast<size_t>();
+      new_index->seed = d["seed"].cast<size_t>();
 
       if (index_inited_){
-        new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t>(new_index->l2space, ann_params[1].cast<size_t>(), ann_params[10].cast<size_t>(), ann_params[12].cast<size_t>(), new_index->seed);
-        new_index->cur_l = ann_params[2].cast<size_t>();
+        new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t>(new_index->l2space, d["max_elements"].cast<size_t>(), d["M"].cast<size_t>(), d["ef_construction"].cast<size_t>(), new_index->seed);
+        new_index->cur_l = d["cur_element_count"].cast<size_t>();
       }
 
       new_index->index_inited = index_inited_;
-      new_index->ep_added=index_params[3].cast<bool>();
-      new_index->num_threads_default=index_params[5].cast<int>();
-      new_index->default_ef=index_params[7].cast<size_t>();
+      new_index->ep_added=d["ep_added"].cast<bool>();
+      new_index->num_threads_default=d["num_threads"].cast<int>();
+      new_index->default_ef=d["ef"].cast<size_t>();
 
       if (index_inited_)
         new_index->setAnnData(ann_params);
-
 
       return new_index;
     }
 
     static Index<float> * createFromIndex(const Index<float> & index) {
-        /* WARNING:     Index::getIndexParams is not thread-safe with Index::addItems */
-        return createFromParams(index.getIndexParams()); 
+        return createFromParams(index.getIndexParams());
     }
 
-    
-    void setAnnData(const py::tuple t) {
-      /* WARNING: Index::setAnnData is not thread-safe with Index::addItems */
-      
+    void setAnnData(const py::dict d) { /* WARNING: Index::setAnnData is not thread-safe with Index::addItems */
+
+
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
-      assert_true(appr_alg->offsetLevel0_ == t[0].cast<size_t>(), "Invalid value of offsetLevel0_ ");
-      assert_true(appr_alg->max_elements_ == t[1].cast<size_t>(), "Invalid value of max_elements_ ");
+      assert_true(appr_alg->offsetLevel0_ == d["offset_level0"].cast<size_t>(), "Invalid value of offsetLevel0_ ");
+      assert_true(appr_alg->max_elements_ == d["max_elements"].cast<size_t>(), "Invalid value of max_elements_ ");
 
-      appr_alg->cur_element_count = t[2].cast<size_t>();
+      appr_alg->cur_element_count = d["cur_element_count"].cast<size_t>();
 
-      assert_true(appr_alg->size_data_per_element_ == t[3].cast<size_t>(), "Invalid value of size_data_per_element_ ");
-      assert_true(appr_alg->label_offset_ == t[4].cast<size_t>(), "Invalid value of label_offset_ ");
-      assert_true(appr_alg->offsetData_ == t[5].cast<size_t>(), "Invalid value of offsetData_ ");
+      assert_true(appr_alg->size_data_per_element_ == d["size_data_per_element"].cast<size_t>(), "Invalid value of size_data_per_element_ ");
+      assert_true(appr_alg->label_offset_ == d["label_offset"].cast<size_t>(), "Invalid value of label_offset_ ");
+      assert_true(appr_alg->offsetData_ == d["offset_data"].cast<size_t>(), "Invalid value of offsetData_ ");
 
-      appr_alg->maxlevel_ = t[6].cast<int>();
-      appr_alg->enterpoint_node_ = t[7].cast<hnswlib::tableint>();
+      appr_alg->maxlevel_ = d["max_level"].cast<int>();
+      appr_alg->enterpoint_node_ = d["enterpoint_node"].cast<hnswlib::tableint>();
 
-      assert_true(appr_alg->maxM_ == t[8].cast<size_t>(), "Invalid value of maxM_ ");
-      assert_true(appr_alg->maxM0_ == t[9].cast<size_t>(), "Invalid value of maxM0_ ");
-      assert_true(appr_alg->M_ == t[10].cast<size_t>(), "Invalid value of M_ ");
-      assert_true(appr_alg->mult_ == t[11].cast<double>(), "Invalid value of mult_ ");
-      assert_true(appr_alg->ef_construction_ == t[12].cast<size_t>(), "Invalid value of ef_construction_ ");
+      assert_true(appr_alg->maxM_ == d["max_M"].cast<size_t>(), "Invalid value of maxM_ ");
+      assert_true(appr_alg->maxM0_ == d["max_M0"].cast<size_t>(), "Invalid value of maxM0_ ");
+      assert_true(appr_alg->M_ == d["M"].cast<size_t>(), "Invalid value of M_ ");
+      assert_true(appr_alg->mult_ == d["mult"].cast<double>(), "Invalid value of mult_ ");
+      assert_true(appr_alg->ef_construction_ == d["ef_construction"].cast<size_t>(), "Invalid value of ef_construction_ ");
 
-      appr_alg->ef_ = t[13].cast<size_t>();
-      appr_alg->has_deletions_=t[14].cast<bool>();
-      assert_true(appr_alg->size_links_per_element_ == t[15].cast<size_t>(), "Invalid value of size_links_per_element_ ");
+      appr_alg->ef_ = d["ef"].cast<size_t>();
+      appr_alg->has_deletions_=d["has_deletions"].cast<bool>();
 
-      auto label_lookup_key_npy = t[16].cast<py::array_t < hnswlib::labeltype, py::array::c_style | py::array::forcecast > >();
-      auto label_lookup_val_npy = t[17].cast<py::array_t < hnswlib::tableint, py::array::c_style | py::array::forcecast > >();
-      auto element_levels_npy = t[18].cast<py::array_t < int, py::array::c_style | py::array::forcecast > >();
-      auto data_level0_npy = t[19].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
-      auto link_list_npy = t[20].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
+      assert_true(appr_alg->size_links_per_element_ == d["size_links_per_element"].cast<size_t>(), "Invalid value of size_links_per_element_ ");
+
+      auto label_lookup_key_npy = d["label_lookup_external"].cast<py::array_t < hnswlib::labeltype, py::array::c_style | py::array::forcecast > >();
+      auto label_lookup_val_npy = d["label_lookup_internal"].cast<py::array_t < hnswlib::tableint, py::array::c_style | py::array::forcecast > >();
+      auto element_levels_npy = d["element_levels"].cast<py::array_t < int, py::array::c_style | py::array::forcecast > >();
+      auto data_level0_npy = d["data_level0"].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
+      auto link_list_npy = d["link_lists"].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
 
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
         if (label_lookup_val_npy.data()[i] < 0){
@@ -516,7 +575,6 @@ public:
 
           }
       }
-
 }
 
     py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
@@ -640,9 +698,9 @@ PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
         py::class_<Index<float>>(m, "Index")
-        .def(py::init(&Index<float>::createFromParams), py::arg("params")) 
+        .def(py::init(&Index<float>::createFromParams), py::arg("params"))
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
-        .def(py::init(&Index<float>::createFromIndex), py::arg("index")) 
+        .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M")=16, py::arg("ef_construction")=200, py::arg("random_seed")=100)
         .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1, py::arg("num_threads")=-1)
