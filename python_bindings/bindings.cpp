@@ -9,6 +9,7 @@
 #include <assert.h>
 
 namespace py = pybind11;
+using namespace pybind11::literals; // needed to bring in _a literal 
 
 /*
  * replacement for the openmp '#pragma omp parallel for' directive
@@ -72,6 +73,12 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 
 
 }
+
+    inline void assert_true(bool expr, const std::string & msg) {
+      if (expr == false)
+        throw std::runtime_error("assert failed: "+msg);
+      return;
+    }
 
 
 
@@ -278,12 +285,6 @@ public:
         return ids;
     }
 
-    inline void assert_true(bool expr, const std::string & msg) {
-      if (expr == false)
-        throw std::runtime_error("assert failed: "+msg);
-      return;
-    }
-
 
     py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
 
@@ -401,54 +402,12 @@ public:
 
                     );
 
-      // return py::make_tuple(appr_alg->offsetLevel0_,
-      //                       appr_alg->max_elements_,
-      //                       appr_alg->cur_element_count,
-      //                       appr_alg->size_data_per_element_,
-      //                       appr_alg->label_offset_,
-      //                       appr_alg->offsetData_,
-      //                       appr_alg->maxlevel_,
-      //                       appr_alg->enterpoint_node_,
-      //                       appr_alg->maxM_,
-      //                       appr_alg->maxM0_,
-      //                       appr_alg->M_,
-      //                       appr_alg->mult_,
-      //                       appr_alg->ef_construction_,
-      //                       appr_alg->ef_,
-      //                       appr_alg->has_deletions_,
-      //                       appr_alg->size_links_per_element_,
-      //                       py::array_t<hnswlib::labeltype>(
-      //                               {appr_alg->label_lookup_.size()}, // shape
-      //                               {sizeof(hnswlib::labeltype)}, // C-style contiguous strides for double
-      //                               label_lookup_key_npy, // the data pointer
-      //                               free_when_done_lb),
-      //                       py::array_t<hnswlib::tableint>(
-      //                               {appr_alg->label_lookup_.size()}, // shape
-      //                               {sizeof(hnswlib::tableint)}, // C-style contiguous strides for double
-      //                               label_lookup_val_npy, // the data pointer
-      //                               free_when_done_id),
-      //                       py::array_t<int>(
-      //                               {appr_alg->element_levels_.size()}, // shape
-      //                               {sizeof(int)}, // C-style contiguous strides for double
-      //                               element_levels_npy, // the data pointer
-      //                               free_when_done_lvl),
-      //                       py::array_t<char>(
-      //                               {level0_npy_size}, // shape
-      //                               {sizeof(char)}, // C-style contiguous strides for double
-      //                               data_level0_npy, // the data pointer
-      //                               free_when_done_l0),
-      //                       py::array_t<char>(
-      //                               {link_npy_size}, // shape
-      //                               {sizeof(char)}, // C-style contiguous strides for double
-      //                               link_list_npy, // the data pointer
-      //                               free_when_done_ll)
-      //                     );
 
     }
 
 
-    py::tuple getIndexParams() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
-      auto params = py::dict(
+    py::dict getIndexParams() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
+        auto params = py::dict(
                             "ser_version"_a=py::int_(Index<float>::ser_version), //serialization version
                             "space"_a=space_name,
                             "dim"_a=dim,
@@ -456,17 +415,15 @@ public:
                             "ep_added"_a=ep_added,
                             "normalize"_a=normalize,
                             "num_threads"_a=num_threads_default,
-                            "seed"_a=seed,
-                            "ef"_a=default_ef
+                            "seed"_a=seed
                             );
 
-      if(index_inited == false)
-        return params;
+        if(index_inited == false)
+            return py::dict( **params, "ef"_a=default_ef);
 
-      auto ann_params = getAnnData();
+        auto ann_params = getAnnData();
 
-      return py::dict(**params, **ann_params);
-
+        return py::dict(**params, **ann_params);
     }
 
 
@@ -496,7 +453,7 @@ public:
       new_index->default_ef=d["ef"].cast<size_t>();
 
       if (index_inited_)
-        new_index->setAnnData(ann_params);
+        new_index->setAnnData(d);
 
       return new_index;
     }
@@ -739,15 +696,14 @@ PYBIND11_PLUGIN(hnswlib) {
         })
 
         .def(py::pickle(
-            [](const Index<float> &ind) { // __getstate__
-                /* Return a tuple that fully encodes the state of the object */
-                /* WARNING: Index::getIndexParams is not thread-safe with Index::addItems */
-                return ind.getIndexParams();
+            [](const Index<float> &ind) { // __getstate__                
+                return py::make_tuple(ind.getIndexParams()); /* Return dict (wrapped in a tuple) that fully encodes state of the Index object */
             },
             [](py::tuple t) { // __setstate__
-                if (t.size() != 3)
+                if (t.size() != 1)
                     throw std::runtime_error("Invalid state!");
-                return Index<float>::createFromParams(t);
+
+                return Index<float>::createFromParams(t[0].cast<py::dict>());
             }
         ))
 
