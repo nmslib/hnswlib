@@ -7,7 +7,8 @@ import setuptools
 __version__ = '0.4.0'
 
 
-source_files = ['bindings.cpp']
+source_files = ['./python_bindings/bindings.cpp']
+include_dirs = ['./hnswlib/']
 
 libraries = []
 extra_objects = []
@@ -17,7 +18,7 @@ ext_modules = [
     Extension(
         'hnswlib',
         source_files,
-        # include_dirs=[os.path.join(libdir, "include")],
+        include_dirs=include_dirs,
         libraries=libraries,
         language='c++',
         extra_objects=extra_objects,
@@ -112,6 +113,6 @@ setup(
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.0', 'numpy'],
     cmdclass={'build_ext': BuildExt},
-    test_suite="tests",
+    test_suite="python_bindings.tests",
     zip_safe=False,
 )

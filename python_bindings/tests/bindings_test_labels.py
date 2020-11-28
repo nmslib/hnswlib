@@ -1,3 +1,4 @@
+import os
 import unittest
 
 
@@ -56,9 +57,9 @@ class RandomSelfTestCase(unittest.TestCase):
         # Serializing and deleting the index.
         # We need the part to check that serialization is working properly.
 
-        index_path='first_half.bin'
+        index_path = 'first_half.bin'
         print("Saving index to '%s'" % index_path)
-        p.save_index("first_half.bin")
+        p.save_index(index_path)
         print("Saved. Deleting...")
         del p
         print("Deleted")
@@ -68,8 +69,8 @@ class RandomSelfTestCase(unittest.TestCase):
         print("Reiniting")
         p = hnswlib.Index(space='l2', dim=dim)
 
-        print("\nLoading index from 'first_half.bin'\n")
-        p.load_index("first_half.bin")
+        print("\nLoading index from '%s'\n" % index_path)
+        p.load_index(index_path)
         p.set_ef(100)
 
         print("Adding the second batch of %d elements" % (len(data2)))
@@ -109,9 +110,10 @@ class RandomSelfTestCase(unittest.TestCase):
         print("All the data in data1 are removed")
 
         # checking saving/loading index with elements marked as deleted
-        p.save_index("with_deleted.bin")
+        del_index_path = "with_deleted.bin"
+        p.save_index(del_index_path)
         p = hnswlib.Index(space='l2', dim=dim)
-        p.load_index("with_deleted.bin")
+        p.load_index(del_index_path)
         p.set_ef(100)
 
         labels1_after, _ = p.knn_query(data1, k=1)
@@ -119,6 +121,9 @@ class RandomSelfTestCase(unittest.TestCase):
             for lb in labels1:
                 if la[0] == lb[0]:
                     self.assertTrue(False)
+      
+      os.remove(index_path)
+      os.remove(del_index_path)
 
 
 
