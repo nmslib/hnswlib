@@ -214,7 +214,6 @@ You can install from sources:
 ```bash
 apt-get install -y python-setuptools python-pip
 pip3 install pybind11 numpy setuptools
-cd python_bindings
 python3 setup.py install
 ```
 
