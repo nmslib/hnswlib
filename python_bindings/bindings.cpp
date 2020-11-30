@@ -9,7 +9,7 @@
 #include <assert.h>
 
 namespace py = pybind11;
-using namespace pybind11::literals; // needed to bring in _a literal 
+using namespace pybind11::literals; // needed to bring in _a literal
 
 /*
  * replacement for the openmp '#pragma omp parallel for' directive
@@ -76,7 +76,7 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 
     inline void assert_true(bool expr, const std::string & msg) {
       if (expr == false)
-        throw std::runtime_error("assert failed: "+msg);
+        throw std::runtime_error("Unpickle Error: "+msg);
       return;
     }
 
@@ -696,7 +696,7 @@ PYBIND11_PLUGIN(hnswlib) {
         })
 
         .def(py::pickle(
-            [](const Index<float> &ind) { // __getstate__                
+            [](const Index<float> &ind) { // __getstate__
                 return py::make_tuple(ind.getIndexParams()); /* Return dict (wrapped in a tuple) that fully encodes state of the Index object */
             },
             [](py::tuple t) { // __setstate__
