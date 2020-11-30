@@ -430,7 +430,7 @@ public:
     static Index<float> * createFromParams(const py::dict d) {
 
       // check serialization version
-      assert_true(py::int_(Index<float>::ser_version) >= d["ser_version"].cast<int>(), "Invalid serialization version!");
+      assert_true(((int)py::int_(Index<float>::ser_version)) >= d["ser_version"].cast<int>(), "Invalid serialization version!");
 
       auto space_name_=d["space"].cast<std::string>();
       auto dim_=d["dim"].cast<int>();
