@@ -16,6 +16,7 @@ jobs:
       before_install:
         - choco install python --version 3.6.0
         - python -m pip install --upgrade pip
+        - python --version
       env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
     
     - name: Windows Python 3.7
@@ -24,6 +25,7 @@ jobs:
       before_install:
         - choco install python --version 3.7.0
         - python -m pip install --upgrade pip
+        - python --version
       env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
 
 install:
