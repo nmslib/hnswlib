@@ -7,10 +7,9 @@ matrix:
 install:
   - |
     cd python_bindings
-    pip install -r requirements.txt
-    python setup.py install
+    python -m pip install .
 
 script:
   - |
     cd python_bindings
-    python setup.py test
+    pip install --install-option test
