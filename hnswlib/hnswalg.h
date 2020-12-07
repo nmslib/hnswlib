@@ -3,10 +3,11 @@
 #include "visited_list_pool.h"
 #include "hnswlib.h"
 #include <atomic>
-#include <random>
-#include <stdlib.h>
-#include <unordered_set>
+#include <cassert>
+#include <cstdlib>
 #include <list>
+#include <random>
+#include <unordered_set>
 
 
 namespace hnswlib {
