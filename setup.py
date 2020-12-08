@@ -6,9 +6,15 @@ import setuptools
 
 __version__ = '0.4.0'
 
+# compatibility when run in python_bindings
+bindings_dir = 'python_bindings'
+if bindings_dir in os.path.basename(os.getcwd()):
+    source_files = ['./bindings.cpp']
+    include_dirs = ['../hnswlib/']
+else:
+    source_files = ['./python_bindings/bindings.cpp']
+    include_dirs = ['./hnswlib/']
 
-source_files = ['./python_bindings/bindings.cpp']
-include_dirs = ['./hnswlib/']
 
 libraries = []
 extra_objects = []
