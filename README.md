@@ -3,9 +3,9 @@ Header-only C++ HNSW implementation with python bindings. Paper's code for the H
 
 **NEWS:**
 
-* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddinds).**
+* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddings).**
 
-* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not mutiple of 4** 
+* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not multiple of 4** 
 
 * **Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib can now be installed via pip!**
 
@@ -37,7 +37,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 #### Short API description
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
-Index methods:
+`hnswlib.Index` methods:
 * `init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
@@ -49,14 +49,14 @@ Index methods:
     * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(data_label)`  - marks the element as deleted, so it will be ommited from search results.
+* `mark_deleted(data_label)`  - marks the element as deleted, so it will be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
-* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closests elements for each element of the 
+* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closest elements for each element of the 
     * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
@@ -76,14 +76,34 @@ Index methods:
 
 * `get_current_count()` - returns the current number of element stored in the index
 
-   
-        
+Read-only properties of `hnswlib.Index` class:
+
+* `space` - name of the space (can be one of "l2", "ip", or "cosine"). 
+
+* `dim`   - dimensionality of the space. 
+
+* `M` - parameter that defines the maximum number of outgoing connections in the graph. 
+
+* `ef_construction` - parameter that controls speed/accuracy trade-off during the index construction. 
+
+* `max_elements` - current capacity of the index. Equivalent to `p.get_max_elements()`. 
+
+* `element_count` - number of items in the index. Equivalent to `p.get_current_count()`. 
+
+Properties of `hnswlib.Index` that support reading and writing:
+
+* `ef` - parameter controlling query time/accuracy trade-off.
+
+* `num_threads` - default number of threads to use in `add_items` or `knn_query`. Note that calling `p.set_num_threads(3)` is equivalent to `p.num_threads=3`.
+
+  
         
   
 #### Python bindings examples
 ```python
 import hnswlib
 import numpy as np
+import pickle
 
 dim = 128
 num_elements = 10000
@@ -106,6 +126,18 @@ p.set_ef(50) # ef should always be > k
 
 # Query dataset, k - number of closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
+
+# Index objects support pickling
+# WARNING: serialization via pickle.dumps(p) or p.__getstate__() is NOT thread-safe with p.add_items method!
+# Note: ef parameter is included in serialization; random number generator is initialized with random_seeed on Index load
+p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle round-trip
+
+### Index parameters are exposed as class properties:
+print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim}") 
+print(f"Index construction: M={p_copy.M}, ef_construction={p_copy.ef_construction}")
+print(f"Index size is {p_copy.element_count} and index capacity is {p_copy.max_elements}")
+print(f"Search speed/quality trade-off parameter: ef={p_copy.ef}")
+
 ```
 
 An example with updates after serialization/deserialization:
@@ -191,7 +223,7 @@ or you can install via pip:
 
 ### Other implementations
 * Non-metric space library (nmslib) - main library(python, C++), supports exotic distances: https://github.com/nmslib/nmslib
-* Faiss libary by facebook, uses own HNSW  implementation for coarse quantization (python, C++):
+* Faiss library by facebook, uses own HNSW  implementation for coarse quantization (python, C++):
 https://github.com/facebookresearch/faiss
 * Code for the paper 
 ["Revisiting the Inverted Indices for Billion-Scale Approximate Nearest Neighbors"](https://arxiv.org/abs/1802.02422) 
