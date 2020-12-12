@@ -111,24 +111,6 @@ namespace hnswlib {
             return topResults;
         };
 
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>>
-        searchKnn(const void* query_data, size_t k, Comp comp) {
-            std::vector<std::pair<dist_t, labeltype>> result;
-            if (cur_element_count == 0) return result;
-
-            auto ret = searchKnn(query_data, k);
-
-            while (!ret.empty()) {
-                result.push_back(ret.top());
-                ret.pop();
-            }
-            
-            std::sort(result.begin(), result.end(), comp);
-
-            return result;
-        }
-
         void saveIndex(const std::string &location) {
             std::ofstream output(location, std::ios::binary);
             std::streampos position;

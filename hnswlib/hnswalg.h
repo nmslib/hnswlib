@@ -1157,19 +1157,6 @@ namespace hnswlib {
             return result;
         };
 
-        int searchKnn(const void* x,
-            int k, labeltype* labels, dist_t* dists = nullptr) const override {
-            if (labels == nullptr) return -1;
-            auto ret = searchKnn(x, k);
-            for (int i = k - 1; i >= 0; --i) {
-                if (dists) 
-                    dists[i] = ret.top().first;
-                labels[i] = ret.top().second;
-            }
-            return 0;
-        }
-
-
         void checkIntegrity(){
             int connections_checked=0;
             std::vector <int > inbound_connections_num(cur_element_count,0);
