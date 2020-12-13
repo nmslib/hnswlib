@@ -23,4 +23,6 @@ endif()
 
 add_executable(test_updates examples/updates_test.cpp)
 
+add_executable(searchKnnCloserFirst_test examples/searchKnnCloserFirst_test.cpp)
+
 target_link_libraries(main sift_test) 

@@ -9,8 +9,6 @@
 #include <unordered_set>
 #include <list>
 
-#include <assert.h>
-
 namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
