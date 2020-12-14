@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include <list>
 
-
 namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
@@ -1155,24 +1154,6 @@ namespace hnswlib {
             }
             return result;
         };
-
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>>
-        searchKnn(const void* query_data, size_t k, Comp comp) {
-            std::vector<std::pair<dist_t, labeltype>> result;
-            if (cur_element_count == 0) return result;
-
-            auto ret = searchKnn(query_data, k);
-
-            while (!ret.empty()) {
-                result.push_back(ret.top());
-                ret.pop();
-            }
-
-            std::sort(result.begin(), result.end(), comp);
-
-            return result;
-        }
 
         void checkIntegrity(){
             int connections_checked=0;
