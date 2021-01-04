@@ -204,6 +204,7 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Java implementation: https://github.com/jelmerk/hnswlib
 * Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
 * .Net implementation:  https://github.com/microsoft/HNSW.Net
+* CUDA implementation:  https://github.com/js1010/cuhnsw
 
 ### Contributing to the repository
 Contributions are highly welcome!
