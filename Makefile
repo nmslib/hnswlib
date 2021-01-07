@@ -9,6 +9,6 @@ test:
 	python3 setup.py test
 
 clean:
-	rm -rf *.egg-info build dist var first_half.bin tests/__pycache__ hnswlib.cpython-36m-darwin.so
+	rm -rf *.egg-info build dist tmp var tests/__pycache__ hnswlib.cpython*.so
 
 .PHONY: dist

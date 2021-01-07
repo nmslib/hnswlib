@@ -1,4 +1,7 @@
-python_bindings/hnswlib.egg-info/
-python_bindings/build/
-python_bindings/dist/
-python_bindings/tmp/
+hnswlib.egg-info/
+build/
+dist/
+tmp/
+python_bindings/tests/__pycache__/
+*.pyd
+hnswlib.cpython*.so

@@ -214,7 +214,6 @@ You can install from sources:
 ```bash
 apt-get install -y python-setuptools python-pip
 pip3 install pybind11 numpy setuptools
-cd python_bindings
 python3 setup.py install
 ```
 
@@ -244,13 +243,15 @@ Contributions are highly welcome!
 Please make pull requests against the `develop` branch.
 
 ### 200M SIFT test reproduction 
-To download and extract the bigann dataset:
+To download and extract the bigann dataset (from root directory):
 ```bash
 python3 download_bigann.py
 ```
 To compile:
 ```bash
-cmake .
+mkdir build
+cd build
+cmake ..
 make all
 ```
 

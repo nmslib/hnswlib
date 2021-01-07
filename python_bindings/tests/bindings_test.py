@@ -1,3 +1,4 @@
+import os
 import unittest
 
 
@@ -43,16 +44,16 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
 
         # Serializing and deleting the index:
-        index_path='first_half.bin'
+        index_path = 'first_half.bin'
         print("Saving index to '%s'" % index_path)
-        p.save_index("first_half.bin")
+        p.save_index(index_path)
         del p
 
         # Reiniting, loading the index
         p = hnswlib.Index(space='l2', dim=dim)  # you can change the sa
 
-        print("\nLoading index from 'first_half.bin'\n")
-        p.load_index("first_half.bin")
+        print("\nLoading index from '%s'\n" % index_path)
+        p.load_index(index_path)
 
         print("Adding the second batch of %d elements" % (len(data2)))
         p.add_items(data2)
@@ -61,6 +62,8 @@ class RandomSelfTestCase(unittest.TestCase):
         labels, distances = p.knn_query(data, k=1)
 
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
+        
+        os.remove(index_path)
 
 
 if __name__ == "__main__":
