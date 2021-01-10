@@ -3,17 +3,25 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
+import pybind11
+import numpy as np
 
 __version__ = '0.4.0'
+
+
+include_dirs = [
+    pybind11.get_include(),
+    np.get_include(),
+]
 
 # compatibility when run in python_bindings
 bindings_dir = 'python_bindings'
 if bindings_dir in os.path.basename(os.getcwd()):
     source_files = ['./bindings.cpp']
-    include_dirs = ['../hnswlib/']
+    include_dirs.extend(['../hnswlib/'])
 else:
     source_files = ['./python_bindings/bindings.cpp']
-    include_dirs = ['./hnswlib/']
+    include_dirs.extend(['./hnswlib/'])
 
 
 libraries = []
@@ -90,21 +98,9 @@ class BuildExt(build_ext):
         elif ct == 'msvc':
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
 
-        # extend include dirs here (don't assume numpy/pybind11 are installed when first run, since
-        # pip could have installed them as part of executing this script
-        import pybind11
-        import numpy as np
         for ext in self.extensions:
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(self.link_opts.get(ct, []))
-            ext.include_dirs.extend([
-                # Path to pybind11 headers
-                pybind11.get_include(),
-                pybind11.get_include(True),
-
-                # Path to numpy headers
-                np.get_include()
-            ])
 
         build_ext.build_extensions(self)
 
