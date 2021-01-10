@@ -213,8 +213,7 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 You can install from sources:
 ```bash
 apt-get install -y python-setuptools python-pip
-pip3 install pybind11 numpy setuptools
-python3 setup.py install
+python3 -m pip install .
 ```
 
 or you can install via pip:
