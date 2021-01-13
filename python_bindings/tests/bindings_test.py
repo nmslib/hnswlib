@@ -1,11 +1,13 @@
 import os
 import unittest
 
+import numpy as np
+
+import hnswlib
+
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
-        import hnswlib
-        import numpy as np
 
         dim = 16
         num_elements = 10000
@@ -41,7 +43,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Query the elements for themselves and measure recall:
         labels, distances = p.knn_query(data1, k=1)
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))),1.0,3)
+        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))), 1.0, 3)
 
         # Serializing and deleting the index:
         index_path = 'first_half.bin'
@@ -61,10 +63,6 @@ class RandomSelfTestCase(unittest.TestCase):
         # Query the elements for themselves and measure recall:
         labels, distances = p.knn_query(data, k=1)
 
-        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))),1.0,3)
+        self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), 1.0, 3)
         
         os.remove(index_path)
-
-
-if __name__ == "__main__":
-    unittest.main()

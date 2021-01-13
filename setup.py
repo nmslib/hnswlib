@@ -1,10 +1,11 @@
 import os
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
 import sys
-import setuptools
-import pybind11
+
 import numpy as np
+import pybind11
+import setuptools
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
 
 __version__ = '0.4.0'
 
@@ -115,6 +116,5 @@ setup(
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.0', 'numpy'],
     cmdclass={'build_ext': BuildExt},
-    test_suite="python_bindings.tests",
     zip_safe=False,
 )

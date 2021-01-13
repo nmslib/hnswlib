@@ -34,4 +34,4 @@ install:
 
 script:
   - |
-    python setup.py test
+    python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"

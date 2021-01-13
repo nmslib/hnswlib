@@ -1,28 +1,30 @@
+import pickle
 import unittest
 
 import numpy as np
+
 import hnswlib
-import pickle
 
 
 def get_dist(metric, pt1, pt2):
     if metric == 'l2':
         return np.sum((pt1-pt2)**2)
     elif metric == 'ip':
-        return 1. - np.sum(np.multiply(pt1,pt2))
+        return 1. - np.sum(np.multiply(pt1, pt2))
     elif metric == 'cosine':
-        return 1. - np.sum(np.multiply(pt1,pt2)) / (np.sum(pt1**2) * np.sum(pt2**2))**.5
+        return 1. - np.sum(np.multiply(pt1, pt2)) / (np.sum(pt1**2) * np.sum(pt2**2))**.5
+
 
 def brute_force_distances(metric, items, query_items, k):
-    dists=np.zeros((query_items.shape[0], items.shape[0]))
+    dists = np.zeros((query_items.shape[0], items.shape[0]))
     for ii in range(items.shape[0]):
         for jj in range(query_items.shape[0]):
-            dists[jj,ii]=get_dist(metric, items[ii, :], query_items[jj, :])
+            dists[jj,ii] = get_dist(metric, items[ii, :], query_items[jj, :])
 
     labels = np.argsort(dists, axis=1) # equivalent, but faster: np.argpartition(dists, range(k), axis=1)
     dists = np.sort(dists, axis=1)     # equivalent, but faster: np.partition(dists, range(k), axis=1)
 
-    return labels[:,:k], dists[:,:k]
+    return labels[:, :k], dists[:, :k]
 
 
 def check_ann_results(self, metric, items, query_items, k, ann_l, ann_d, err_thresh=0, total_thresh=0, dists_thresh=0):
@@ -36,14 +38,15 @@ def check_ann_results(self, metric, items, query_items, k, ann_l, ann_d, err_thr
         if err > err_thresh:
             err_total += 1
 
-    self.assertLessEqual( err_total, total_thresh, f"Error: knn_query returned incorrect labels for {err_total} items (k={k})")
+    self.assertLessEqual(err_total, total_thresh, f"Error: knn_query returned incorrect labels for {err_total} items (k={k})")
 
-    wrong_dists=np.sum(((brute_d- ann_d)**2.)>1e-3)
+    wrong_dists = np.sum(((brute_d - ann_d)**2.) > 1e-3)
     if wrong_dists > 0:
-        dists_count=brute_d.shape[0]*brute_d.shape[1]
+        dists_count = brute_d.shape[0]*brute_d.shape[1]
         print(f"Warning: {wrong_dists} ann distance values are different from brute-force values (total # of values={dists_count}, dists_thresh={dists_thresh})")
 
-    self.assertLessEqual( wrong_dists, dists_thresh, msg=f"Error: {wrong_dists} ann distance values are different from brute-force values")
+    self.assertLessEqual(wrong_dists, dists_thresh, msg=f"Error: {wrong_dists} ann distance values are different from brute-force values")
+
 
 def test_space_main(self, space, dim):
 
@@ -55,16 +58,16 @@ def test_space_main(self, space, dim):
     p = hnswlib.Index(space=space, dim=dim)  # possible options are l2, cosine or ip
     print(f"Running pickle tests for {p}")
 
-    p.num_threads=self.num_threads  # by default using all available cores
+    p.num_threads = self.num_threads  # by default using all available cores
 
-    p0=pickle.loads(pickle.dumps(p)) ### pickle un-initialized Index
-    p.init_index(max_elements = self.num_elements, ef_construction = self.ef_construction, M = self.M)
-    p0.init_index(max_elements = self.num_elements, ef_construction = self.ef_construction, M = self.M)
+    p0 = pickle.loads(pickle.dumps(p)) ### pickle un-initialized Index
+    p.init_index(max_elements=self.num_elements, ef_construction=self.ef_construction, M=self.M)
+    p0.init_index(max_elements=self.num_elements, ef_construction=self.ef_construction, M=self.M)
 
-    p.ef=self.ef
-    p0.ef=self.ef
+    p.ef = self.ef
+    p0.ef = self.ef
 
-    p1=pickle.loads(pickle.dumps(p)) ### pickle Index before adding items
+    p1 = pickle.loads(pickle.dumps(p)) ### pickle Index before adding items
 
     ### add items to ann index p,p0,p1
     p.add_items(data)
@@ -78,7 +81,7 @@ def test_space_main(self, space, dim):
     self.assertTrue(np.allclose(p1.get_items(), p2.get_items()), "items for p1 and p2 must be same")
 
     ### Test if returned distances are same
-    l, d   = p.knn_query(test_data, k=self.k)
+    l, d = p.knn_query(test_data, k=self.k)
     l0, d0 = p0.knn_query(test_data, k=self.k)
     l1, d1 = p1.knn_query(test_data, k=self.k)
     l2, d2 = p2.knn_query(test_data, k=self.k)
@@ -90,9 +93,9 @@ def test_space_main(self, space, dim):
     ### check if ann results match brute-force search
     ###   allow for 2 labels to be missing from ann results
     check_ann_results(self, space, data, test_data, self.k, l, d,
-                           err_thresh = self.label_err_thresh,
-                           total_thresh = self.item_err_thresh,
-                           dists_thresh = self.dists_err_thresh)
+                           err_thresh=self.label_err_thresh,
+                           total_thresh=self.item_err_thresh,
+                           dists_thresh=self.dists_err_thresh)
 
     check_ann_results(self, space, data, test_data, self.k, l2, d2,
                            err_thresh=self.label_err_thresh,
@@ -118,7 +121,6 @@ def test_space_main(self, space, dim):
     self.assertEqual(p2.ef_construction, self.ef_construction, "incorrect value of p2.ef_construction")
 
 
-
 class PickleUnitTests(unittest.TestCase):
 
     def setUp(self):
@@ -133,10 +135,10 @@ class PickleUnitTests(unittest.TestCase):
         self.num_threads = 4
         self.k = 25
 
-        self.label_err_thresh=5  ### max number of missing labels allowed per test item
-        self.item_err_thresh=5   ### max number of items allowed with incorrect labels
+        self.label_err_thresh = 5  ### max number of missing labels allowed per test item
+        self.item_err_thresh = 5   ### max number of items allowed with incorrect labels
 
-        self.dists_err_thresh=50 ### for two matrices, d1 and d2, dists_err_thresh controls max
+        self.dists_err_thresh = 50 ### for two matrices, d1 and d2, dists_err_thresh controls max
                                  ### number of value pairs that are allowed to be different in d1 and d2
                                  ### i.e., number of values that are (d1-d2)**2>1e-3
 
@@ -148,6 +150,3 @@ class PickleUnitTests(unittest.TestCase):
 
     def test_cosine_space(self):
         test_space_main(self, 'cosine', 512)
-
-if __name__ == "__main__":
-    unittest.main()
