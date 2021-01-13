@@ -114,7 +114,7 @@ setup(
     url='https://github.com/yurymalkov/hnsw',
     long_description="""hnsw""",
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.0', 'numpy'],
+    install_requires=['numpy'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )
