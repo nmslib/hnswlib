@@ -213,7 +213,9 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 You can install from sources:
 ```bash
 apt-get install -y python-setuptools python-pip
-python3 -m pip install .
+git clone git@github.com:nmslib/hnswlib.git
+cd hnswlib
+pip install .
 ```
 
 or you can install via pip:

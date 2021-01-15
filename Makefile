@@ -3,7 +3,8 @@ pypi: dist
 
 dist:
 	-rm dist/*
-	python3 setup.py sdist
+	pip install build
+	python3 -m build --sdist
 
 test:
 	python3 -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
