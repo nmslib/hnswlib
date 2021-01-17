@@ -30,9 +30,8 @@ jobs:
 
 install:
   - |
-    pip install -r requirements.txt
-    python setup.py install
+    python -m pip install .
 
 script:
   - |
-    python setup.py test
+    python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"

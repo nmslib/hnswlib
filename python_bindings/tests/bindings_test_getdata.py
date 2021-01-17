@@ -1,11 +1,13 @@
 import unittest
 
+import numpy as np
+
+import hnswlib
+
 
 class RandomSelfTestCase(unittest.TestCase):
     def testGettingItems(self):
         print("\n**** Getting the data by label test ****\n")
-        import hnswlib
-        import numpy as np
 
         dim = 16
         num_elements = 10000
@@ -42,6 +44,3 @@ class RandomSelfTestCase(unittest.TestCase):
         # After adding them, all labels should be retrievable
         returned_items = p.get_items(labels)
         self.assertSequenceEqual(data.tolist(), returned_items)
-
-if __name__ == "__main__":
-    unittest.main()
