@@ -3,7 +3,10 @@ Header-only C++ HNSW implementation with python bindings. Paper's code for the H
 
 **NEWS:**
 
-* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the perfromance/memory should not degrade as you update the element embeddings).**
+
+* **hnswlib is now 0.5.0. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!**
+
+* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the performance/memory should not degrade as you update the element embeddings).**
 
 * **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not multiple of 4** 
 
@@ -115,7 +118,7 @@ data_labels = np.arange(num_elements)
 # Declaring index
 p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or ip
 
-# Initing index - the maximum number of elements should be known beforehand
+# Initializing index - the maximum number of elements should be known beforehand
 p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 
 # Element insertion (can be called several times):
@@ -129,7 +132,7 @@ labels, distances = p.knn_query(data, k = 1)
 
 # Index objects support pickling
 # WARNING: serialization via pickle.dumps(p) or p.__getstate__() is NOT thread-safe with p.add_items method!
-# Note: ef parameter is included in serialization; random number generator is initialized with random_seeed on Index load
+# Note: ef parameter is included in serialization; random number generator is initialized with random_seed on Index load
 p_copy = pickle.loads(pickle.dumps(p)) # creates a copy of index p using pickle round-trip
 
 ### Index parameters are exposed as class properties:
@@ -158,7 +161,7 @@ data2 = data[num_elements // 2:]
 # Declaring index
 p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
 
-# Initing index
+# Initializing index
 # max_elements - the maximum number of elements (capacity). Will throw an exception if exceeded
 # during insertion of an element.
 # The capacity can be increased by saving/loading the index, see below.
@@ -192,7 +195,7 @@ print("Saving index to '%s'" % index_path)
 p.save_index("first_half.bin")
 del p
 
-# Reiniting, loading the index
+# Re-initializing, loading the index
 p = hnswlib.Index(space='l2', dim=dim)  # the space can be changed - keeps the data, alters the distance function.
 
 print("\nLoading index from 'first_half.bin'\n")
@@ -261,7 +264,7 @@ To run the test on 200M SIFT subset:
 ./main
 ```
 
-The size of the bigann subset (in millions) is controlled by the variable **subset_size_milllions** hardcoded in **sift_1b.cpp**.
+The size of the BigANN subset (in millions) is controlled by the variable **subset_size_millions** hardcoded in **sift_1b.cpp**.
 
 ### Updates test
 To generate testing data (from root directory):
