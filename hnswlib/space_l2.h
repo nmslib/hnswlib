@@ -204,7 +204,7 @@ namespace hnswlib {
     };
 
     static int
-    L2SqrI(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+    L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
 
         size_t qty = *((size_t *) qty_ptr);
         int res = 0;
@@ -226,12 +226,23 @@ namespace hnswlib {
             res += ((*a) - (*b)) * ((*a) - (*b));
             a++;
             b++;
-
-
         }
-
         return (res);
+    }
 
+    static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+        size_t qty = *((size_t*)qty_ptr);
+        int res = 0;
+        unsigned char* a = (unsigned char*)pVect1;
+        unsigned char* b = (unsigned char*)pVect2;
+
+        for(size_t i = 0; i < qty; i++)
+        {
+            res += ((*a) - (*b)) * ((*a) - (*b));
+            a++;
+            b++;
+        }
+        return (res);
     }
 
     class L2SpaceI : public SpaceInterface<int> {
@@ -241,7 +252,12 @@ namespace hnswlib {
         size_t dim_;
     public:
         L2SpaceI(size_t dim) {
-            fstdistfunc_ = L2SqrI;
+            if(dim % 4 == 0) {
+                fstdistfunc_ = L2SqrI4x;
+            }
+            else {
+                fstdistfunc_ = L2SqrI;
+            }
             dim_ = dim;
             data_size_ = dim * sizeof(unsigned char);
         }
