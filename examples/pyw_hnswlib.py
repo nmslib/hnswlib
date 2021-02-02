@@ -55,8 +55,7 @@ class Index():
         labels_int, distances = self.index.knn_query(data=data, k=k)
         labels = []
         for li in labels_int:
-            line = []
-            for l in li:
-                line.append(self.dict_labels[l])
-            labels.append(line)
+            labels.append(
+                [self.dict_labels[l] for l in li]
+            )
         return labels, distances
