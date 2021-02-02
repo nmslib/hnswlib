@@ -34,7 +34,7 @@ class RandomSelfTestCase(unittest.TestCase):
             # higher ef leads to better accuracy, but slower search
             p.set_ef(20)
 
-            p.set_num_threads(idx%8)  # by default using all available cores
+            p.set_num_threads(idx % 8)  # by default using all available cores
 
             # We split the data in two batches:
             data1 = data[:num_elements // 2]
