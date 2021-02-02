@@ -19,7 +19,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # Declaring index
         p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
 
-        # Initing index
+        # Initiating index
         # max_elements - the maximum number of elements, should be known beforehand
         #     (probably will be made optional in the future)
         #

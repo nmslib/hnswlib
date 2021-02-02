@@ -67,8 +67,8 @@ class RandomSelfTestCase(unittest.TestCase):
             print("Deleted")
 
             print("\n**** Mark delete test ****\n")
-            # Reiniting, loading the index
-            print("Reiniting")
+            # Re-initiating, loading the index
+            print("Re-initiating")
             p = hnswlib.Index(space='l2', dim=dim)
 
             print("\nLoading index from '%s'\n" % index_path)

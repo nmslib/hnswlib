@@ -20,13 +20,13 @@ class RandomSelfTestCase(unittest.TestCase):
             # Declaring index
             p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
 
-            # Initing index
+            # Initiating index
             # max_elements - the maximum number of elements, should be known beforehand
             #     (probably will be made optional in the future)
             #
             # ef_construction - controls index search speed/build speed tradeoff
             # M - is tightly connected with internal dimensionality of the data
-            #     stronlgy affects the memory consumption
+            #     strongly affects the memory consumption
 
             p.init_index(max_elements=num_elements//2, ef_construction=100, M=16)
 
@@ -72,6 +72,6 @@ class RandomSelfTestCase(unittest.TestCase):
             diff_with_gt_labels = np.max(np.abs(data-items))
             self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-4)
 
-            # Checking that all labels are returned correcly:
+            # Checking that all labels are returned correctly:
             sorted_labels = sorted(p.get_ids_list())
             self.assertEqual(np.sum(~np.asarray(sorted_labels) == np.asarray(range(num_elements))), 0)
