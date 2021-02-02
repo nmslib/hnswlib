@@ -86,9 +86,9 @@ def test_space_main(self, space, dim):
     l1, d1 = p1.knn_query(test_data, k=self.k)
     l2, d2 = p2.knn_query(test_data, k=self.k)
 
-    self.assertLessEqual(np.sum(((d-d0)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p and p0 must match")
-    self.assertLessEqual(np.sum(((d0-d1)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p0 and p1 must match")
-    self.assertLessEqual(np.sum(((d1-d2)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p1 and p2 must match")
+    self.assertLessEqual(np.sum(((d-d0)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p and p0 must match")
+    self.assertLessEqual(np.sum(((d0-d1)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p0 and p1 must match")
+    self.assertLessEqual(np.sum(((d1-d2)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p1 and p2 must match")
 
     ### check if ann results match brute-force search
     ###   allow for 2 labels to be missing from ann results

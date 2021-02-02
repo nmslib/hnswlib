@@ -47,7 +47,7 @@ class RandomSelfTestCase(unittest.TestCase):
             # Query the elements for themselves and measure recall:
             labels, distances = p.knn_query(data1, k=1)
 
-            items=p.get_items(labels)
+            items = p.get_items(labels)
 
             # Check the recall:
             self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))), 1.0, 3)
@@ -86,11 +86,11 @@ class RandomSelfTestCase(unittest.TestCase):
             self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), 1.0, 3)
 
             # Check that the returned element data is correct:
-            diff_with_gt_labels=np.mean(np.abs(data-items))
+            diff_with_gt_labels = np.mean(np.abs(data-items))
             self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-4) # deleting index.
 
             # Checking that all labels are returned correctly:
-            sorted_labels=sorted(p.get_ids_list())
+            sorted_labels = sorted(p.get_ids_list())
             self.assertEqual(np.sum(~np.asarray(sorted_labels) == np.asarray(range(num_elements))), 0)
 
             # Delete data1
