@@ -670,6 +670,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
+        .def("get_max_elements", &Index<float>::getMaxElements)
+        .def("get_current_count", &Index<float>::getCurrentCount)
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
