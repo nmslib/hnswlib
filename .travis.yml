@@ -9,7 +9,15 @@ jobs:
     - name: Linux Python 3.7
       os: linux
       python: 3.7
-    
+
+    - name: Linux Python 3.8
+      os: linux
+      python: 3.8
+
+    - name: Linux Python 3.9
+      os: linux
+      python: 3.9
+
     - name: Windows Python 3.6
       os: windows
       language: shell    # 'language: python' is an error on Travis CI Windows
@@ -27,6 +35,24 @@ jobs:
         - python -m pip install --upgrade pip
         - python --version
       env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
+
+    - name: Windows Python 3.8
+      os: windows
+      language: shell    # 'language: python' is an error on Travis CI Windows
+      before_install:
+        - choco install python --version 3.8.0
+        - python -m pip install --upgrade pip
+        - python --version
+      env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
+
+    - name: Windows Python 3.9
+      os: windows
+      language: shell    # 'language: python' is an error on Travis CI Windows
+      before_install:
+        - choco install python --version 3.9.0
+        - python -m pip install --upgrade pip
+        - python --version
+      env: PATH=/c/Python39:/c/Python39/Scripts:$PATH
 
 install:
   - |
