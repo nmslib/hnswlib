@@ -80,7 +80,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
             # Query the elements for themselves and measure recall:
             labels, distances = p.knn_query(data, k=1)
-            items=p.get_items(labels)
+            items = p.get_items(labels)
 
             # Check the recall:
             self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), 1.0, 3)
