@@ -25,7 +25,7 @@ class RandomSelfTestCase(unittest.TestCase):
         #
         # ef_construction - controls index search speed/build speed tradeoff
         # M - is tightly connected with internal dimensionality of the data
-        #     stronlgy affects the memory consumption
+        #     strongly affects the memory consumption
 
         p.init_index(max_elements=num_elements, ef_construction=100, M=16)
 
