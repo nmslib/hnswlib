@@ -21,13 +21,13 @@ class RandomSelfTestCase(unittest.TestCase):
             # Declaring index
             p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
 
-            # Initing index
+            # Initiating index
             # max_elements - the maximum number of elements, should be known beforehand
             #     (probably will be made optional in the future)
             #
             # ef_construction - controls index search speed/build speed tradeoff
             # M - is tightly connected with internal dimensionality of the data
-            #     stronlgy affects the memory consumption
+            #     strongly affects the memory consumption
 
             p.init_index(max_elements=num_elements, ef_construction=100, M=16)
 
@@ -47,7 +47,7 @@ class RandomSelfTestCase(unittest.TestCase):
             # Query the elements for themselves and measure recall:
             labels, distances = p.knn_query(data1, k=1)
 
-            items=p.get_items(labels)
+            items = p.get_items(labels)
 
             # Check the recall:
             self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))), 1.0, 3)
@@ -67,8 +67,8 @@ class RandomSelfTestCase(unittest.TestCase):
             print("Deleted")
 
             print("\n**** Mark delete test ****\n")
-            # Reiniting, loading the index
-            print("Reiniting")
+            # Re-initiating, loading the index
+            print("Re-initiating")
             p = hnswlib.Index(space='l2', dim=dim)
 
             print("\nLoading index from '%s'\n" % index_path)
@@ -80,17 +80,17 @@ class RandomSelfTestCase(unittest.TestCase):
 
             # Query the elements for themselves and measure recall:
             labels, distances = p.knn_query(data, k=1)
-            items=p.get_items(labels)
+            items = p.get_items(labels)
 
             # Check the recall:
             self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), 1.0, 3)
 
             # Check that the returned element data is correct:
-            diff_with_gt_labels=np.mean(np.abs(data-items))
+            diff_with_gt_labels = np.mean(np.abs(data-items))
             self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-4) # deleting index.
 
             # Checking that all labels are returned correctly:
-            sorted_labels=sorted(p.get_ids_list())
+            sorted_labels = sorted(p.get_ids_list())
             self.assertEqual(np.sum(~np.asarray(sorted_labels) == np.asarray(range(num_elements))), 0)
 
             # Delete data1
