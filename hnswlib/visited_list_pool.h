@@ -13,16 +13,17 @@ namespace hnswlib {
         unsigned int numelements;
 
         VisitedList(int numelements1) {
-            curV = -1;
+            curV = 0; //since curV is unsigned short, it is better not assign it a negative
             numelements = numelements1;
-            mass = new vl_type[numelements];
+            mass = new vl_type[numelements](); //init = 0
         }
 
         void reset() {
-            curV++;
-            if (curV == 0) {
-                memset(mass, 0, sizeof(vl_type) * numelements);
+            if(curV < 65535){ //avoid overflow of curV and mass (this will cause ambiguity)
                 curV++;
+            }else{
+                memset(mass, 0, sizeof(vl_type) * numelements);
+                curV = 1;
             }
         };
 
