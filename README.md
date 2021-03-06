@@ -46,9 +46,9 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     
-* `add_items(data, data_labels, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
+* `add_items(data, ids, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
-    * `data_labels` are optional N-size numpy array of integer labels for all elements in `data`. 
+    * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
