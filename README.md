@@ -52,7 +52,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(data_label)`  - marks the element as deleted, so it will be omitted from search results.
+* `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
