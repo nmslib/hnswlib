@@ -2,24 +2,26 @@
 
 #include <mutex>
 #include <string.h>
+#include <limits>
 
 namespace hnswlib {
     typedef unsigned short int vl_type;
 
     class VisitedList {
     public:
-        vl_type curV;
+        vl_type curV, max_vl_type;
         vl_type *mass;
         unsigned int numelements;
 
         VisitedList(int numelements1) {
-            curV = 0; //since curV is unsigned short, it is better not assign it a negative
+            curV = 0;
+            max_vl_type = std::numeric_limits<vl_type>::max();
             numelements = numelements1;
             mass = new vl_type[numelements](); //init = 0
         }
 
         void reset() {
-            if(curV < 65535){ //avoid overflow of curV and mass (this will cause ambiguity)
+            if(curV < max_vl_type){
                 curV++;
             }else{
                 memset(mass, 0, sizeof(vl_type) * numelements);
