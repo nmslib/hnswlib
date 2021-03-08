@@ -41,18 +41,18 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 `hnswlib.Index` methods:
-* `init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)` initializes the index from with no elements. 
+* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     
-* `add_items(data, data_labels, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
-    * `labels` is an optional N-size numpy array of integer labels for all elements in `data`.
+* `add_items(data, ids, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
-    * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
+    * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
+      - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(data_label)`  - marks the element as deleted, so it will be omitted from search results.
+* `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
@@ -113,7 +113,7 @@ num_elements = 10000
 
 # Generating sample data
 data = np.float32(np.random.random((num_elements, dim)))
-data_labels = np.arange(num_elements)
+ids = np.arange(num_elements)
 
 # Declaring index
 p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or ip
@@ -122,7 +122,7 @@ p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or 
 p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 
 # Element insertion (can be called several times):
-p.add_items(data, data_labels)
+p.add_items(data, ids)
 
 # Controlling the recall by setting ef:
 p.set_ef(50) # ef should always be > k
