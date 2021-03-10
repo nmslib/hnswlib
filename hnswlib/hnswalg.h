@@ -573,29 +573,23 @@ namespace hnswlib {
             visited_list_pool_ = new VisitedListPool(1, new_max_elements);
 
 
-
             element_levels_.resize(new_max_elements);
 
             std::vector<std::mutex>(new_max_elements).swap(link_list_locks_);
 
             // Reallocate base layer
-            char * data_level0_memory_new = (char *) malloc(new_max_elements * size_data_per_element_);
+            char * data_level0_memory_new = (char *) realloc(data_level0_memory_, new_max_elements * size_data_per_element_);
             if (data_level0_memory_new == nullptr)
                 throw std::runtime_error("Not enough memory: resizeIndex failed to allocate base layer");
-            memcpy(data_level0_memory_new, data_level0_memory_,cur_element_count * size_data_per_element_);
-            free(data_level0_memory_);
-            data_level0_memory_=data_level0_memory_new;
+            data_level0_memory_ = data_level0_memory_new;
 
             // Reallocate all other layers
-            char ** linkLists_new = (char **) malloc(sizeof(void *) * new_max_elements);
+            char ** linkLists_new = (char **) realloc(linkLists_, sizeof(void *) * new_max_elements);
             if (linkLists_new == nullptr)
                 throw std::runtime_error("Not enough memory: resizeIndex failed to allocate other layers");
-            memcpy(linkLists_new, linkLists_,cur_element_count * sizeof(void *));
-            free(linkLists_);
-            linkLists_=linkLists_new;
+            linkLists_ = linkLists_new;
 
-            max_elements_=new_max_elements;
-
+            max_elements_ = new_max_elements;
         }
 
         void saveIndex(const std::string &location) {
