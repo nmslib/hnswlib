@@ -2,27 +2,30 @@
 
 #include <mutex>
 #include <string.h>
+#include <limits>
 
 namespace hnswlib {
     typedef unsigned short int vl_type;
 
     class VisitedList {
     public:
-        vl_type curV;
+        vl_type curV, max_vl_type;
         vl_type *mass;
         unsigned int numelements;
 
         VisitedList(int numelements1) {
-            curV = -1;
             numelements = numelements1;
-            mass = new vl_type[numelements];
+            curV = 0;
+            max_vl_type = std::numeric_limits<vl_type>::max();
+            mass = new vl_type[numelements]();
         }
 
         void reset() {
-            curV++;
-            if (curV == 0) {
-                memset(mass, 0, sizeof(vl_type) * numelements);
+            if (curV < max_vl_type){
                 curV++;
+            } else {
+                memset(mass, 0, sizeof(vl_type) * numelements);
+                curV = 1;
             }
         };
 
@@ -75,4 +78,3 @@ namespace hnswlib {
         };
     };
 }
-
