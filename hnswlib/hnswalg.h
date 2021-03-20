@@ -358,7 +358,7 @@ namespace hnswlib {
                     dist_t curdist =
                             fstdistfunc_(getDataByInternalId(second_pair.second),
                                          getDataByInternalId(curent_pair.second),
-                                         dist_func_param_);;
+                                         dist_func_param_);
                     if (curdist < dist_to_query) {
                         good = false;
                         break;
