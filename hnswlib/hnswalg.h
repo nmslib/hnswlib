@@ -332,46 +332,52 @@ namespace hnswlib {
             return top_candidates;
         }
 
-        void getNeighborsByHeuristic2(
+        std::vector<tableint>
+        getNeighborsByHeuristic2 (
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
-        const size_t M) {
+                const size_t M) {
+            std::vector<tableint> return_list;
+
             if (top_candidates.size() < M) {
-                return;
-            }
+                return_list.resize(top_candidates.size());
 
-            std::priority_queue<std::pair<dist_t, tableint>> queue_closest;
-            std::vector<std::pair<dist_t, tableint>> return_list;
-            while (top_candidates.size() > 0) {
-                queue_closest.emplace(-top_candidates.top().first, top_candidates.top().second);
-                top_candidates.pop();
-            }
+                for (int i = static_cast<int>(top_candidates.size() - 1); i >= 0; i--) {
+                    return_list[i] = top_candidates.top().second;
+                    top_candidates.pop();
+                }
 
-            while (queue_closest.size()) {
-                if (return_list.size() >= M)
-                    break;
-                std::pair<dist_t, tableint> curent_pair = queue_closest.top();
-                dist_t dist_to_query = -curent_pair.first;
-                queue_closest.pop();
-                bool good = true;
+            } else if (M > 0) {
+                return_list.reserve(M);
 
-                for (std::pair<dist_t, tableint> second_pair : return_list) {
-                    dist_t curdist =
-                            fstdistfunc_(getDataByInternalId(second_pair.second),
-                                         getDataByInternalId(curent_pair.second),
-                                         dist_func_param_);;
-                    if (curdist < dist_to_query) {
-                        good = false;
-                        break;
+                std::vector<std::pair<dist_t, tableint>> queue_closest;
+                queue_closest.resize(top_candidates.size());
+                for (int i = static_cast<int>(top_candidates.size() - 1); i >= 0; i--) {
+                    queue_closest[i] = top_candidates.top();
+                    top_candidates.pop();
+                }
+
+                for (std::pair<dist_t, tableint> &current_pair: queue_closest) {
+                    bool good = true;
+                    for (tableint id : return_list) {
+                        dist_t curdist =
+                                fstdistfunc_(getDataByInternalId(id),
+                                             getDataByInternalId(current_pair.second),
+                                             dist_func_param_);
+                        if (curdist < current_pair.first) {
+                            good = false;
+                            break;
+                        }
+                    }
+                    if (good) {
+                        return_list.push_back(current_pair.second);
+                        if (return_list.size() >= M) {
+                            break;
+                        }
                     }
                 }
-                if (good) {
-                    return_list.push_back(curent_pair);
-                }
             }
 
-            for (std::pair<dist_t, tableint> curent_pair : return_list) {
-                top_candidates.emplace(-curent_pair.first, curent_pair.second);
-            }
+            return return_list;
         }
 
 
@@ -395,18 +401,12 @@ namespace hnswlib {
                                        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
         int level, bool isUpdate) {
             size_t Mcurmax = level ? maxM_ : maxM0_;
-            getNeighborsByHeuristic2(top_candidates, M_);
-            if (top_candidates.size() > M_)
+
+            std::vector<tableint> selectedNeighbors(getNeighborsByHeuristic2(top_candidates, M_));
+            if (selectedNeighbors.size() > M_)
                 throw std::runtime_error("Should be not be more than M_ candidates returned by the heuristic");
 
-            std::vector<tableint> selectedNeighbors;
-            selectedNeighbors.reserve(M_);
-            while (top_candidates.size() > 0) {
-                selectedNeighbors.push_back(top_candidates.top().second);
-                top_candidates.pop();
-            }
-
-            tableint next_closest_entry_point = selectedNeighbors.back();
+            tableint next_closest_entry_point = selectedNeighbors.front();
 
             {
                 linklistsizeint *ll_cur;
@@ -481,16 +481,11 @@ namespace hnswlib {
                                                  dist_func_param_), data[j]);
                         }
 
-                        getNeighborsByHeuristic2(candidates, Mcurmax);
-
-                        int indx = 0;
-                        while (candidates.size() > 0) {
-                            data[indx] = candidates.top().second;
-                            candidates.pop();
-                            indx++;
+                        std::vector<tableint> selected(getNeighborsByHeuristic2(candidates, Mcurmax));
+                        setListCount(ll_other, static_cast<unsigned short int>(selected.size()));
+                        for (size_t idx = 0; idx < selected.size(); idx++) {
+                            data[idx] = selected[idx];
                         }
-
-                        setListCount(ll_other, indx);
                         // Nearest K:
                         /*int indx = -1;
                         for (int j = 0; j < sz_link_list_other; j++) {
@@ -885,18 +880,17 @@ namespace hnswlib {
                     }
 
                     // Retrieve neighbours using heuristic and set connections.
-                    getNeighborsByHeuristic2(candidates, layer == 0 ? maxM0_ : maxM_);
+                    std::vector<tableint> selected(getNeighborsByHeuristic2(candidates, layer == 0 ? maxM0_ : maxM_));
 
                     {
                         std::unique_lock <std::mutex> lock(link_list_locks_[neigh]);
                         linklistsizeint *ll_cur;
                         ll_cur = get_linklist_at_level(neigh, layer);
-                        size_t candSize = candidates.size();
+                        size_t candSize = selected.size();
                         setListCount(ll_cur, candSize);
                         tableint *data = (tableint *) (ll_cur + 1);
                         for (size_t idx = 0; idx < candSize; idx++) {
-                            data[idx] = candidates.top().second;
-                            candidates.pop();
+                            data[idx] = selected[idx];
                         }
                     }
                 }
@@ -1007,9 +1001,7 @@ namespace hnswlib {
             // Take update lock to prevent race conditions on an element with insertion/update at the same time.
             std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(cur_c & (max_update_element_locks - 1))]);
             std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
-            int curlevel = getRandomLevel(mult_);
-            if (level > 0)
-                curlevel = level;
+            int curlevel = (level > 0) ? level : getRandomLevel(mult_);
 
             element_levels_[cur_c] = curlevel;
 
