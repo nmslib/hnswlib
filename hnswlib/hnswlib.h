@@ -6,6 +6,11 @@
 #define USE_AVX
 #endif
 #endif
+
+#ifdef __ARM_NEON
+#define USE_NEON
+#endif
+
 #endif
 
 #if defined(USE_AVX) || defined(USE_SSE)
@@ -22,6 +27,16 @@
 #define PORTABLE_ALIGN32 __declspec(align(32))
 #endif
 #endif
+
+#if defined(USE_NEON)
+#include <arm_neon.h>
+#if defined(__APPLE__) && defined(__clang__)
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#define USE_NEON_DOTPROD
+#endif // apple check for target coditionals
+#endif // osx
+#endif //use_neon
 
 #include <queue>
 #include <vector>
