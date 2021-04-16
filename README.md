@@ -6,7 +6,7 @@ Header-only C++ HNSW implementation with python bindings. Paper's code for the H
 
 * **hnswlib is now 0.5.0. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!**
 
-* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the performance/memory should not degrade as you update the element embeddings).**
+* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but the performance/memory should not degrade as you update the element embeddings).**
 
 * **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not multiple of 4** 
 
