@@ -211,7 +211,6 @@ namespace hnswlib {
                     metric_hops++;
                     metric_distance_computations+=size;
                 }
-
 #ifdef USE_SSE
                 _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
                 _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
