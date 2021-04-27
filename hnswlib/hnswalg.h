@@ -158,89 +158,6 @@ namespace hnswlib {
             return (int) r;
         }
 
-
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
-            VisitedList *vl = visited_list_pool_->getFreeVisitedList();
-            vl_type *visited_array = vl->mass;
-            vl_type visited_array_tag = vl->curV;
-
-            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidateSet;
-
-            dist_t lowerBound;
-            if (!isMarkedDeleted(ep_id)) {
-                dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
-                top_candidates.emplace(dist, ep_id);
-                lowerBound = dist;
-                candidateSet.emplace(-dist, ep_id);
-            } else {
-                lowerBound = std::numeric_limits<dist_t>::max();
-                candidateSet.emplace(-lowerBound, ep_id);
-            }
-            visited_array[ep_id] = visited_array_tag;
-
-            while (!candidateSet.empty()) {
-                std::pair<dist_t, tableint> curr_el_pair = candidateSet.top();
-                if ((-curr_el_pair.first) > lowerBound) {
-                    break;
-                }
-                candidateSet.pop();
-
-                tableint curNodeNum = curr_el_pair.second;
-
-                std::unique_lock <std::mutex> lock(link_list_locks_[curNodeNum]);
-
-                int *data;// = (int *)(linkList0_ + curNodeNum * size_links_per_element0_);
-                if (layer == 0) {
-                    data = (int*)get_linklist0(curNodeNum);
-                } else {
-                    data = (int*)get_linklist(curNodeNum, layer);
-//                    data = (int *) (linkLists_[curNodeNum] + (layer - 1) * size_links_per_element_);
-                }
-                size_t size = getListCount((linklistsizeint*)data);
-                tableint *datal = (tableint *) (data + 1);
-#ifdef USE_SSE
-                _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
-                _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
-                _mm_prefetch(getDataByInternalId(*datal), _MM_HINT_T0);
-                _mm_prefetch(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
-#endif
-
-                for (size_t j = 0; j < size; j++) {
-                    tableint candidate_id = *(datal + j);
-//                    if (candidate_id == 0) continue;
-#ifdef USE_SSE
-                    _mm_prefetch((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
-                    _mm_prefetch(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
-#endif
-                    if (visited_array[candidate_id] == visited_array_tag) continue;
-                    visited_array[candidate_id] = visited_array_tag;
-                    char *currObj1 = (getDataByInternalId(candidate_id));
-
-                    dist_t dist1 = fstdistfunc_(data_point, currObj1, dist_func_param_);
-                    if (top_candidates.size() < ef_construction_ || lowerBound > dist1) {
-                        candidateSet.emplace(-dist1, candidate_id);
-#ifdef USE_SSE
-                        _mm_prefetch(getDataByInternalId(candidateSet.top().second), _MM_HINT_T0);
-#endif
-
-                        if (!isMarkedDeleted(candidate_id))
-                            top_candidates.emplace(dist1, candidate_id);
-
-                        if (top_candidates.size() > ef_construction_)
-                            top_candidates.pop();
-
-                        if (!top_candidates.empty())
-                            lowerBound = top_candidates.top().first;
-                    }
-                }
-            }
-            visited_list_pool_->releaseVisitedList(vl);
-
-            return top_candidates;
-        }
-
         mutable std::atomic<long> metric_distance_computations;
         mutable std::atomic<long> metric_hops;
 
@@ -313,6 +230,102 @@ namespace hnswlib {
                             _mm_prefetch(data_level0_memory_ + candidate_set.top().second * size_data_per_element_ +
                                          offsetLevel0_,///////////
                                          _MM_HINT_T0);////////////////////////
+#endif
+
+                            if (!has_deletions || !isMarkedDeleted(candidate_id))
+                                top_candidates.emplace(dist, candidate_id);
+
+                            if (top_candidates.size() > ef)
+                                top_candidates.pop();
+
+                            if (!top_candidates.empty())
+                                lowerBound = top_candidates.top().first;
+                        }
+                    }
+                }
+            }
+
+            visited_list_pool_->releaseVisitedList(vl);
+            return top_candidates;
+        }
+
+        template <bool has_deletions, bool collect_metrics=false>
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
+        searchLayer(tableint ep_id, const void *data_point, size_t ef, int layer, bool is_st) {
+            VisitedList *vl = visited_list_pool_->getFreeVisitedList();
+            vl_type *visited_array = vl->mass;
+            vl_type visited_array_tag = vl->curV;
+
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
+
+            dist_t lowerBound;
+            if (!has_deletions || !isMarkedDeleted(ep_id)) {
+                dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
+                lowerBound = dist;
+                top_candidates.emplace(dist, ep_id);
+                candidate_set.emplace(-dist, ep_id);
+            } else {
+                lowerBound = std::numeric_limits<dist_t>::max();
+                candidate_set.emplace(-lowerBound, ep_id);
+            }
+
+            visited_array[ep_id] = visited_array_tag;
+
+            while (!candidate_set.empty()) {
+
+                std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
+
+                if ((-current_node_pair.first) > lowerBound) {
+                    break;
+                }
+                candidate_set.pop();
+
+                tableint current_node_id = current_node_pair.second;
+
+                std::unique_lock<std::mutex> lk(link_list_locks_[current_node_id]);
+                if (is_st)
+                    lk.unlock();
+
+                int *data;
+                if (layer == 0) {
+                    data = (int*)get_linklist0(current_node_id);
+                } else {
+                    data = (int*)get_linklist(current_node_id, layer);
+                }
+                size_t size = getListCount((linklistsizeint*)data);
+
+                if(collect_metrics){
+                    metric_hops++;
+                    metric_distance_computations+=size;
+                }
+
+#ifdef USE_SSE
+                _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
+                _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+                _mm_prefetch(getDataByInternalId((tableint)(*(data + 1))), _MM_HINT_T0);
+                _mm_prefetch(getDataByInternalId((tableint)(*(data + 2))), _MM_HINT_T0);
+                _mm_prefetch((char *) (data + 2), _MM_HINT_T0);
+#endif
+
+                for (size_t j = 1; j <= size; j++) {
+                    int candidate_id = *(data + j);
+//                    if (candidate_id == 0) continue;
+#ifdef USE_SSE
+                    _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
+                    _mm_prefetch(getDataByInternalId((tableint)(*(data + j + 1))), _MM_HINT_T0);////////////
+#endif
+                    if (visited_array[candidate_id] != visited_array_tag) {
+
+                        visited_array[candidate_id] = visited_array_tag;
+
+                        char *currObj1 = (getDataByInternalId(candidate_id));
+                        dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
+
+                        if (top_candidates.size() < ef || lowerBound > dist) {
+                            candidate_set.emplace(-dist, candidate_id);
+#ifdef USE_SSE
+                            _mm_prefetch(getDataByInternalId(candidate_set.top().second),_MM_HINT_T0);////////////////////////
 #endif
 
                             if (!has_deletions || !isMarkedDeleted(candidate_id))
@@ -548,13 +561,13 @@ namespace hnswlib {
             }
 
             if (has_deletions_) {
-                std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchBaseLayerST<true>(currObj, query_data,
-                                                                                                           ef_);
+                std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchLayer<true>(currObj, query_data,
+                                                                                                           ef_, 0, true);
                 top_candidates.swap(top_candidates1);
             }
             else{
-                std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchBaseLayerST<false>(currObj, query_data,
-                                                                                                            ef_);
+                std::priority_queue<std::pair<dist_t, tableint  >> top_candidates1=searchLayer<false>(currObj, query_data,
+                                                                                                            ef_, 0, true);
                 top_candidates.swap(top_candidates1);
             }
 
@@ -941,8 +954,8 @@ namespace hnswlib {
                 throw std::runtime_error("Level of item to be updated cannot be bigger than max level");
 
             for (int level = dataPointLevel; level >= 0; level--) {
-                std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> topCandidates = searchBaseLayer(
-                        currObj, dataPoint, level);
+                std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> topCandidates = searchLayer<false>(
+                        currObj, dataPoint, ef_construction_, level, false);
 
                 std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> filteredTopCandidates;
                 while (topCandidates.size() > 0) {
@@ -1073,8 +1086,8 @@ namespace hnswlib {
                     if (level > maxlevelcopy || level < 0)  // possible?
                         throw std::runtime_error("Level error");
 
-                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
-                            currObj, data_point, level);
+                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchLayer<false>(
+                            currObj, data_point, ef_construction_, level, false);
                     if (epDeleted) {
                         top_candidates.emplace(fstdistfunc_(data_point, getDataByInternalId(enterpoint_copy), dist_func_param_), enterpoint_copy);
                         if (top_candidates.size() > ef_construction_)
