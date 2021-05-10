@@ -242,11 +242,11 @@ void sift_test1B() {
     size_t vecdim = 128;
     char path_index[1024];
     char path_gt[1024];
-    char *path_q = "bigann/bigann_query.bvecs";
-    char *path_data = "bigann/bigann_base.bvecs";
+    char *path_q = "../bigann/bigann_query.bvecs";
+    char *path_data = "../bigann/bigann_base.bvecs";
     sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_milllions, efConstruction, M);
 
-    sprintf(path_gt, "bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
+    sprintf(path_gt, "../bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
 
 
     unsigned char *massb = new unsigned char[vecdim];

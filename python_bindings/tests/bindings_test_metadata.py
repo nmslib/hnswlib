@@ -6,15 +6,13 @@ import hnswlib
 
 
 class RandomSelfTestCase(unittest.TestCase):
-    def testGettingItems(self):
-        print("\n**** Getting the data by label test ****\n")
+    def testMetadata(self):
 
         dim = 16
         num_elements = 10000
 
         # Generating sample data
         data = np.float32(np.random.random((num_elements, dim)))
-        labels = np.arange(0, num_elements)
 
         # Declaring index
         p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
@@ -35,12 +33,17 @@ class RandomSelfTestCase(unittest.TestCase):
 
         p.set_num_threads(4)  # by default using all available cores
 
-        # Before adding anything, getting any labels should fail
-        self.assertRaises(Exception, lambda: p.get_items(labels))
-
         print("Adding all elements (%d)" % (len(data)))
-        p.add_items(data, labels)
+        p.add_items(data)
 
-        # After adding them, all labels should be retrievable
-        returned_items = p.get_items(labels)
-        self.assertSequenceEqual(data.tolist(), returned_items)
+        # test methods
+        self.assertEqual(p.get_max_elements(), num_elements)
+        self.assertEqual(p.get_current_count(), num_elements)
+
+        # test properties
+        self.assertEqual(p.space, 'l2')
+        self.assertEqual(p.dim, dim)
+        self.assertEqual(p.M, 16)
+        self.assertEqual(p.ef_construction, 100)
+        self.assertEqual(p.max_elements, num_elements)
+        self.assertEqual(p.element_count, num_elements)

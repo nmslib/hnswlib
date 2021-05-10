@@ -5,9 +5,9 @@
 #include <atomic>
 #include <random>
 #include <stdlib.h>
+#include <assert.h>
 #include <unordered_set>
 #include <list>
-
 
 namespace hnswlib {
     typedef unsigned int tableint;
@@ -26,7 +26,7 @@ namespace hnswlib {
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
-                link_list_locks_(max_elements), element_levels_(max_elements), link_list_update_locks_(max_update_element_locks) {
+                link_list_locks_(max_elements), link_list_update_locks_(max_update_element_locks), element_levels_(max_elements) {
             max_elements_ = max_elements;
 
             has_deletions_=false;
@@ -406,7 +406,7 @@ namespace hnswlib {
                 top_candidates.pop();
             }
 
-            tableint next_closest_entry_point = selectedNeighbors[0];
+            tableint next_closest_entry_point = selectedNeighbors.back();
 
             {
                 linklistsizeint *ll_cur;
@@ -635,7 +635,6 @@ namespace hnswlib {
 
             if (!input.is_open())
                 throw std::runtime_error("Cannot open file");
-
 
             // get file size:
             input.seekg(0,input.end);
@@ -868,8 +867,8 @@ namespace hnswlib {
 //                        continue;
 
                     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidates;
-                    int size = sCand.find(neigh) == sCand.end() ? sCand.size() : sCand.size() - 1;
-                    int elementsToKeep = std::min(int(ef_construction_), size);
+                    size_t size = sCand.find(neigh) == sCand.end() ? sCand.size() : sCand.size() - 1; // sCand guaranteed to have size >= 1
+                    size_t elementsToKeep = std::min(ef_construction_, size);
                     for (auto&& cand : sCand) {
                         if (cand == neigh)
                             continue;
@@ -892,7 +891,7 @@ namespace hnswlib {
                         std::unique_lock <std::mutex> lock(link_list_locks_[neigh]);
                         linklistsizeint *ll_cur;
                         ll_cur = get_linklist_at_level(neigh, layer);
-                        int candSize = candidates.size();
+                        size_t candSize = candidates.size();
                         setListCount(ll_cur, candSize);
                         tableint *data = (tableint *) (ll_cur + 1);
                         for (size_t idx = 0; idx < candSize; idx++) {
@@ -1136,7 +1135,7 @@ namespace hnswlib {
             }
 
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-            if (has_deletions_) {                
+            if (has_deletions_) {
                 top_candidates=searchBaseLayerST<true,true>(
                         currObj, query_data, std::max(ef_, k));
             }
@@ -1156,24 +1155,6 @@ namespace hnswlib {
             return result;
         };
 
-        template <typename Comp>
-        std::vector<std::pair<dist_t, labeltype>>
-        searchKnn(const void* query_data, size_t k, Comp comp) {
-            std::vector<std::pair<dist_t, labeltype>> result;
-            if (cur_element_count == 0) return result;
-
-            auto ret = searchKnn(query_data, k);
-
-            while (!ret.empty()) {
-                result.push_back(ret.top());
-                ret.pop();
-            }
-
-            std::sort(result.begin(), result.end(), comp);
-
-            return result;
-        }
-
         void checkIntegrity(){
             int connections_checked=0;
             std::vector <int > inbound_connections_num(cur_element_count,0);
@@ -1185,19 +1166,19 @@ namespace hnswlib {
                     std::unordered_set<tableint> s;
                     for (int j=0; j<size; j++){
                         assert(data[j] > 0);
-                        assert(data[j] < cur_element_count);                                                
+                        assert(data[j] < cur_element_count);
                         assert (data[j] != i);
                         inbound_connections_num[data[j]]++;
                         s.insert(data[j]);
                         connections_checked++;
-                        
+
                     }
                     assert(s.size() == size);
                 }
             }
             if(cur_element_count > 1){
                 int min1=inbound_connections_num[0], max1=inbound_connections_num[0];
-                for(int i=0; i < cur_element_count; i++){                
+                for(int i=0; i < cur_element_count; i++){
                     assert(inbound_connections_num[i] > 0);
                     min1=std::min(inbound_connections_num[i],min1);
                     max1=std::max(inbound_connections_num[i],max1);
@@ -1205,7 +1186,7 @@ namespace hnswlib {
                 std::cout << "Min inbound: " << min1 << ", Max inbound:" << max1 << "\n";
             }
             std::cout << "integrity ok, checked " << connections_checked << " connections\n";
-            
+
         }
 
     };

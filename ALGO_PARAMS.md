@@ -14,8 +14,8 @@ elements for the queries. Note that in case the algorithm is not be able to find
 is 2-100. Higher ```M``` work better on datasets with high intrinsic dimensionality and/or high recall, while low ```M``` work 
 better for datasets with low intrinsic dimensionality and/or low recalls. The parameter also determines the algorithm's memory 
 consumption, which is roughly ```M * 8-10``` bytes per stored element.  
-As an example for ```d```=4 random vectors optimal ```M``` for search is somewhere around 6, while for high dimensional datasets 
-(word embeddings, good face descriptors), higher ```M``` are required (e.g. ```M```=48, 64) for optimal performance at high recall. 
+As an example for ```dim```=4 random vectors optimal ```M``` for search is somewhere around 6, while for high dimensional datasets 
+(word embeddings, good face descriptors), higher ```M``` are required (e.g. ```M```=48-64) for optimal performance at high recall. 
 The range ```M```=12-48 is ok for the most of the use cases. When ```M``` is changed one has to update the other parameters. 
 Nonetheless, ef and ef_construction parameters can be roughly estimated by assuming that ```M```*```ef_{construction}``` is 
 a constant.
