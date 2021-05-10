@@ -987,11 +987,15 @@ namespace hnswlib {
                 auto search = label_lookup_.find(label);
                 if (search != label_lookup_.end()) {
                     tableint existingInternalId = search->second;
-
                     templock_curr.unlock();
 
                     std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(existingInternalId & (max_update_element_locks - 1))]);
+
+                    if (isMarkedDeleted(existingInternalId)) {
+                        unmarkDeletedInternal(existingInternalId);
+                    }
                     updatePoint(data_point, existingInternalId, 1.0);
+                    
                     return existingInternalId;
                 }
 
