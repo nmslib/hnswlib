@@ -164,6 +164,7 @@ public:
       }
       appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
       cur_l = appr_alg->cur_element_count;
+      index_inited = true;
     }
 
     void normalize_vector(float *data, float *norm_array){
