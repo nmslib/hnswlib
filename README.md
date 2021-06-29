@@ -3,8 +3,9 @@ Header-only C++ HNSW implementation with python bindings. Paper's code for the H
 
 **NEWS:**
 
+* **Hnswlib is now 0.5.2**. Bugfixes - thanks [@marekhanus](https://github.com/marekhanus) for fixing the missing arguments, adding support for python 3.8, 3.9 in Travis, improving python wrapper and fixing typos/code style; [@apoorv-sharma](https://github.com/apoorv-sharma) for fixing the bug int the insertion/deletion logic; [@shengjun1985](https://github.com/shengjun1985) for simplifying the memory reallocation logic; [@TakaakiFuruse](https://github.com/TakaakiFuruse) for improved description of `add_items`; [@psobot ](https://github.com/psobot) for improving error handling; [@ShuAiii](https://github.com/ShuAiii) for reporting the bug in the python interface
 
-* **hnswlib is now 0.5.0. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!**
+* **Hnswlib is now 0.5.0**. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!
 
 * **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the performance/memory should not degrade as you update the element embeddings).**
 
