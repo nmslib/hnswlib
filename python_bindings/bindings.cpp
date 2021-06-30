@@ -97,6 +97,8 @@ public:
     else if(space_name=="cosine") {
       l2space = new hnswlib::InnerProductSpace(dim);
       normalize=true;
+    } else {
+      throw new std::runtime_error("Space name must be one of l2, ip, or cosine.");
     }
     appr_alg = NULL;
     ep_added = true;
@@ -162,6 +164,7 @@ public:
       }
       appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
       cur_l = appr_alg->cur_element_count;
+      index_inited = true;
     }
 
     void normalize_vector(float *data, float *norm_array){

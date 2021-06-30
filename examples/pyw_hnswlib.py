@@ -11,8 +11,8 @@ class Index():
         self.dict_labels = {}
         self.cur_ind = 0
 
-    def init_index(self, max_elements, ef_construction = 200, M = 16):
-        self.index.init_index(max_elements = max_elements, ef_construction = ef_construction, M = M)
+    def init_index(self, max_elements, ef_construction=200, M=16):
+        self.index.init_index(max_elements=max_elements, ef_construction=ef_construction, M=M)
 
     def add_items(self, data, ids=None):
         if ids is not None:
@@ -55,8 +55,7 @@ class Index():
         labels_int, distances = self.index.knn_query(data=data, k=k)
         labels = []
         for li in labels_int:
-            line = []
-            for l in li:
-                line.append(self.dict_labels[l])
-            labels.append(line)
+            labels.append(
+                [self.dict_labels[l] for l in li]
+            )
         return labels, distances

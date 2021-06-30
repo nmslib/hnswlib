@@ -1,10 +1,11 @@
 # Hnswlib - fast approximate nearest neighbor search
-Header-only C++ HNSW implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
+Header-only C++ HNSW implementation with python bindings.
 
 **NEWS:**
 
+* **Hnswlib is now 0.5.2**. Bugfixes - thanks [@marekhanus](https://github.com/marekhanus) for fixing the missing arguments, adding support for python 3.8, 3.9 in Travis, improving python wrapper and fixing typos/code style; [@apoorv-sharma](https://github.com/apoorv-sharma) for fixing the bug int the insertion/deletion logic; [@shengjun1985](https://github.com/shengjun1985) for simplifying the memory reallocation logic; [@TakaakiFuruse](https://github.com/TakaakiFuruse) for improved description of `add_items`; [@psobot ](https://github.com/psobot) for improving error handling; [@ShuAiii](https://github.com/ShuAiii) for reporting the bug in the python interface
 
-* **hnswlib is now 0.5.0. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!**
+* **Hnswlib is now 0.5.0**. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!
 
 * **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the performance/memory should not degrade as you update the element embeddings).**
 
@@ -41,18 +42,18 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 `hnswlib.Index` methods:
-* `init_index(max_elements, ef_construction = 200, M = 16, random_seed = 100)` initializes the index from with no elements. 
+* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     
-* `add_items(data, data_labels, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
-    * `labels` is an optional N-size numpy array of integer labels for all elements in `data`.
+* `add_items(data, ids, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
-    * `data_labels` specifies the labels for the data. If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
+    * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
+      - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(data_label)`  - marks the element as deleted, so it will be omitted from search results.
+* `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
@@ -113,7 +114,7 @@ num_elements = 10000
 
 # Generating sample data
 data = np.float32(np.random.random((num_elements, dim)))
-data_labels = np.arange(num_elements)
+ids = np.arange(num_elements)
 
 # Declaring index
 p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or ip
@@ -122,7 +123,7 @@ p = hnswlib.Index(space = 'l2', dim = dim) # possible options are l2, cosine or 
 p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 
 # Element insertion (can be called several times):
-p.add_items(data, data_labels)
+p.add_items(data, ids)
 
 # Controlling the recall by setting ef:
 p.set_ef(50) # ef should always be > k
@@ -295,4 +296,13 @@ To run test **with** updates (from `build` directory)
 
 ### References
 
-Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." TPAMI, preprint: https://arxiv.org/abs/1603.09320
+@article{malkov2018efficient,
+  title={Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs},
+  author={Malkov, Yu A and Yashunin, Dmitry A},
+  journal={IEEE transactions on pattern analysis and machine intelligence},
+  volume={42},
+  number={4},
+  pages={824--836},
+  year={2018},
+  publisher={IEEE}
+}

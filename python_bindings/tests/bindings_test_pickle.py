@@ -60,38 +60,38 @@ def test_space_main(self, space, dim):
 
     p.num_threads = self.num_threads  # by default using all available cores
 
-    p0 = pickle.loads(pickle.dumps(p)) ### pickle un-initialized Index
+    p0 = pickle.loads(pickle.dumps(p)) # pickle un-initialized Index
     p.init_index(max_elements=self.num_elements, ef_construction=self.ef_construction, M=self.M)
     p0.init_index(max_elements=self.num_elements, ef_construction=self.ef_construction, M=self.M)
 
     p.ef = self.ef
     p0.ef = self.ef
 
-    p1 = pickle.loads(pickle.dumps(p)) ### pickle Index before adding items
+    p1 = pickle.loads(pickle.dumps(p)) # pickle Index before adding items
 
-    ### add items to ann index p,p0,p1
+    # add items to ann index p,p0,p1
     p.add_items(data)
     p1.add_items(data)
     p0.add_items(data)
 
-    p2=pickle.loads(pickle.dumps(p)) ### pickle Index before adding items
+    p2=pickle.loads(pickle.dumps(p)) # pickle Index before adding items
 
     self.assertTrue(np.allclose(p.get_items(), p0.get_items()), "items for p and p0 must be same")
     self.assertTrue(np.allclose(p0.get_items(), p1.get_items()), "items for p0 and p1 must be same")
     self.assertTrue(np.allclose(p1.get_items(), p2.get_items()), "items for p1 and p2 must be same")
 
-    ### Test if returned distances are same
+    # Test if returned distances are same
     l, d = p.knn_query(test_data, k=self.k)
     l0, d0 = p0.knn_query(test_data, k=self.k)
     l1, d1 = p1.knn_query(test_data, k=self.k)
     l2, d2 = p2.knn_query(test_data, k=self.k)
 
-    self.assertLessEqual(np.sum(((d-d0)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p and p0 must match")
-    self.assertLessEqual(np.sum(((d0-d1)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p0 and p1 must match")
-    self.assertLessEqual(np.sum(((d1-d2)**2.)>1e-3), self.dists_err_thresh, msg=f"knn distances returned by p1 and p2 must match")
+    self.assertLessEqual(np.sum(((d-d0)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p and p0 must match")
+    self.assertLessEqual(np.sum(((d0-d1)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p0 and p1 must match")
+    self.assertLessEqual(np.sum(((d1-d2)**2.) > 1e-3), self.dists_err_thresh, msg=f"knn distances returned by p1 and p2 must match")
 
-    ### check if ann results match brute-force search
-    ###   allow for 2 labels to be missing from ann results
+    # check if ann results match brute-force search
+    #   allow for 2 labels to be missing from ann results
     check_ann_results(self, space, data, test_data, self.k, l, d,
                            err_thresh=self.label_err_thresh,
                            total_thresh=self.item_err_thresh,
@@ -102,19 +102,19 @@ def test_space_main(self, space, dim):
                            total_thresh=self.item_err_thresh,
                            dists_thresh=self.dists_err_thresh)
 
-    ### Check ef parameter value
+    # Check ef parameter value
     self.assertEqual(p.ef, self.ef, "incorrect value of p.ef")
     self.assertEqual(p0.ef, self.ef, "incorrect value of p0.ef")
     self.assertEqual(p2.ef, self.ef, "incorrect value of p2.ef")
     self.assertEqual(p1.ef, self.ef, "incorrect value of p1.ef")
 
-    ### Check M parameter value
+    # Check M parameter value
     self.assertEqual(p.M, self.M, "incorrect value of p.M")
     self.assertEqual(p0.M, self.M, "incorrect value of p0.M")
     self.assertEqual(p1.M, self.M, "incorrect value of p1.M")
     self.assertEqual(p2.M, self.M, "incorrect value of p2.M")
 
-    ### Check ef_construction parameter value
+    # Check ef_construction parameter value
     self.assertEqual(p.ef_construction, self.ef_construction, "incorrect value of p.ef_construction")
     self.assertEqual(p0.ef_construction, self.ef_construction, "incorrect value of p0.ef_construction")
     self.assertEqual(p1.ef_construction, self.ef_construction, "incorrect value of p1.ef_construction")
@@ -135,12 +135,12 @@ class PickleUnitTests(unittest.TestCase):
         self.num_threads = 4
         self.k = 25
 
-        self.label_err_thresh = 5  ### max number of missing labels allowed per test item
-        self.item_err_thresh = 5   ### max number of items allowed with incorrect labels
+        self.label_err_thresh = 5  # max number of missing labels allowed per test item
+        self.item_err_thresh = 5   # max number of items allowed with incorrect labels
 
-        self.dists_err_thresh = 50 ### for two matrices, d1 and d2, dists_err_thresh controls max
-                                 ### number of value pairs that are allowed to be different in d1 and d2
-                                 ### i.e., number of values that are (d1-d2)**2>1e-3
+        self.dists_err_thresh = 50 # for two matrices, d1 and d2, dists_err_thresh controls max
+                                 # number of value pairs that are allowed to be different in d1 and d2
+                                 # i.e., number of values that are (d1-d2)**2>1e-3
 
     def test_inner_product_space(self):
         test_space_main(self, 'ip', 48)
