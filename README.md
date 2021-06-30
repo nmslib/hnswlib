@@ -1,5 +1,5 @@
 # Hnswlib - fast approximate nearest neighbor search
-Header-only C++ HNSW implementation with python bindings. Paper's code for the HNSW 200M SIFT experiment
+Header-only C++ HNSW implementation with python bindings.
 
 **NEWS:**
 
@@ -296,4 +296,13 @@ To run test **with** updates (from `build` directory)
 
 ### References
 
-Malkov, Yu A., and D. A. Yashunin. "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." TPAMI, preprint: https://arxiv.org/abs/1603.09320
+@article{malkov2018efficient,
+  title={Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs},
+  author={Malkov, Yu A and Yashunin, Dmitry A},
+  journal={IEEE transactions on pattern analysis and machine intelligence},
+  volume={42},
+  number={4},
+  pages={824--836},
+  year={2018},
+  publisher={IEEE}
+}
