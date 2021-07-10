@@ -744,7 +744,7 @@ namespace hnswlib {
         }
 
         template<typename data_t>
-        std::vector<data_t> getDataByLabel(labeltype label)
+        std::vector<data_t> getDataByLabel(labeltype label) const
         {
             tableint label_c;
             auto search = label_lookup_.find(label);
