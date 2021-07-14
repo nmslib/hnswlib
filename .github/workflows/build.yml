@@ -1,0 +1,22 @@
+name: HNSW CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.6', '3.7', '3.8', '3.9']
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Build and install
+        run: python -m pip install .
+      
+      - name: Test
+        run: python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
