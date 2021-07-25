@@ -1,7 +1,7 @@
 import hnswlib
 import numpy as np
 
-dim = 128
+dim = 32
 num_elements = 100000
 k = 10
 nun_queries = 10
@@ -24,12 +24,12 @@ bf_index = hnswlib.BFIndex(space='l2', dim=dim)
 # M - is tightly connected with internal dimensionality of the data. Strongly affects the memory consumption (~M)
 # Higher M leads to higher accuracy/run_time at fixed ef/efConstruction
 
-hnsw_index.init_index(max_elements=num_elements, ef_construction=10, M=6)
+hnsw_index.init_index(max_elements=num_elements, ef_construction=200, M=16)
 bf_index.init_index(max_elements=num_elements)
 
 # Controlling the recall for hnsw by setting ef:
 # higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
+hnsw_index.set_ef(200)
 
 # Set number of threads used during batch search/construction in hnsw
 # By default using all available cores
@@ -42,7 +42,7 @@ bf_index.add_items(data)
 print("Indices built")
 
 # Generating query data
-query_data = np.float32(np.random.random((10, dim)))
+query_data = np.float32(np.random.random((nun_queries, dim)))
 
 # Query the elements and measure recall:
 labels_hnsw, distances_hnsw = hnsw_index.knn_query(query_data, k)
@@ -58,3 +58,31 @@ for i in range(nun_queries):
                 break
 
 print("recall is :", float(correct)/(k*nun_queries))
+
+# test serializing  the brute force index
+index_path = 'bf_index.bin'
+print("Saving index to '%s'" % index_path)
+bf_index.save_index(index_path)
+del bf_index
+
+# Re-initiating, loading the index
+bf_index = hnswlib.BFIndex(space='l2', dim=dim)
+
+print("\nLoading index from '%s'\n" % index_path)
+bf_index.load_index(index_path)
+
+# Query the brute force index again to verify that we get the same results
+labels_bf, distances_bf = bf_index.knn_query(query_data, k)
+
+# Measure recall
+correct = 0
+for i in range(nun_queries):
+    for label in labels_hnsw[i]:
+        for correct_label in labels_bf[i]:
+            if label == correct_label:
+                correct += 1
+                break
+
+print("recall after reloading is :", float(correct)/(k*nun_queries))
+
+

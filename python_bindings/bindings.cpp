@@ -743,19 +743,37 @@ public:
                 throw std::runtime_error("wrong dimensionality of the labels");
         }
         {
-            int start = 0;
-            py::gil_scoped_release l;
 
-            std::vector<float> norm_array(dim);
-            for (size_t i = start; i < rows; i++) {
-                alg->addPoint((void *) items.data(i), (size_t) i);
+            for (size_t row = 0; row < rows; row++) {
+                size_t id = ids.size() ? ids.at(row) : cur_l + row;
+                if (!normalize) {
+                    alg->addPoint((void *) items.data(row), (size_t) id);
+                } else {
+                    float normalized_vector[dim];
+                    normalize_vector((float *)items.data(row), normalized_vector);
+                    alg->addPoint((void *) normalized_vector, (size_t) id);
+                }
             }
             cur_l+=rows;
         }
     }
 
-    void deletedVector(size_t label) {
+    void deleteVector(size_t label) {
         alg->removePoint(label);
+    }
+
+    void saveIndex(const std::string &path_to_index) {
+        alg->saveIndex(path_to_index);
+    }
+
+    void loadIndex(const std::string &path_to_index, size_t max_elements) {
+        if (alg) {
+            std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+            delete alg;
+        }
+        alg = new hnswlib::BruteforceSearch<dist_t>(space, path_to_index);
+        cur_l = alg->cur_element_count;
+        index_inited = true;
     }
 
     py::object knnQuery_return_numpy(py::object input, size_t k = 1) {
@@ -885,6 +903,9 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("init_index", &BFIndex<float>::init_new_index, py::arg("max_elements"))
         .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k")=1)
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
+        .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
+        .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
+        .def("load_index", &BFIndex<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("__repr__", [](const BFIndex<float> &a) {
             return "<hnswlib.BFIndex(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
         });
