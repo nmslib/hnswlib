@@ -4,6 +4,8 @@
 #define USE_SSE
 #ifdef __AVX__
 #define USE_AVX
+#ifdef __AVX512__
+#define USE_AVX512
 #endif
 #endif
 #endif
@@ -14,6 +16,10 @@
 #include <stdexcept>
 #else
 #include <x86intrin.h>
+#endif
+
+#if defined(USE_AVX512)
+#include <immintrin.h>
 #endif
 
 #if defined(__GNUC__)
