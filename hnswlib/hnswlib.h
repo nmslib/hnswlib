@@ -9,6 +9,7 @@
 #endif
 #endif
 #endif
+#endif
 
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
