@@ -23,7 +23,10 @@ namespace hnswlib {
 
     // Favor using AVX512 if available.
     static float
-    L2SqrSIMD16Ext(void *pVect1, void *pVect2, size_t qty) {
+    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
         float PORTABLE_ALIGN64 TmpRes[16];
         size_t qty16 = qty >> 4;
 
