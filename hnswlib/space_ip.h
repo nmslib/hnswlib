@@ -124,7 +124,40 @@ namespace hnswlib {
 
 #endif
 
-#if defined(USE_AVX)
+
+#if defined(USE_AVX512)
+
+    static float
+    InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        float PORTABLE_ALIGN64 TmpRes[16];
+        float *pVect1 = (float *) pVect1v;
+        float *pVect2 = (float *) pVect2v;
+        size_t qty = *((size_t *) qty_ptr);
+
+        size_t qty16 = qty / 16;
+
+
+        const float *pEnd1 = pVect1 + 16 * qty16;
+
+        __m512 sum512 = _mm512_set1_ps(0);
+
+        while (pVect1 < pEnd1) {
+            //_mm_prefetch((char*)(pVect2 + 16), _MM_HINT_T0);
+
+            __m512 v1 = _mm512_loadu_ps(pVect1);
+            pVect1 += 16;
+            __m512 v2 = _mm512_loadu_ps(pVect2);
+            pVect2 += 16;
+            sum512 = _mm512_add_ps(sum512, _mm512_mul_ps(v1, v2));
+        }
+
+        _mm512_store_ps(TmpRes, sum512);
+        float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7] + TmpRes[8] + TmpRes[9] + TmpRes[10] + TmpRes[11] + TmpRes[12] + TmpRes[13] + TmpRes[14] + TmpRes[15];
+
+        return 1.0f - sum;
+    }
+
+#elif defined(USE_AVX)
 
     static float
     InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
@@ -211,7 +244,7 @@ namespace hnswlib {
 
 #endif
 
-#if defined(USE_SSE) || defined(USE_AVX)
+#if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
     static float
     InnerProductSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         size_t qty = *((size_t *) qty_ptr);
@@ -249,7 +282,7 @@ namespace hnswlib {
     public:
         InnerProductSpace(size_t dim) {
             fstdistfunc_ = InnerProduct;
-    #if defined(USE_AVX) || defined(USE_SSE)
+    #if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
             if (dim % 16 == 0)
                 fstdistfunc_ = InnerProductSIMD16Ext;
             else if (dim % 4 == 0)
