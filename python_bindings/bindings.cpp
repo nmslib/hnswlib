@@ -288,6 +288,10 @@ public:
         return ids;
     }
 
+    py::list getFirstLayer(int layer) {
+        return appr_alg->get_linklist_at_level(appr_alg->entry, layer);
+    }
+
 
     py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
 
