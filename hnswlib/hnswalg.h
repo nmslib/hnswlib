@@ -182,7 +182,7 @@ namespace hnswlib {
 
             while (!candidateSet.empty()) {
                 std::pair<dist_t, tableint> curr_el_pair = candidateSet.top();
-                if ((-curr_el_pair.first) > lowerBound and top_candidates.size() == ef_construction_) {
+                if ((-curr_el_pair.first) > lowerBound && top_candidates.size() == ef_construction_) {
                     break;
                 }
                 candidateSet.pop();
@@ -271,7 +271,7 @@ namespace hnswlib {
 
                 std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
 
-                if ((-current_node_pair.first) > lowerBound and top_candidates.size() == ef) {
+                if ((-current_node_pair.first) > lowerBound && top_candidates.size() == ef) {
                     break;
                 }
                 candidate_set.pop();
