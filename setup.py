@@ -74,7 +74,7 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc', '/openmp', '/O2'],
-        'unix': ['-O3', '-march=native'],  # , '-w'
+        'unix': ['-O3'],
     }
     link_opts = {
         'unix': [],
@@ -85,8 +85,8 @@ class BuildExt(build_ext):
         c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
         link_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
     else:
-        c_opts['unix'].append("-fopenmp")
-        link_opts['unix'].extend(['-fopenmp', '-pthread'])
+        c_opts['unix'] += ['-fopenmp', '-march=native']
+        link_opts['unix'] += ['-fopenmp', '-pthread']
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
