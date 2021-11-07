@@ -35,6 +35,5 @@ class RandomSelfTestCase(unittest.TestCase):
                     labels, distances = p.knn_query(np.asarray(data2[-1:]), k=5)
 
                     
-                    diff=np.mean(np.abs(distances-expected_distances))
-                    print(dim,space, diff)
+                    diff=np.mean(np.abs(distances-expected_distances))                    
                     self.assertAlmostEqual(diff, 0, delta=1e-3)

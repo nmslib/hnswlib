@@ -8,7 +8,7 @@ import hnswlib
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
-        for idx in range(16):
+        for idx in range(2):
             print("\n**** Index save-load test ****\n")
 
             np.random.seed(idx)

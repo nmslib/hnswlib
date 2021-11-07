@@ -124,13 +124,12 @@ def test_space_main(self, space, dim):
 class PickleUnitTests(unittest.TestCase):
 
     def setUp(self):
+        self.ef_construction = 200
+        self.M = 32
+        self.ef = 400
 
-        self.ef_construction = 725
-        self.M = 64
-        self.ef = 725
-
-        self.num_elements = 5000
-        self.num_test_elements = 200
+        self.num_elements = 1000
+        self.num_test_elements = 100
 
         self.num_threads = 4
         self.k = 25
@@ -143,10 +142,10 @@ class PickleUnitTests(unittest.TestCase):
                                  # i.e., number of values that are (d1-d2)**2>1e-3
 
     def test_inner_product_space(self):
-        test_space_main(self, 'ip', 48)
+        test_space_main(self, 'ip', 16)
 
     def test_l2_space(self):
-        test_space_main(self, 'l2', 153)
+        test_space_main(self, 'l2', 53)
 
     def test_cosine_space(self):
-        test_space_main(self, 'cosine', 512)
+        test_space_main(self, 'cosine', 32)
