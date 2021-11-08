@@ -271,7 +271,7 @@ namespace hnswlib {
 
                 std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
 
-                if ((-current_node_pair.first) > lowerBound && top_candidates.size() == ef) {
+                if ((-current_node_pair.first) > lowerBound && (top_candidates.size() == ef || has_deletions == false)) {
                     break;
                 }
                 candidate_set.pop();
