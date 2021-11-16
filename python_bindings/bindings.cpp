@@ -749,7 +749,7 @@ public:
                 if (!normalize) {
                     alg->addPoint((void *) items.data(row), (size_t) id);
                 } else {
-                    vector<float> normalized_vector(dim);
+                    std::vector<float> normalized_vector(dim);
                     normalize_vector((float *)items.data(row), normalized_vector.data());
                     alg->addPoint((void *) normalized_vector.data(), (size_t) id);
                 }
