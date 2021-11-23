@@ -70,16 +70,14 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
             std::rethrow_exception(lastException);
         }
     }
-
-
 }
 
-    inline void assert_true(bool expr, const std::string & msg) {
-      if (expr == false)
-        throw std::runtime_error("Unpickle Error: "+msg);
-      return;
-    }
 
+inline void assert_true(bool expr, const std::string & msg) {
+    if (expr == false)
+    throw std::runtime_error("Unpickle Error: "+msg);
+    return;
+}
 
 
 template<typename dist_t, typename data_t=float>
@@ -141,13 +139,11 @@ public:
         seed=random_seed;
     }
 
-
     void set_ef(size_t ef) {
       default_ef=ef;
       if (appr_alg)
         appr_alg->ef_ = ef;
     }
-
 
     void set_num_threads(int num_threads) {
         this->num_threads_default = num_threads;
@@ -207,14 +203,14 @@ public:
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
             auto ids_numpy = items.request();
-            if(ids_numpy.ndim==1 && ids_numpy.shape[0]==rows) {
+            if(ids_numpy.ndim == 1 && ids_numpy.shape[0] == rows) {
                 std::vector<size_t> ids1(ids_numpy.shape[0]);
                 for (size_t i = 0; i < ids1.size(); i++) {
                     ids1[i] = items.data()[i];
                 }
                 ids.swap(ids1);
             }
-            else if(ids_numpy.ndim==0 && rows==1) {
+            else if(ids_numpy.ndim == 0 && rows == 1) {
                 ids.push_back(*items.data());
             }
             else
@@ -227,7 +223,7 @@ public:
           int start = 0;
           if (!ep_added) {
             size_t id = ids.size() ? ids.at(0) : (cur_l);
-            float *vector_data=(float *) items.data(0);
+            float *vector_data = (float *) items.data(0);
             std::vector<float> norm_array(dim);
             if(normalize){
               normalize_vector(vector_data, norm_array.data());
@@ -279,7 +275,6 @@ public:
     }
 
     std::vector<hnswlib::labeltype> getIdsList() {
-
         std::vector<hnswlib::labeltype> ids;
 
         for(auto kv : appr_alg->label_lookup_) {
@@ -290,9 +285,6 @@ public:
 
 
     py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
-
-
-
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
@@ -369,7 +361,7 @@ public:
                       "mult"_a=appr_alg->mult_,
                       "ef_construction"_a=appr_alg->ef_construction_,
                       "ef"_a=appr_alg->ef_,
-                      "has_deletions"_a=appr_alg->has_deletions_,
+                      "has_deletions"_a=(bool)appr_alg->num_deleted_,
                       "size_links_per_element"_a=appr_alg->size_links_per_element_,
 
                       "label_lookup_external"_a=py::array_t<hnswlib::labeltype>(
@@ -402,10 +394,7 @@ public:
                               {sizeof(char)}, // C-style contiguous strides for double
                               link_list_npy, // the data pointer
                               free_when_done_ll)
-
                     );
-
-
     }
 
 
@@ -431,7 +420,6 @@ public:
 
 
     static Index<float> * createFromParams(const py::dict d) {
-
       // check serialization version
       assert_true(((int)py::int_(Index<float>::ser_version)) >= d["ser_version"].cast<int>(), "Invalid serialization version!");
 
@@ -466,8 +454,6 @@ public:
     }
 
     void setAnnData(const py::dict d) { /* WARNING: Index::setAnnData is not thread-safe with Index::addItems */
-
-
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
       assert_true(appr_alg->offsetLevel0_ == d["offset_level0"].cast<size_t>(), "Invalid value of offsetLevel0_ ");
@@ -489,7 +475,6 @@ public:
       assert_true(appr_alg->ef_construction_ == d["ef_construction"].cast<size_t>(), "Invalid value of ef_construction_ ");
 
       appr_alg->ef_ = d["ef"].cast<size_t>();
-      appr_alg->has_deletions_=d["has_deletions"].cast<bool>();
 
       assert_true(appr_alg->size_links_per_element_ == d["size_links_per_element"].cast<size_t>(), "Invalid value of size_links_per_element_ ");
 
@@ -535,10 +520,20 @@ public:
 
           }
       }
+
+      // set num_deleted
+      appr_alg->num_deleted_ = 0;
+      bool has_deletions = d["has_deletions"].cast<bool>();
+      if (has_deletions)
+      {
+        for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
+          if(appr_alg->isMarkedDeleted(i))
+            appr_alg->num_deleted_ += 1;
+        }
+      }
 }
 
     py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
-
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype *data_numpy_l;
@@ -560,7 +555,6 @@ public:
                 rows = 1;
                 features = buffer.shape[0];
             }
-
 
             // avoid using threads when the number of searches is small:
 
@@ -609,7 +603,6 @@ public:
                             }
                 );
             }
-
         }
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
             delete[] f;
@@ -617,7 +610,6 @@ public:
         py::capsule free_when_done_d(data_numpy_d, [](void *f) {
             delete[] f;
         });
-
 
         return py::make_tuple(
                 py::array_t<hnswlib::labeltype>(
@@ -638,6 +630,10 @@ public:
         appr_alg->markDelete(label);
     }
 
+    void unmarkDeleted(size_t label) {
+        appr_alg->unmarkDelete(label);
+    }
+
     void resizeIndex(size_t new_size) {
         appr_alg->resizeIndex(new_size);
     }
@@ -649,7 +645,6 @@ public:
     size_t getCurrentCount() const {
         return appr_alg->cur_element_count;
     }
-
 };
 
 template<typename dist_t, typename data_t=float>
@@ -835,7 +830,6 @@ public:
 
 };
 
-
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
@@ -854,6 +848,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
+        .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
         .def("get_max_elements", &Index<float>::getMaxElements)
         .def("get_current_count", &Index<float>::getCurrentCount)
