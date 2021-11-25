@@ -3,21 +3,20 @@ Header-only C++ HNSW implementation with python bindings.
 
 **NEWS:**
 
-* **Hnswlib is now 0.5.2**. Bugfixes - thanks [@marekhanus](https://github.com/marekhanus) for fixing the missing arguments, adding support for python 3.8, 3.9 in Travis, improving python wrapper and fixing typos/code style; [@apoorv-sharma](https://github.com/apoorv-sharma) for fixing the bug int the insertion/deletion logic; [@shengjun1985](https://github.com/shengjun1985) for simplifying the memory reallocation logic; [@TakaakiFuruse](https://github.com/TakaakiFuruse) for improved description of `add_items`; [@psobot ](https://github.com/psobot) for improving error handling; [@ShuAiii](https://github.com/ShuAiii) for reporting the bug in the python interface
+**version 0.6** 
+* Thanks to ([@dyashuni](https://github.com/dyashuni)) hnswlib now uses github actions for CI, there is a search speedup in some scenarios with deletions. `unmark_deleted(label)` is now also a part of the python interface (note now it throws an exception for double deletions). 
+* Thanks to ([@slice4e](https://github.com/slice4e)) we now support AVX512; thanks to ([@LTLA](https://github.com/LTLA)) the cmake interface for the lib is now updated. 
+* Thanks to ([@alonre24](https://github.com/alonre24)) we now have a python bindings for brute-force (and examples for recall tuning: [TESTING_RECALL.md](TESTING_RECALL.md). 
+* Thanks to ([@dorosy-yeong](https://github.com/dorosy-yeong)) there is a bug fixed in the handling large quantities of deleted elements and large K. 
 
-* **Hnswlib is now 0.5.0**. Added support for pickling indices, support for PEP-517 and PEP-518 building, small speedups, bug and documentation fixes. Many thanks to [@dbespalov](https://github.com/dbespalov), [@dyashuni](https://github.com/dyashuni), [@groodt](https://github.com/groodt),[@uestc-lfs](https://github.com/uestc-lfs), [@vinnitu](https://github.com/vinnitu), [@fabiencastan](https://github.com/fabiencastan), [@JinHai-CN](https://github.com/JinHai-CN), [@js1010](https://github.com/js1010)!
+  
 
-* **Thanks to Apoorv Sharma [@apoorv-sharma](https://github.com/apoorv-sharma), hnswlib now supports true element updates (the interface remained the same, but when you the performance/memory should not degrade as you update the element embeddings).**
 
-* **Thanks to Dmitry [@2ooom](https://github.com/2ooom), hnswlib got a boost in performance for vector dimensions that are not multiple of 4** 
-
-* **Thanks to Louis Abraham ([@louisabraham](https://github.com/louisabraham)) hnswlib can now be installed via pip!**
-
-Highlights:
-1) Lightweight, header-only, no dependencies other than C++ 11.
-2) Interfaces for C++, python and R (https://github.com/jlmelville/rcpphnsw).
+### Highlights:
+1) Lightweight, header-only, no dependencies other than C++ 11
+2) Interfaces for C++, Java, Python and R (https://github.com/jlmelville/rcpphnsw).
 3) Has full support for incremental index construction. Has support for element deletions 
-(currently, without actual freeing of the memory).
+(by marking them in index). Index is picklable.
 4) Can work with custom user defined distances (C++).
 5) Significantly less memory footprint and faster build time compared to current nmslib's implementation.
 
@@ -53,7 +52,9 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
-* `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results.
+* `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results. Throws an exception if it is already deleted.
+* 
+* `unmark_deleted(label)`  - unmarks the element as deleted, so it will be not be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
 
@@ -224,6 +225,15 @@ pip install .
 
 or you can install via pip:
 `pip install hnswlib`
+
+
+### For developers 
+
+When making changes please run tests (and please add a test to `python_bindings/tests` in case there is new functionality):
+```bash
+python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py
+```
+
 
 ### Other implementations
 * Non-metric space library (nmslib) - main library(python, C++), supports exotic distances: https://github.com/nmslib/nmslib

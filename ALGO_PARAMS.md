@@ -9,6 +9,8 @@ The ```knn_query``` function returns two numpy arrays, containing labels and dis
 elements for the queries. Note that in case the algorithm is not be able to find ```k``` neighbors to all of the queries,
 (this can be due to problems with graph or ```k```>size of the dataset) an exception is thrown.
 
+An example of tuning the parameters can be found in [TESTING_RECALL.md](TESTING_RECALL.md)
+
 ## Construction parameters:
 * ```M``` - the number of bi-directional links created for every new element during construction. Reasonable range for ```M``` 
 is 2-100. Higher ```M``` work better on datasets with high intrinsic dimensionality and/or high recall, while low ```M``` work 
