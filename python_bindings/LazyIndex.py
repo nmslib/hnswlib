@@ -1,18 +1,24 @@
 import hnswlib
-
+"""
+    A python wrapper for lazy indexing, preserves the same api as hnswlib.Index but initializes the index only after adding items for the first time with `add_items`.
+"""
 class LazyIndex(hnswlib.Index):
     def __init__(self, space, dim,max_elements=1024, ef_construction=200, M=16):
         super().__init__(space, dim)
         self.init_max_elements=max_elements
         self.init_ef_construction=ef_construction
         self.init_M=M
-    def init(self, max_elements=0):
+    def init_index(self, max_elements=0,M=None,ef_construction=None):
         if max_elements==0:
             max_elements=self.init_max_elements
+        if ef_construction:
+            self.init_ef_construction=ef_construction
+        if M:
+            self.init_M=M
         super().init_index(max_elements, self.init_M, self.init_ef_construction)
     def add_items(self, data, ids=None, num_threads=-1):
         if self.max_elements==0:
-            self.init()
+            self.init_index()
         return super().add_items(data,ids, num_threads)
     def get_items(self, ids=None):
         if self.max_elements==0:
@@ -24,7 +30,7 @@ class LazyIndex(hnswlib.Index):
         return super().knn_query(data, k, num_threads)
     def resize_index(self, size):
         if self.max_elements==0:
-            return self.init(size)
+            return self.init_index(size)
         else:
             return super().resize_index(size)
     def set_ef(self, ef):
