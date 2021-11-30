@@ -8,14 +8,14 @@ class LazyIndex(hnswlib.Index):
         self.init_max_elements=max_elements
         self.init_ef_construction=ef_construction
         self.init_M=M
-    def init_index(self, max_elements=0,M=None,ef_construction=None):
-        if max_elements==0:
-            max_elements=self.init_max_elements
-        if ef_construction:
+    def init_index(self, max_elements=0,M=0,ef_construction=0):
+        if max_elements>0:
+            self.init_max_elements=max_elements
+        if ef_construction>0:
             self.init_ef_construction=ef_construction
-        if M:
+        if M>0:
             self.init_M=M
-        super().init_index(max_elements, self.init_M, self.init_ef_construction)
+        super().init_index(self.init_max_elements, self.init_M, self.init_ef_construction)
     def add_items(self, data, ids=None, num_threads=-1):
         if self.max_elements==0:
             self.init_index()
