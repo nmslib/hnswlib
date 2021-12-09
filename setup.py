@@ -7,7 +7,7 @@ import setuptools
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = '0.5.2'
+__version__ = '0.6.0'
 
 
 include_dirs = [

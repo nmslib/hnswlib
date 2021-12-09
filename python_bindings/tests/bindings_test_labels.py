@@ -8,7 +8,7 @@ import hnswlib
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
-        for idx in range(16):
+        for idx in range(2):
             print("\n**** Index save-load test ****\n")
 
             np.random.seed(idx)
@@ -94,23 +94,23 @@ class RandomSelfTestCase(unittest.TestCase):
             self.assertEqual(np.sum(~np.asarray(sorted_labels) == np.asarray(range(num_elements))), 0)
 
             # Delete data1
-            labels1, _ = p.knn_query(data1, k=1)
+            labels1_deleted, _ = p.knn_query(data1, k=1)
 
-            for l in labels1:
+            for l in labels1_deleted:
                 p.mark_deleted(l[0])
             labels2, _ = p.knn_query(data2, k=1)
-            items=p.get_items(labels2)
+            items = p.get_items(labels2)
             diff_with_gt_labels = np.mean(np.abs(data2-items))
             self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3) # console
 
             labels1_after, _ = p.knn_query(data1, k=1)
             for la in labels1_after:
-                for lb in labels1:
+                for lb in labels1_deleted:
                     if la[0] == lb[0]:
                         self.assertTrue(False)
             print("All the data in data1 are removed")
 
-            # checking saving/loading index with elements marked as deleted
+            # Checking saving/loading index with elements marked as deleted
             del_index_path = "with_deleted.bin"
             p.save_index(del_index_path)
             p = hnswlib.Index(space='l2', dim=dim)
@@ -119,9 +119,16 @@ class RandomSelfTestCase(unittest.TestCase):
 
             labels1_after, _ = p.knn_query(data1, k=1)
             for la in labels1_after:
-                for lb in labels1:
+                for lb in labels1_deleted:
                     if la[0] == lb[0]:
                         self.assertTrue(False)
+
+            # Unmark deleted data
+            for l in labels1_deleted:
+                p.unmark_deleted(l[0])
+            labels_restored, _ = p.knn_query(data1, k=1)
+            self.assertAlmostEqual(np.mean(labels_restored.reshape(-1) == np.arange(len(data1))), 1.0, 3)
+            print("All the data in data1 are restored")
 
         os.remove(index_path)
         os.remove(del_index_path)

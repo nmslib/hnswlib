@@ -6,3 +6,6 @@ python_bindings/tests/__pycache__/
 *.pyd
 hnswlib.cpython*.so
 var/
+.idea/
+.vscode/
+
