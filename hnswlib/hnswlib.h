@@ -84,7 +84,7 @@ bool AVXCapable() {
         uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
         avxSupported = (xcrFeatureMask & 0x6) == 0x6;
     }
-    return avxSupported;
+    return HW_AVX && avxSupported;
 }
 
 bool AVX512Capable() {
@@ -96,8 +96,8 @@ bool AVX512Capable() {
     cpuid(cpuInfo, 0, 0);
     int nIds = cpuInfo[0];
 
-    bool HW_AVX512F = false;    //  AVX512 Foundation
-    if (nIds >= 0x00000007) {
+    bool HW_AVX512F = false;
+    if (nIds >= 0x00000007) { //  AVX512 Foundation
         cpuid(cpuInfo, 0x00000007, 0);
         HW_AVX512F = (cpuInfo[1] & ((int)1 << 16)) != 0;
     }
@@ -108,13 +108,12 @@ bool AVX512Capable() {
     bool osUsesXSAVE_XRSTORE = (cpuInfo[2] & (1 << 27)) != 0;
     bool cpuAVXSuport = (cpuInfo[2] & (1 << 28)) != 0;
 
-    bool avxSupported = false;
     bool avx512Supported = false;
     if (osUsesXSAVE_XRSTORE && cpuAVXSuport) {
         uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
         avx512Supported = (xcrFeatureMask & 0xe6) == 0xe6;
     }
-    return avx512Supported;
+    return HW_AVX512F && avx512Supported;
 }
 
 namespace hnswlib {
