@@ -23,7 +23,7 @@ namespace hnswlib {
 
     // Favor using AVX512 if available.
     static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
@@ -52,12 +52,13 @@ namespace hnswlib {
 
         return (res);
 }
+#endif
 
-#elif defined(USE_AVX)
+#if defined(USE_AVX)
 
     // Favor using AVX if available.
     static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
@@ -89,10 +90,12 @@ namespace hnswlib {
         return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7];
     }
 
-#elif defined(USE_SSE)
+#endif
+
+#if defined(USE_SSE)
 
     static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float *pVect1 = (float *) pVect1v;
         float *pVect2 = (float *) pVect2v;
         size_t qty = *((size_t *) qty_ptr);
@@ -142,6 +145,27 @@ namespace hnswlib {
 
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
     static float
+    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+        DISTFUNC<float> simdfunc_;
+#if defined(USE_AVX512)
+        if (AVX512Capable())
+            simdfunc_ = L2SqrSIMD16ExtAVX512;
+        else if (AVXCapable())
+            simdfunc_ = L2SqrSIMD16ExtAVX;
+        else
+            simdfunc_ = L2SqrSIMD16ExtSSE;
+#elif defined(USE_AVX)
+        if (AVXCapable())
+            simdfunc_ = L2SqrSIMD16ExtAVX;
+        else
+            simdfunc_ = L2SqrSIMD16ExtSSE;
+#else
+        simdfunc_ = L2SqrSIMD16ExtSSE;
+#endif
+        return simdfunc_(pVect1v, pVect2v, qty_ptr);
+    }
+
+    static float
     L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         size_t qty = *((size_t *) qty_ptr);
         size_t qty16 = qty >> 4 << 4;
@@ -156,7 +180,7 @@ namespace hnswlib {
 #endif
 
 
-#ifdef USE_SSE
+#if defined(USE_SSE)
     static float
     L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         float PORTABLE_ALIGN32 TmpRes[8];
