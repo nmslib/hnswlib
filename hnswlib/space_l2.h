@@ -147,21 +147,21 @@ namespace hnswlib {
     static float
     L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         DISTFUNC<float> simdfunc_;
-#if defined(USE_AVX512)
+    #if defined(USE_AVX512)
         if (AVX512Capable())
             simdfunc_ = L2SqrSIMD16ExtAVX512;
         else if (AVXCapable())
             simdfunc_ = L2SqrSIMD16ExtAVX;
         else
             simdfunc_ = L2SqrSIMD16ExtSSE;
-#elif defined(USE_AVX)
+    #elif defined(USE_AVX)
         if (AVXCapable())
             simdfunc_ = L2SqrSIMD16ExtAVX;
         else
             simdfunc_ = L2SqrSIMD16ExtSSE;
-#else
+    #else
         simdfunc_ = L2SqrSIMD16ExtSSE;
-#endif
+    #endif
         return simdfunc_(pVect1v, pVect2v, qty_ptr);
     }
 

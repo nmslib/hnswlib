@@ -254,35 +254,35 @@ namespace hnswlib {
     static float
     InnerProductSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         DISTFUNC<float> simdfunc_;
-#if defined(USE_AVX)
+    #if defined(USE_AVX)
         if (AVXCapable())
             simdfunc_ = InnerProductSIMD4ExtAVX;
         else
             simdfunc_ = InnerProductSIMD4ExtSSE;
-#else
+    #else
         simdfunc_ = InnerProductSIMD4ExtSSE;
-#endif
+    #endif
         return simdfunc_(pVect1v, pVect2v, qty_ptr);
     }
 
     static float
     InnerProductSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         DISTFUNC<float> simdfunc_;
-#if defined(USE_AVX512)
+    #if defined(USE_AVX512)
         if (AVX512Capable())
             simdfunc_ = InnerProductSIMD16ExtAVX512;
         else if (AVXCapable())
             simdfunc_ = InnerProductSIMD16ExtAVX;
         else
             simdfunc_ = InnerProductSIMD16ExtSSE;
-#elif defined(USE_AVX)
+    #elif defined(USE_AVX)
         if (AVXCapable())
             simdfunc_ = InnerProductSIMD16ExtAVX;
         else
             simdfunc_ = InnerProductSIMD16ExtSSE;
-#else
+    #else
         simdfunc_ = InnerProductSIMD16ExtSSE;
-#endif
+    #endif
         return simdfunc_(pVect1v, pVect2v, qty_ptr);
     }
 
