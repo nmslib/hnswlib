@@ -144,26 +144,7 @@ namespace hnswlib {
 #endif
 
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-    static float
-    L2SqrSIMD16Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-        DISTFUNC<float> simdfunc_;
-    #if defined(USE_AVX512)
-        if (AVX512Capable())
-            simdfunc_ = L2SqrSIMD16ExtAVX512;
-        else if (AVXCapable())
-            simdfunc_ = L2SqrSIMD16ExtAVX;
-        else
-            simdfunc_ = L2SqrSIMD16ExtSSE;
-    #elif defined(USE_AVX)
-        if (AVXCapable())
-            simdfunc_ = L2SqrSIMD16ExtAVX;
-        else
-            simdfunc_ = L2SqrSIMD16ExtSSE;
-    #else
-        simdfunc_ = L2SqrSIMD16ExtSSE;
-    #endif
-        return simdfunc_(pVect1v, pVect2v, qty_ptr);
-    }
+    DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
 
     static float
     L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
@@ -232,7 +213,17 @@ namespace hnswlib {
     public:
         L2Space(size_t dim) {
             fstdistfunc_ = L2Sqr;
-        #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+    #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+        #if defined(USE_AVX512)
+            if (AVX512Capable())
+                L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX512;
+            else if (AVXCapable())
+                L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
+        #elif defined(USE_AVX)
+            if (AVXCapable())
+                L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
+        #endif
+
             if (dim % 16 == 0)
                 fstdistfunc_ = L2SqrSIMD16Ext;
             else if (dim % 4 == 0)
@@ -241,7 +232,7 @@ namespace hnswlib {
                 fstdistfunc_ = L2SqrSIMD16ExtResiduals;
             else if (dim > 4)
                 fstdistfunc_ = L2SqrSIMD4ExtResiduals;
-        #endif
+    #endif
             dim_ = dim;
             data_size_ = dim * sizeof(float);
         }
