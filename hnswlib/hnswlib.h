@@ -15,8 +15,25 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
+#include "cpu_x86.h"
+void cpu_x86::cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
+    __cpuidex(out, eax, ecx);
+}
+__int64 xgetbv(unsigned int x) {
+    return _xgetbv(x);
+}
 #else
 #include <x86intrin.h>
+#include <cpuid.h>
+#include <stdint.h>
+void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+    __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+}
+uint64_t xgetbv(unsigned int index) {
+    uint32_t eax, edx;
+    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+    return ((uint64_t)edx << 32) | eax;
+}
 #endif
 
 #if defined(USE_AVX512)
@@ -30,35 +47,9 @@
 #define PORTABLE_ALIGN32 __declspec(align(32))
 #define PORTABLE_ALIGN64 __declspec(align(64))
 #endif
-#endif
-
-#include <queue>
-#include <vector>
-#include <iostream>
-#include <string.h>
 
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
-#ifdef _WIN32
-void cpuid(int32_t out[4], int32_t eax, int32_t ecx){
-    __cpuidex(out, eax, ecx);
-}
-__int64 xgetbv(unsigned int x){
-    return _xgetbv(x);
-}
-#else
-#include <cpuid.h>
-#include <stdint.h>
-void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
-    __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
-}
-
-uint64_t xgetbv(unsigned int index) {
-    uint32_t eax, edx;
-    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
-    return ((uint64_t)edx << 32) | eax;
-}
-#endif
 
 bool AVXCapable() {
     int cpuInfo[4];
@@ -115,6 +106,12 @@ bool AVX512Capable() {
     }
     return HW_AVX512F && avx512Supported;
 }
+#endif
+
+#include <queue>
+#include <vector>
+#include <iostream>
+#include <string.h>
 
 namespace hnswlib {
     typedef size_t labeltype;
