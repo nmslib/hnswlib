@@ -78,8 +78,7 @@ class BuildExt(build_ext):
         'unix': ['-O3'],  # , '-w'
     }
     if not os.environ.get("HNSWLIB_NO_NATIVE"):
-        if "conda" not in sys.version.lower():
-            c_opts['unix'].append('-march=native')
+        c_opts['unix'].append('-march=native')
 
     link_opts = {
         'unix': [],
