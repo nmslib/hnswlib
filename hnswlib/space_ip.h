@@ -297,12 +297,13 @@ namespace hnswlib {
                 InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX512;
             else if (AVXCapable())
                 InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
+        #elif defined(USE_AVX)
+            if (AVXCapable())
+                InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
         #endif
         #if defined(USE_AVX)
-            if (AVXCapable()) {
-                InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
+            if (AVXCapable())
                 InnerProductSIMD4Ext = InnerProductSIMD4ExtAVX;
-            }
         #endif
 
             if (dim % 16 == 0)
