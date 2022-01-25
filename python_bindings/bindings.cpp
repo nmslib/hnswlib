@@ -261,7 +261,7 @@ public:
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
             auto ids_numpy = items.request();
 
-            if (ids_numpy.ndim != 1) {
+            if (ids_numpy.ndim == 0) {
               throw std::invalid_argument("get_items accepts a list of indices and returns a list of vectors");
             } else {
               std::vector<size_t> ids1(ids_numpy.shape[0]);
