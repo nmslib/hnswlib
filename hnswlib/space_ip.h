@@ -2,16 +2,44 @@
 #include "hnswlib.h"
 
 namespace hnswlib {
-
-    static float
+    /**
+     * For a given loop unrolling factor K, distance type dist_t, and data type data_t,
+     * calculate the inner product distance between two vectors.
+     * The compiler should automatically do the loop unrolling for us here and vectorize as appropriate.
+     */
+    template<int K, typename dist_t, typename data_t = dist_t>
+    static dist_t
     InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
         size_t qty = *((size_t *) qty_ptr);
-        float res = 0;
-        for (unsigned i = 0; i < qty; i++) {
-            res += ((float *) pVect1)[i] * ((float *) pVect2)[i];
-        }
-        return (1.0f - res);
+        dist_t res = 0;
+        data_t *a = (data_t *) pVect1;
+        data_t *b = (data_t *) pVect2;
 
+        qty = qty / K;
+
+        for (size_t i = 0; i < qty; i++) {
+            for (size_t j = 0; j < K; j++) {
+                const size_t index = (i * K) + j;
+                const dist_t _a = a[index];
+                const dist_t _b = b[index];
+                res += _a * _b;
+            }
+        }
+
+        return (static_cast<dist_t>(1.0f) - res);
+    }
+
+    template<int K, typename dist_t, typename data_t = dist_t>
+    static dist_t
+    InnerProductAtLeast(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+        size_t k = K;
+        size_t remainder = *((size_t *) qty_ptr) - K;
+
+        data_t *a = (data_t *) pVect1;
+        data_t *b = (data_t *) pVect2;
+
+        return InnerProduct<K, dist_t, data_t>(a, b, &k)
+             + InnerProduct<1, dist_t, data_t>(a + K, b + K, &remainder);
     }
 
 #if defined(USE_AVX)
@@ -254,7 +282,7 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v + qty16;
 
         size_t qty_left = qty - qty16;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        float res_tail = InnerProduct<1, float, float>(pVect1, pVect2, &qty_left);
         return res + res_tail - 1.0f;
     }
 
@@ -268,48 +296,75 @@ namespace hnswlib {
 
         float *pVect1 = (float *) pVect1v + qty4;
         float *pVect2 = (float *) pVect2v + qty4;
-        float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+        float res_tail = InnerProduct<1, float, float>(pVect1, pVect2, &qty_left);
 
         return res + res_tail - 1.0f;
     }
 #endif
 
-    class InnerProductSpace : public SpaceInterface<float> {
+    template<typename dist_t, typename data_t = dist_t>
+    class InnerProductSpace : public SpaceInterface<dist_t> {
 
-        DISTFUNC<float> fstdistfunc_;
+        DISTFUNC<dist_t> fstdistfunc_;
         size_t data_size_;
         size_t dim_;
     public:
-        InnerProductSpace(size_t dim) {
-            fstdistfunc_ = InnerProduct;
-    #if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
-            if (dim % 16 == 0)
-                fstdistfunc_ = InnerProductSIMD16Ext;
+        InnerProductSpace(size_t dim) : dim_(dim), data_size_(dim * sizeof(data_t)) {
+            if (dim % 128 == 0)
+                fstdistfunc_ = InnerProduct<128, dist_t, data_t>;
+            else if (dim % 64 == 0)
+                fstdistfunc_ = InnerProduct<64, dist_t, data_t>;
+            else if (dim % 32 == 0)
+                fstdistfunc_ = InnerProduct<32, dist_t, data_t>;
+            else if (dim % 16 == 0)
+                fstdistfunc_ = InnerProduct<16, dist_t, data_t>;
+            else if (dim % 8 == 0)
+                fstdistfunc_ = InnerProduct<8, dist_t, data_t>;
             else if (dim % 4 == 0)
-                fstdistfunc_ = InnerProductSIMD4Ext;
+                fstdistfunc_ = InnerProduct<4, dist_t, data_t>;
+
+            else if (dim > 128)
+                fstdistfunc_ = InnerProductAtLeast<128, dist_t, data_t>;            
+            else if (dim > 64)
+                fstdistfunc_ = InnerProductAtLeast<64, dist_t, data_t>;
+            else if (dim > 32)
+                fstdistfunc_ = InnerProductAtLeast<32, dist_t, data_t>;
             else if (dim > 16)
-                fstdistfunc_ = InnerProductSIMD16ExtResiduals;
+                fstdistfunc_ = InnerProductAtLeast<16, dist_t, data_t>;
+            else if (dim > 8)
+                fstdistfunc_ = InnerProductAtLeast<8, dist_t, data_t>;
             else if (dim > 4)
-                fstdistfunc_ = InnerProductSIMD4ExtResiduals;
-    #endif
-            dim_ = dim;
-            data_size_ = dim * sizeof(float);
+                fstdistfunc_ = InnerProductAtLeast<4, dist_t, data_t>;
+            else
+                fstdistfunc_ = InnerProduct<1, dist_t, data_t>;
         }
 
         size_t get_data_size() {
             return data_size_;
         }
 
-        DISTFUNC<float> get_dist_func() {
+        DISTFUNC<dist_t> get_dist_func() {
             return fstdistfunc_;
         }
 
         void *get_dist_func_param() {
             return &dim_;
         }
-
-    ~InnerProductSpace() {}
+        ~InnerProductSpace() {}
     };
 
+    template<> InnerProductSpace<float, float>::InnerProductSpace(size_t dim) : dim_(dim), data_size_(dim * sizeof(float)) {
+        fstdistfunc_ = L2Sqr<1, float, float>;
+    #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+        if (dim % 16 == 0)
+            fstdistfunc_ = InnerProductSIMD16Ext;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = InnerProductSIMD4Ext;
+        else if (dim > 16)
+            fstdistfunc_ = InnerProductSIMD16ExtResiduals;
+        else if (dim > 4)
+            fstdistfunc_ = InnerProductSIMD4ExtResiduals;
+    #endif
+    }
 
 }
