@@ -7,7 +7,7 @@ namespace hnswlib {
      * calculate the L2 squared distance between two vectors.
      * The compiler should automatically do the loop unrolling for us here and vectorize as appropriate.
      */
-    template<int K, typename dist_t, typename data_t = dist_t>
+    template<typename dist_t, typename data_t = dist_t, int K = 1>
     static dist_t
     L2Sqr(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
         size_t qty = *((size_t *) qty_ptr);
@@ -28,7 +28,7 @@ namespace hnswlib {
         return (res);
     }
 
-    template<int K, typename dist_t, typename data_t = dist_t>
+    template<typename dist_t, typename data_t = dist_t, int K>
     static dist_t
     L2SqrAtLeast(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
         size_t k = K;
@@ -37,8 +37,8 @@ namespace hnswlib {
         data_t *a = (data_t *) pVect1;
         data_t *b = (data_t *) pVect2;
 
-        return L2Sqr<K, dist_t, data_t>(a, b, &k)
-             + L2Sqr<1, dist_t, data_t>(a + K, b + K, &remainder);
+        return L2Sqr<dist_t, data_t, K>(a, b, &k)
+             + L2Sqr<dist_t, data_t, 1>(a + K, b + K, &remainder);
     }
 
 #if defined(USE_AVX512)
@@ -172,7 +172,7 @@ namespace hnswlib {
         float *pVect2 = (float *) pVect2v + qty16;
 
         size_t qty_left = qty - qty16;
-        float res_tail = L2Sqr<1, float, float>(pVect1, pVect2, &qty_left);
+        float res_tail = L2Sqr<float, float>(pVect1, pVect2, &qty_left);
         return (res + res_tail);
     }
 #endif
@@ -216,7 +216,7 @@ namespace hnswlib {
 
         float *pVect1 = (float *) pVect1v + qty4;
         float *pVect2 = (float *) pVect2v + qty4;
-        float res_tail = L2Sqr<1, float, float>(pVect1, pVect2, &qty_left);
+        float res_tail = L2Sqr<float, float>(pVect1, pVect2, &qty_left);
 
         return (res + res_tail);
     }
@@ -231,32 +231,32 @@ namespace hnswlib {
     public:
         L2Space(size_t dim) : dim_(dim), data_size_(dim * sizeof(data_t)) {
             if (dim % 128 == 0)
-                fstdistfunc_ = L2Sqr<128, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 128>;
             else if (dim % 64 == 0)
-                fstdistfunc_ = L2Sqr<64, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 64>;
             else if (dim % 32 == 0)
-                fstdistfunc_ = L2Sqr<32, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 32>;
             else if (dim % 16 == 0)
-                fstdistfunc_ = L2Sqr<16, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 16>;
             else if (dim % 8 == 0)
-                fstdistfunc_ = L2Sqr<8, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 8>;
             else if (dim % 4 == 0)
-                fstdistfunc_ = L2Sqr<4, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t, 4>;
 
             else if (dim > 128)
-                fstdistfunc_ = L2SqrAtLeast<128, dist_t, data_t>;            
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 128>;            
             else if (dim > 64)
-                fstdistfunc_ = L2SqrAtLeast<64, dist_t, data_t>;
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 64>;
             else if (dim > 32)
-                fstdistfunc_ = L2SqrAtLeast<32, dist_t, data_t>;
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 32>;
             else if (dim > 16)
-                fstdistfunc_ = L2SqrAtLeast<16, dist_t, data_t>;
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 16>;
             else if (dim > 8)
-                fstdistfunc_ = L2SqrAtLeast<8, dist_t, data_t>;
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 8>;
             else if (dim > 4)
-                fstdistfunc_ = L2SqrAtLeast<4, dist_t, data_t>;
+                fstdistfunc_ = L2SqrAtLeast<dist_t, data_t, 4>;
             else
-                fstdistfunc_ = L2Sqr<1, dist_t, data_t>;
+                fstdistfunc_ = L2Sqr<dist_t, data_t>;
         }
 
         size_t get_data_size() {
@@ -275,7 +275,7 @@ namespace hnswlib {
     };
 
     template<> L2Space<float, float>::L2Space(size_t dim) : dim_(dim), data_size_(dim * sizeof(float)) {
-        fstdistfunc_ = L2Sqr<1, float, float>;
+        fstdistfunc_ = L2Sqr<float, float>;
     #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
         if (dim % 16 == 0)
             fstdistfunc_ = L2SqrSIMD16Ext;
