@@ -146,7 +146,7 @@ static size_t getCurrentRSS() {
 
 
 static void
-get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t vecsize, size_t qsize, L2SpaceI &l2space,
+get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t vecsize, size_t qsize, L2Space<int> &l2space,
        size_t vecdim, vector<std::priority_queue<std::pair<int, labeltype >>> &answers, size_t k) {
 
 
@@ -288,7 +288,7 @@ void sift_test1B() {
     unsigned char *mass = new unsigned char[vecdim];
     ifstream input(path_data, ios::binary);
     int in = 0;
-    L2SpaceI l2space(vecdim);
+    L2Space<int> l2space(vecdim);
 
     HierarchicalNSW<int> *appr_alg;
     if (exists_test(path_index)) {
