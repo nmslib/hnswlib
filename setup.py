@@ -74,8 +74,12 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc', '/openmp', '/O2'],
-        'unix': ['-O3', '-march=native'],  # , '-w'
+        #'unix': ['-O3', '-march=native'],  # , '-w'
+        'unix': ['-O3'],  # , '-w'
     }
+    if not os.environ.get("HNSWLIB_NO_NATIVE"):
+        c_opts['unix'].append('-march=native')
+
     link_opts = {
         'unix': [],
         'msvc': [],
