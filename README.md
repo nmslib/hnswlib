@@ -3,7 +3,14 @@ Header-only C++ HNSW implementation with python bindings.
 
 **NEWS:**
 
-**version 0.6** 
+
+**version 0.6.1** 
+
+* Thanks to ([@tony-kuo](https://github.com/tony-kuo)) hnswlib AVX512 and AVX builds are not backwards-compatible with older SSE and non-AVX512 architectures. 
+* Thanks to ([@psobot](https://github.com/psobot)) there is now a sencible message instead of segfault when passing a scalar to get_items.
+* Thanks to ([@urigoren](https://github.com/urigoren)) hnswlib has a lazy index creation python wrapper.
+
+**version 0.6.0** 
 * Thanks to ([@dyashuni](https://github.com/dyashuni)) hnswlib now uses github actions for CI, there is a search speedup in some scenarios with deletions. `unmark_deleted(label)` is now also a part of the python interface (note now it throws an exception for double deletions). 
 * Thanks to ([@slice4e](https://github.com/slice4e)) we now support AVX512; thanks to ([@LTLA](https://github.com/LTLA)) the cmake interface for the lib is now updated. 
 * Thanks to ([@alonre24](https://github.com/alonre24)) we now have a python bindings for brute-force (and examples for recall tuning: [TESTING_RECALL.md](TESTING_RECALL.md). 
