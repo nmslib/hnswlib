@@ -41,6 +41,9 @@ class RandomSelfTestCase(unittest.TestCase):
         print("Adding all elements (%d)" % (len(data)))
         p.add_items(data, labels)
 
+        # Getting data by label should raise an exception if a scalar is passed:
+        self.assertRaises(ValueError, lambda: p.get_items(labels[0]))
+
         # After adding them, all labels should be retrievable
         returned_items = p.get_items(labels)
         self.assertSequenceEqual(data.tolist(), returned_items)
