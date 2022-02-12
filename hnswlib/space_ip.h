@@ -60,7 +60,7 @@ namespace hnswlib {
         }
 
         _mm_store_ps(TmpRes, sum_prod);
-        float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];;
+        float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
         return 1.0f - sum;
 }
 
