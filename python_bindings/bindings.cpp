@@ -292,12 +292,12 @@ public:
     py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
       std::unique_lock <std::mutex> templock(appr_alg->global);
 
-      unsigned int level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
-      unsigned int link_npy_size = 0;
-      std::vector<unsigned int> link_npy_offsets(appr_alg->cur_element_count);
+      size_t level0_npy_size = appr_alg->cur_element_count * appr_alg->size_data_per_element_;
+      size_t link_npy_size = 0;
+      std::vector<size_t> link_npy_offsets(appr_alg->cur_element_count);
 
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
-        unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+        size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
         link_npy_offsets[i]=link_npy_size;
         if (linkListSize)
           link_npy_size += linkListSize;
@@ -326,7 +326,7 @@ public:
       memcpy(element_levels_npy, appr_alg->element_levels_.data(), appr_alg->element_levels_.size() * sizeof(int));
 
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
-        unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+        size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
         if (linkListSize){
           memcpy(link_list_npy+link_npy_offsets[i], appr_alg->linkLists_[i], linkListSize);
         }
@@ -500,11 +500,11 @@ public:
 
       memcpy(appr_alg->element_levels_.data(), element_levels_npy.data(), element_levels_npy.nbytes());
 
-      unsigned int link_npy_size = 0;
-      std::vector<unsigned int> link_npy_offsets(appr_alg->cur_element_count);
+      size_t link_npy_size = 0;
+      std::vector<size_t> link_npy_offsets(appr_alg->cur_element_count);
 
       for (size_t i = 0; i < appr_alg->cur_element_count; i++){
-        unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+        size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
         link_npy_offsets[i]=link_npy_size;
         if (linkListSize)
           link_npy_size += linkListSize;
@@ -513,7 +513,7 @@ public:
       memcpy(appr_alg->data_level0_memory_, data_level0_npy.data(), data_level0_npy.nbytes());
 
       for (size_t i = 0; i < appr_alg->max_elements_; i++) {
-          unsigned int linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+          size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
           if (linkListSize == 0) {
               appr_alg->linkLists_[i] = nullptr;
           } else {
