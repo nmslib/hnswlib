@@ -4,6 +4,12 @@ Header-only C++ HNSW implementation with python bindings.
 **NEWS:**
 
 
+**version 0.6.2** 
+
+* Fixed a bug in saving of large pickles. The pickles with > 4GB could have been corrupted. Thanks Kai Wohlfahrt for reporting.
+* Thanks to ([@GuyAv46](https://github.com/GuyAv46)) hnswlib inner product now is more consitent accross architectures (SSE, AVX, etc). 
+* 
+
 **version 0.6.1** 
 
 * Thanks to ([@tony-kuo](https://github.com/tony-kuo)) hnswlib AVX512 and AVX builds are not backwards-compatible with older SSE and non-AVX512 architectures. 
@@ -235,6 +241,9 @@ or you can install via pip:
 
 
 ### For developers 
+Contributions are highly welcome!
+
+Please make pull requests against the `develop` branch.
 
 When making changes please run tests (and please add a test to `python_bindings/tests` in case there is new functionality):
 ```bash
@@ -259,10 +268,6 @@ https://github.com/dbaranchuk/ivf-hnsw
 * .Net implementation: https://github.com/microsoft/HNSW.Net
 * CUDA implementation: https://github.com/js1010/cuhnsw
 
-### Contributing to the repository
-Contributions are highly welcome!
-
-Please make pull requests against the `develop` branch.
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset (from root directory):
