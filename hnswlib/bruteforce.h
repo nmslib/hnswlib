@@ -23,7 +23,7 @@ namespace hnswlib {
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxElements * size_per_element_);
             if (data_ == nullptr)
-                std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
+                throw std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
             cur_element_count = 0;
         }
 
@@ -140,7 +140,7 @@ namespace hnswlib {
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxelements_ * size_per_element_);
             if (data_ == nullptr)
-                std::runtime_error("Not enough memory: loadIndex failed to allocate data");
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate data");
 
             input.read(data_, maxelements_ * size_per_element_);
 
