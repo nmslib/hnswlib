@@ -317,7 +317,8 @@ To run test **with** updates (from `build` directory)
 - Visual search engine for 1M amazon products (MXNet + HNSW): [website](https://thomasdelteil.github.io/VisualSearch_MXNet/), [code](https://github.com/ThomasDelteil/VisualSearch_MXNet), demo by [@ThomasDelteil](https://github.com/ThomasDelteil)
 
 ### References
-
+HNSW paper:
+```
 @article{malkov2018efficient,
   title={Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs},
   author={Malkov, Yu A and Yashunin, Dmitry A},
@@ -328,3 +329,6 @@ To run test **with** updates (from `build` directory)
   year={2018},
   publisher={IEEE}
 }
+```
+
+The update algorithm supported in this repository is to be published in "Dynamic Updates For HNSW, Hierarchical Navigable Small World Graphs" US Patent 15/929,802 by Apoorv Sharma, Abhishek Tayal and Yury Malkov.
