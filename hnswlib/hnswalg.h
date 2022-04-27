@@ -38,7 +38,7 @@ namespace hnswlib {
             ef_construction_ = std::max(ef_construction,M_);
             ef_ = 10;
 
-            level_generator_.seed(random_seed);
+            level_generator_.seed((unsigned int) random_seed);
             update_probability_generator_.seed(random_seed + 1);
 
             size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
@@ -53,7 +53,7 @@ namespace hnswlib {
 
             cur_element_count = 0;
 
-            visited_list_pool_ = new VisitedListPool(1, max_elements);
+            visited_list_pool_ = new VisitedListPool(1, (int) max_elements);
 
             //initializations for special treatment of the first node
             enterpoint_node_ = -1;
@@ -411,7 +411,7 @@ namespace hnswlib {
                 if (*ll_cur && !isUpdate) {
                     throw std::runtime_error("The newly inserted element should have blank link list");
                 }
-                setListCount(ll_cur,selectedNeighbors.size());
+                setListCount(ll_cur, (unsigned short int) selectedNeighbors.size());
                 tableint *data = (tableint *) (ll_cur + 1);
                 for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
                     if (data[idx] && !isUpdate)
@@ -459,7 +459,7 @@ namespace hnswlib {
                 if (!is_cur_c_present) {
                     if (sz_link_list_other < Mcurmax) {
                         data[sz_link_list_other] = cur_c;
-                        setListCount(ll_other, sz_link_list_other + 1);
+                        setListCount(ll_other, (unsigned short int) (sz_link_list_other + 1));
                     } else {
                         // finding the "weakest" element to replace it with the new one
                         dist_t d_max = fstdistfunc_(getDataByInternalId(cur_c), getDataByInternalId(selectedNeighbors[idx]),
@@ -483,7 +483,7 @@ namespace hnswlib {
                             indx++;
                         }
 
-                        setListCount(ll_other, indx);
+                        setListCount(ll_other, (unsigned short int) indx);
                         // Nearest K:
                         /*int indx = -1;
                         for (int j = 0; j < sz_link_list_other; j++) {
@@ -607,7 +607,7 @@ namespace hnswlib {
             output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
 
             for (size_t i = 0; i < cur_element_count; i++) {
-                unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+                unsigned int linkListSize = (unsigned int) (element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0);
                 writeBinaryPOD(output, linkListSize);
                 if (linkListSize)
                     output.write(linkLists_[i], linkListSize);
@@ -1011,7 +1011,7 @@ namespace hnswlib {
                     throw std::runtime_error("The number of elements exceeds the specified limit");
                 };
 
-                cur_c = cur_element_count;
+                cur_c = (tableint) cur_element_count;
                 cur_element_count++;
                 label_lookup_[label] = cur_c;
             }

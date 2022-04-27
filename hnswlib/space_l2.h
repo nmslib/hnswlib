@@ -296,7 +296,9 @@ namespace hnswlib {
 
     class L2SpaceI : public SpaceInterface<int> {
 
+	protected:
         DISTFUNC<int> fstdistfunc_;
+	private:
         size_t data_size_;
         size_t dim_;
     public:
