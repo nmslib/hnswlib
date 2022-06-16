@@ -144,7 +144,7 @@ namespace hnswlib {
 #endif
 
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-    DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
+    static DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
 
     static float
     L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
