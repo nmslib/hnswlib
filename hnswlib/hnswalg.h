@@ -17,15 +17,34 @@ namespace hnswlib {
     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     public:
         static const tableint max_update_element_locks = 65536;
-        HierarchicalNSW(SpaceInterface<dist_t> *s) {
+        HierarchicalNSW(SpaceInterface<dist_t> *s) : 
+        max_elements_(0), cur_element_count(0), size_data_per_element_(0), 
+        size_links_per_element_(0), num_deleted_(0), M_(0), maxM_(0), maxM0_(0), 
+        ef_construction_(0), mult_(0.0), revSize_(0.0), maxlevel_(0), 
+        visited_list_pool_(nullptr), enterpoint_node_(0), size_links_level0_(0), 
+        offsetData_(0), offsetLevel0_(0), 
+        data_level0_memory_(nullptr), 
+        linkLists_(nullptr), data_size_(0), label_offset_(0), 
+        dist_func_param_(nullptr), metric_distance_computations(0), metric_hops(0), 
+        ef_(0){
         }
 
-        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
+        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) :
+        max_elements_(0), cur_element_count(0), size_data_per_element_(0), 
+        size_links_per_element_(0), num_deleted_(0), M_(0), maxM_(0), maxM0_(0), 
+        ef_construction_(0), mult_(0.0), revSize_(0.0), maxlevel_(0), 
+        visited_list_pool_(nullptr), enterpoint_node_(0), size_links_level0_(0), 
+        offsetData_(0), offsetLevel0_(0), 
+        data_level0_memory_(nullptr), 
+        linkLists_(nullptr), data_size_(0), label_offset_(0), 
+        dist_func_param_(nullptr), metric_distance_computations(0), metric_hops(0), 
+        ef_(0) {
             loadIndex(location, s, max_elements);
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
-                link_list_locks_(max_elements), link_list_update_locks_(max_update_element_locks), element_levels_(max_elements) {
+                link_list_locks_(max_elements), link_list_update_locks_(max_update_element_locks), element_levels_(max_elements),
+                metric_distance_computations(0), metric_hops(0) {
             max_elements_ = max_elements;
 
             num_deleted_ = 0;
