@@ -9,6 +9,9 @@
 #include <unordered_set>
 #include <list>
 
+//TODO(eschkufz): DELETE ME
+#include <iostream>
+
 namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
@@ -586,6 +589,7 @@ namespace hnswlib {
         }
 
         void saveIndex(const std::string &location) {
+            std::cout << "Saving index" << std::endl;
             std::ofstream output(location, std::ios::binary);
             std::streampos position;
 
