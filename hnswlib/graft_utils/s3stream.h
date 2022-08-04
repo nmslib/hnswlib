@@ -2,7 +2,9 @@
 #define GRAFT_S3STREAM_H
 
 #include <aws/s3/S3Client.h>
+#include <aws/s3/model/DeleteObjectRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <sstream>
 #include <string>
@@ -22,10 +24,13 @@ class s3buf : public blockbuf {
     ~s3buf() override;
 
   private:
-		static const size_t BLOCK_SIZE = 1024;
+		static const size_t BLOCK_SIZE = 4;//32 * 1024 * 1024; // 32MB
 
 		int read(size_t block_id, char_type* buffer, size_t offset) override;
 		int write(size_t block_id, char_type* buffer, size_t n) override; 
+
+		// Delete files in a bucket with a prefix
+		void delete_all(const std::string& bucket, const std::string& object);
 
 		// Return a path to an object in the root bucket which corresponds to this block.
 		std::string get_key(size_t block_id) const;
@@ -77,8 +82,8 @@ inline s3buf::s3buf(Aws::S3::S3Client& client, const std::string& bucket, const 
   get_request_.SetBucket(bucket);
 	// Delete root object in truncate mode.
 	if (mode & std::ios_base::trunc) {
-		// TODO
-	} 
+		delete_all(bucket, object);
+	}
 }
 
 inline s3buf::~s3buf() {
@@ -97,7 +102,7 @@ inline int s3buf::read(size_t block_id, char_type* buffer, size_t offset) {
 		return 0;
 	}
 	// Read block size
-  auto& content = res.GetResultWithOwnership().GetBody();
+  auto& content = res.GetResult().GetBody();
 	size_t block_size = 0;
 	content.read(reinterpret_cast<char*>(&block_size), sizeof(block_size));
 	// Only try reading if we asked for an offset within the block_size
@@ -121,6 +126,35 @@ inline int s3buf::write(size_t block_id, char_type* buffer, size_t n) {
 	// Check results for failure, otherwise return block size
   const auto res = client_.PutObject(put_request_);
 	return res.IsSuccess() ? n : -1;
+}
+
+inline void s3buf::delete_all(const std::string& bucket, const std::string& object) {
+	// Prepare request objects
+	Aws::S3::Model::ListObjectsV2Request list_request;
+	list_request.WithBucket(bucket).WithPrefix(object).WithMaxKeys(2);
+	Aws::S3::Model::DeleteObjectRequest delete_request;
+	delete_request.WithBucket(bucket);
+
+	while (true) {
+		// Submit the next list request (we can receive at most 1000 results at a time)
+		const auto list_res = client_.ListObjectsV2(list_request);
+		if (!list_res.IsSuccess()) {
+			return;
+		}
+		// Delete objects in this batch
+		for (auto& obj : list_res.GetResult().GetContents()) {
+			delete_request.WithKey(obj.GetKey());
+			if (!client_.DeleteObject(delete_request).IsSuccess()) {
+				return;
+			}
+		}
+		// Set continuation token if there are more results, otherwise we're done. 
+		if (list_res.GetResult().GetIsTruncated()) {
+			list_request.SetContinuationToken(list_res.GetResult().GetNextContinuationToken());			
+		} else {
+			return;
+		}
+	}
 }
 
 inline std::string s3buf::get_key(size_t block_id) const {
