@@ -153,12 +153,26 @@ public:
         appr_alg->saveIndex(path_to_index);
     }
 
+    void saveIndex(const std::string& region, const std::string& bucket, const std::string& object) {
+        appr_alg->saveIndex(region, bucket, object);
+    }
+
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
       if (appr_alg) {
           std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
           delete appr_alg;
       }
       appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
+      cur_l = appr_alg->cur_element_count;
+      index_inited = true;
+    }
+
+    void loadIndex(const std::string& region, const std::string& bucket, const std::string& object, size_t max_elements) {
+      if (appr_alg) {
+          std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+          delete appr_alg;
+      }
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, region, bucket, object, false, max_elements);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
@@ -851,7 +865,9 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
+        .def("save_index_s3", &Index<float>::saveIndex, py::arg("region"), py::arg("bucket"), py::arg("object"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
+        .def("load_index_s3", &Index<float>::loadIndex, py::arg("region"), py::arg("bucket"), py::arg("object"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))

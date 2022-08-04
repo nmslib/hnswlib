@@ -1,16 +1,16 @@
 #pragma once
 
+#include "graft_utils/s3stream.h"
 #include "visited_list_pool.h"
 #include "hnswlib.h"
 #include <atomic>
+#include <aws/core/Aws.h>
 #include <iostream>
 #include <random>
 #include <stdlib.h>
 #include <assert.h>
 #include <unordered_set>
 #include <list>
-
-#include "graft_utils/s3stream.h"
 
 namespace hnswlib {
     typedef unsigned int tableint;
@@ -25,6 +25,10 @@ namespace hnswlib {
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements=0) {
             loadIndex(location, s, max_elements);
+        }
+
+        HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string& region, const std::string& bucket, const std::string& object, bool nmslib = false, size_t max_elements=0) {
+            loadIndex(region, bucket, object, s, max_elements);
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200, size_t random_seed = 100) :
@@ -620,6 +624,16 @@ namespace hnswlib {
             ofs.close();
         }
 
+        void saveIndex(const std::string& region, const std::string& bucket, const std::string& object) {
+            ensure_aws();
+            Aws::Client::ClientConfiguration config;
+            config.region = region;
+            Aws::S3::S3Client client(config);
+            graft::os3stream os3s(client, bucket, object);
+            saveIndex(os3s);
+            os3s.flush();
+        }
+
         void loadIndex(std::istream& is, SpaceInterface<dist_t> *s, size_t max_elements_i) {
             // get file size:
             is.seekg(0,is.end);
@@ -725,6 +739,15 @@ namespace hnswlib {
                 throw std::runtime_error("Cannot open file");
             loadIndex(ifs, s, max_elements_i);
             ifs.close();
+        }
+
+        void saveIndex(const std::string& region, const std::string& bucket, const std::string& object, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
+            ensure_aws();
+            Aws::Client::ClientConfiguration config;
+            config.region = region;
+            Aws::S3::S3Client client(config);
+            graft::is3stream is3s(client, BUCKET, OBJECT);
+            loadIndex(is3s, s, max_elements_i);
         }
 
         template<typename data_t>
@@ -1203,6 +1226,14 @@ namespace hnswlib {
 
         }
 
+    private:
+        void ensure_aws() {
+            static bool once = false;
+            if (!once) {
+                Aws::SDKOptions options;
+                Aws::InitAPI(options);
+            }
+        }
     };
 
 }
