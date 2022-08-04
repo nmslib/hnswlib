@@ -1,7 +1,7 @@
 #ifndef GRAFT_DIRECTORYSTREAM_H
 #define GRAFT_DIRECTORYSTREAM_H
 
-#include <filesystem>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -16,21 +16,21 @@ namespace graft {
 class directorybuf : public blockbuf {
   public:
     // Constructors:
-    explicit directorybuf(const std::filesystem::path& path);
+    explicit directorybuf(const std::string& path);
     ~directorybuf() override = default;
 
   private:
 		int read(size_t block_id, char_type* buffer, size_t offset) override;
 		int write(size_t block_id, char_type* buffer, size_t n) override; 
 
-		std::filesystem::path get_file(size_t block_id) const;
+		std::string get_file(size_t block_id) const;
 
-		std::filesystem::path path_;
+		std::string path_;
 };
 
 class idirectorystream : public std::istream {
   public:
-    idirectorystream(const std::filesystem::path& path);
+    idirectorystream(const std::string& path);
     ~idirectorystream() override = default;
 
   private:
@@ -39,7 +39,7 @@ class idirectorystream : public std::istream {
 
 class odirectorystream : public std::ostream {
   public:
-    odirectorystream(const std::filesystem::path& path);
+    odirectorystream(const std::string& path);
     ~odirectorystream() override = default;
 
   private:
@@ -48,15 +48,17 @@ class odirectorystream : public std::ostream {
 
 class directorystream : public std::iostream {
   public:
-    directorystream(const std::filesystem::path& path);
+    directorystream(const std::string& path);
     ~directorystream() override = default;
 
   private:
     directorybuf buf_;
 };
 
-inline directorybuf::directorybuf(const std::filesystem::path& path) : blockbuf(1024), path_(path) { 
-	std::filesystem::create_directory(path);
+inline directorybuf::directorybuf(const std::string& path) : blockbuf(1024), path_(path) { 
+	std::ostringstream oss;
+	oss << "mkdir " << path;
+	std::system(oss.str().c_str());
 }
 
 int directorybuf::read(size_t block_id, char_type* buffer, size_t offset) {
@@ -88,17 +90,17 @@ int directorybuf::write(size_t block_id, char_type* buffer, size_t n) {
 	return n;
 }
 
-std::filesystem::path directorybuf::get_file(size_t block_id) const {
+std::string directorybuf::get_file(size_t block_id) const {
 	std::ostringstream oss;
-	oss << block_id;
-	return path_ / std::filesystem::path(oss.str());
+	oss << path_ << "/" << block_id;
+	return oss.str();
 }
 
-inline idirectorystream::idirectorystream(const std::filesystem::path& path) : std::istream(&buf_), buf_(path) { }
+inline idirectorystream::idirectorystream(const std::string& path) : std::istream(&buf_), buf_(path) { }
 
-inline odirectorystream::odirectorystream(const std::filesystem::path& path) : std::ostream(&buf_), buf_(path) { }
+inline odirectorystream::odirectorystream(const std::string& path) : std::ostream(&buf_), buf_(path) { }
 
-inline directorystream::directorystream(const std::filesystem::path& path) : std::iostream(&buf_), buf_(path) { }
+inline directorystream::directorystream(const std::string& path) : std::iostream(&buf_), buf_(path) { }
 
 } // namespace graft
 

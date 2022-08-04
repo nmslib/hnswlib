@@ -112,7 +112,7 @@ inline int blockbuf::sync() {
 		return 0;
 	}
 	// If the put area doesn't span a full block, we need to read the part of the block we're missing.
-	const auto offset = pptr()-pbase();
+	const size_t offset = pptr()-pbase();
 	auto size = offset;
 	if (size != blocksize_) {
 		size = read(put_id_, put_area_.data(), offset);
