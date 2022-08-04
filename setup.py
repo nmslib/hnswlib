@@ -26,7 +26,8 @@ else:
     include_dirs.extend(['./hnswlib/'])
 
 
-libraries = []
+libraries = ['aws-cpp-sdk-core', 'aws-cpp-sdk-s3']
+
 extra_objects = []
 
 
@@ -94,8 +95,6 @@ class BuildExt(build_ext):
     else:
         c_opts['unix'].append("-fopenmp")
         link_opts['unix'].extend(['-fopenmp', '-pthread'])
-
-    link_opts['unix'].extend(['-laws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
