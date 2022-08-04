@@ -628,11 +628,11 @@ namespace hnswlib {
             //std::ifstream ifs(location, std::ios::binary);
             //if (!ifs.is_open())
             //    throw std::runtime_error("Cannot open file");
-            //loadIndex(ifs, s, max_elements);
+            //loadIndex(ifs, s, max_elements_i);
             //ifs.close();
 
             graft::idirectorystream ids(location);
-            LoadIndex(ids, s, max_elements);
+            LoadIndex(ids, s, max_elements_i);
         }
 
         void loadIndex(std::istream& is, SpaceInterface<dist_t> *s, size_t max_elements_i) {
