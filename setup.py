@@ -113,6 +113,8 @@ class BuildExt(build_ext):
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(self.link_opts.get(ct, []))
 
+        ext.extra_link_args.extend(['-laws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
+
         build_ext.build_extensions(self)
 
 
