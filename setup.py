@@ -26,19 +26,19 @@ else:
     include_dirs.extend(['./hnswlib/'])
 
 
-libraries = ['-laws-cpp-sdk-core', '-laws-cpp-sdk-s3']
-library_dirs = ['/usr/local/lib/libaws-cpp-sdk-core.dylib', '/usr/local/lib/libaws-cpp-sdk-s3.dylib']
+libraries = []
+
+library_dirs = []
 
 extra_objects = []
-
 
 ext_modules = [
     Extension(
         'hnswlib',
         source_files,
         include_dirs=include_dirs,
-        library_dirs=library_dirs,
         libraries=libraries,
+        library_dirs=library_dirs,
         language='c++',
         extra_objects=extra_objects,
     ),
@@ -65,7 +65,9 @@ def cpp_flag(compiler):
     """Return the -std=c++[11/14] compiler flag.
     The c++14 is prefered over c++11 (when it is available).
     """
-    if has_flag(compiler, '-std=c++14'):
+    if has_flag(compiler, '-std=c++17'):
+        return '-std=c++17'
+    elif has_flag(compiler, '-std=c++14'):
         return '-std=c++14'
     elif has_flag(compiler, '-std=c++11'):
         return '-std=c++11'
@@ -113,8 +115,6 @@ class BuildExt(build_ext):
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(self.link_opts.get(ct, []))
 
-        ext.extra_link_args.extend(['-laws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
-
         build_ext.build_extensions(self)
 
 
@@ -126,7 +126,9 @@ setup(
     url='https://github.com/yurymalkov/hnsw',
     long_description="""hnsw""",
     ext_modules=ext_modules,
-    install_requires=['numpy'],
     cmdclass={'build_ext': BuildExt},
+    install_requires=['numpy'],
     zip_safe=False,
 )
+
+
