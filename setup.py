@@ -27,6 +27,7 @@ else:
 
 
 libraries = ['aws-cpp-sdk-core', 'aws-cpp-sdk-s3']
+library_dirs = ['/usr/local/lib/']
 
 extra_objects = []
 
@@ -36,6 +37,7 @@ ext_modules = [
         'hnswlib',
         source_files,
         include_dirs=include_dirs,
+        library_dirs=library_dirs,
         libraries=libraries,
         language='c++',
         extra_objects=extra_objects,
