@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <streambuf>
-#include <vector>
 
 // This class provides a c++ stream interface to a block storage device. The
 // underlying abstraction to that device is that blocks can be read/written
@@ -21,7 +20,7 @@ class blockbuf : public std::streambuf {
     typedef std::streambuf::off_type off_type;
    
     // Constructors:
-    explicit blockbuf(size_t blocksize);
+    explicit blockbuf(char_type* get_area, char_type* put_area, size_t block_size);
     ~blockbuf() override = default;
 
 	protected:
@@ -31,16 +30,15 @@ class blockbuf : public std::streambuf {
 		// Write buffer to a block, return the size of the block, or -1 for error.
 		virtual int write(size_t block_id, char_type* buffer, size_t n) = 0; 
 
+    // Storage for get and put areas (provided by implementations)
+    char_type* get_area_;
+		char_type* put_area_;
+
   private:
-    // Get/Input/Read Area
-    std::vector<char_type> get_area_;
+		// Blocksize and block ids (provided by implementations) for get and put areas
+		size_t block_size_;
 		int get_id_;
-    // Put/Output/Write Area
-    std::vector<char_type> put_area_;
 		int put_id_;
-		// Buffer
-		// Blocksize
-		size_t blocksize_;
 
     // Locales: 
     void imbue(const std::locale& loc) override;
@@ -71,10 +69,11 @@ class blockbuf : public std::streambuf {
 		int bump_put_area(size_t n);
 };
 
-inline blockbuf::blockbuf(size_t blocksize) : get_area_(blocksize), get_id_(-1), put_area_(blocksize), put_id_(0), blocksize_(blocksize) {
+inline blockbuf::blockbuf(char_type* get_area, char_type* put_area, size_t block_size) : 
+		get_area_(get_area), put_area_(put_area), block_size_(block_size), get_id_(-1), put_id_(0) {
 	// Configure get and put areas to fault on first read/write
-  setg(get_area_.data(), get_area_.data(), get_area_.data());
-  setp(put_area_.data(), put_area_.data()+1);
+  setg(get_area_, get_area_, get_area_);
+  setp(put_area_, put_area_+1);
 }
 
 inline void blockbuf::imbue(const std::locale& loc) {
@@ -107,15 +106,16 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 }
 
 inline int blockbuf::sync() {
+	// Compute offset in the put area.
+	const size_t offset = pptr()-pbase();
 	// If the put area is empty, there's nothing to do.
-	if (pptr() == pbase()) {
+	if (offset == 0) {
 		return 0;
 	}
 	// If the put area doesn't span a full block, we need to read the part of the block we're missing.
-	const size_t offset = pptr()-pbase();
 	auto size = offset;
-	if (size != blocksize_) {
-		size = read(put_id_, put_area_.data(), offset);
+	if (size != block_size_) {
+		size = read(put_id_, put_area_, offset);
 		if (size == -1) {
 			return -1;
 		}
@@ -124,7 +124,7 @@ inline int blockbuf::sync() {
 		pbump(offset);
 	}
 	// Write back 
-	if (write(put_id_, put_area_.data(), size) == -1) {
+	if (write(put_id_, put_area_, size) == -1) {
 		return -1;
 	}
 	// If get and put areas refer to the same block, copy the put area to the get area.
@@ -230,7 +230,7 @@ inline blockbuf::int_type blockbuf::pbackfail(int_type c) {
 
 inline int blockbuf::extend_put_area(size_t n) {
 	// We can't do anything if the put area spans an entire block.
-	const auto capacity = blocksize_ - (epptr()-pbase());
+	const auto capacity = block_size_ - (epptr()-pbase());
 	if (capacity == 0) {
 		return -1;
 	}
@@ -249,7 +249,7 @@ inline int blockbuf::bump_put_area(size_t n) {
 	}
 	// Reset pointers
 	++put_id_;
-	const auto extension = std::min(n, blocksize_);
+	const auto extension = std::min(n, block_size_);
 	setp(pbase(), pbase()+extension);
 	return 0;
 }

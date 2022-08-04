@@ -13,18 +13,25 @@
 
 namespace graft {
 
+// TODO(eschkufz): This class could really use an is_open() method. Currently, we'll fail 
+//	less than gracefully if we attempt to write to a directory that doesn't exist.
+
 class directorybuf : public blockbuf {
   public:
     // Constructors:
     explicit directorybuf(const std::string& path, std::ios_base::openmode mode);
-    ~directorybuf() override = default;
+    ~directorybuf() override;
 
   private:
+		static const size_t BLOCK_SIZE = 1024;
+
 		int read(size_t block_id, char_type* buffer, size_t offset) override;
 		int write(size_t block_id, char_type* buffer, size_t n) override; 
 
+		// Return a path to a file in the root directory which corresponds to this block.
 		std::string get_file(size_t block_id) const;
 
+		// This path to the directory to use as a backing store.
 		std::string path_;
 };
 
@@ -55,10 +62,9 @@ class directorystream : public std::iostream {
     directorybuf buf_;
 };
 
-inline directorybuf::directorybuf(const std::string& path, std::ios_base::openmode mode) : blockbuf(1024), path_(path) { 
-	// TODO(eschkufz): This class could really use an is_open() method. Currently, we'll fail 
-	//	less than gracefully if we attempt to write to a directory that doesn't exist.
-
+inline directorybuf::directorybuf(const std::string& path, std::ios_base::openmode mode) : 
+		blockbuf(new char_type[BLOCK_SIZE], new char_type[BLOCK_SIZE], BLOCK_SIZE), 
+		path_(path) {
 	// Delete root directory in truncate mode.
 	if (mode & std::ios_base::trunc) {
 		std::ostringstream oss;
@@ -73,7 +79,12 @@ inline directorybuf::directorybuf(const std::string& path, std::ios_base::openmo
 	}
 }
 
-int directorybuf::read(size_t block_id, char_type* buffer, size_t offset) {
+inline directorybuf::~directorybuf() {
+	delete[] get_area_;
+	delete[] put_area_;
+}
+
+inline int directorybuf::read(size_t block_id, char_type* buffer, size_t offset) {
 	// Open backing file for this block.
 	const auto file = get_file(block_id);
 	std::ifstream ifs(file, std::ios::binary);
@@ -82,17 +93,17 @@ int directorybuf::read(size_t block_id, char_type* buffer, size_t offset) {
 		return 0;
 	}
 	// Read block size
-	size_t blocksize = 0;
-	ifs.read(reinterpret_cast<char*>(&blocksize), sizeof(blocksize));
-	// Only try reading if we asked for an offset within the blocksize
-	if (offset < blocksize) {
+	size_t block_size = 0;
+	ifs.read(reinterpret_cast<char*>(&block_size), sizeof(block_size));
+	// Only try reading if we asked for an offset within the block_size
+	if (offset < block_size) {
 		ifs.seekg(offset, std::ios::cur);
-		ifs.read(buffer+offset, blocksize-offset);
+		ifs.read(buffer+offset, block_size-offset);
 	}
-	return blocksize;
+	return block_size;
 }
 
-int directorybuf::write(size_t block_id, char_type* buffer, size_t n) {
+inline int directorybuf::write(size_t block_id, char_type* buffer, size_t n) {
 	// Open backing file for this block.
 	const auto file = get_file(block_id);
 	std::ofstream ofs(file, std::ios::binary);
