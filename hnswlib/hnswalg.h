@@ -741,12 +741,12 @@ namespace hnswlib {
             ifs.close();
         }
 
-        void saveIndex(const std::string& region, const std::string& bucket, const std::string& object, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
+        void loadIndex(const std::string& region, const std::string& bucket, const std::string& object, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
             ensure_aws();
             Aws::Client::ClientConfiguration config;
             config.region = region;
             Aws::S3::S3Client client(config);
-            graft::is3stream is3s(client, BUCKET, OBJECT);
+            graft::is3stream is3s(client, bucket, object);
             loadIndex(is3s, s, max_elements_i);
         }
 
