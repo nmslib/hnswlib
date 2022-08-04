@@ -588,16 +588,6 @@ namespace hnswlib {
             max_elements_ = new_max_elements;
         }
 
-        void saveIndex(const std::string &location) {
-            //std::ofstream ofs(location, std::ios::binary);
-            //saveIndex(ofs);
-            //ofs.close();
-
-            graft::odirectorystream ods(location);
-            saveIndex(ods);
-            ods.flush();
-        }
-
         void saveIndex(std::ostream& os) {
             writeBinaryPOD(os, offsetLevel0_);
             writeBinaryPOD(os, max_elements_);
@@ -624,15 +614,14 @@ namespace hnswlib {
             }
         }
 
-        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
-            //std::ifstream ifs(location, std::ios::binary);
-            //if (!ifs.is_open())
-            //    throw std::runtime_error("Cannot open file");
-            //loadIndex(ifs, s, max_elements_i);
-            //ifs.close();
+         void saveIndex(const std::string &location) {
+            //std::ofstream ofs(location, std::ios::binary);
+            //saveIndex(ofs);
+            //ofs.close();
 
-            graft::idirectorystream ids(location);
-            LoadIndex(ids, s, max_elements_i);
+            graft::odirectorystream ods(location);
+            saveIndex(ods);
+            ods.flush();
         }
 
         void loadIndex(std::istream& is, SpaceInterface<dist_t> *s, size_t max_elements_i) {
@@ -732,6 +721,17 @@ namespace hnswlib {
                 if(isMarkedDeleted(i))
                     num_deleted_ += 1;
             }
+        }
+
+        void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
+            //std::ifstream ifs(location, std::ios::binary);
+            //if (!ifs.is_open())
+            //    throw std::runtime_error("Cannot open file");
+            //loadIndex(ifs, s, max_elements_i);
+            //ifs.close();
+
+            graft::idirectorystream ids(location);
+            loadIndex(ids, s, max_elements_i);
         }
 
         template<typename data_t>
