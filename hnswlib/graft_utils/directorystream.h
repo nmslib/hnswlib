@@ -16,7 +16,7 @@ namespace graft {
 class directorybuf : public blockbuf {
   public:
     // Constructors:
-    explicit directorybuf(const std::string& path);
+    explicit directorybuf(const std::string& path, std::ios_base::openmode mode);
     ~directorybuf() override = default;
 
   private:
@@ -55,10 +55,22 @@ class directorystream : public std::iostream {
     directorybuf buf_;
 };
 
-inline directorybuf::directorybuf(const std::string& path) : blockbuf(1024), path_(path) { 
-	std::ostringstream oss;
-	oss << "mkdir " << path;
-	std::system(oss.str().c_str());
+inline directorybuf::directorybuf(const std::string& path, std::ios_base::openmode mode) : blockbuf(1024), path_(path) { 
+	// TODO(eschkufz): This class could really use an is_open() method. Currently, we'll fail 
+	//	less than gracefully if we attempt to write to a directory that doesn't exist.
+
+	// Delete root directory in truncate mode.
+	if (mode & std::ios_base::trunc) {
+		std::ostringstream oss;
+		oss << "rm -rf " << path;
+		std::system(oss.str().c_str());		
+	} 
+	// Create root directory in output mode.
+	if (mode & std::ios_base::out) {
+		std::ostringstream oss;
+		oss << "mkdir " << path;
+		std::system(oss.str().c_str());
+	}
 }
 
 int directorybuf::read(size_t block_id, char_type* buffer, size_t offset) {
@@ -96,11 +108,20 @@ std::string directorybuf::get_file(size_t block_id) const {
 	return oss.str();
 }
 
-inline idirectorystream::idirectorystream(const std::string& path) : std::istream(&buf_), buf_(path) { }
+inline idirectorystream::idirectorystream(const std::string& path) : 
+	std::istream(&buf_), 
+	buf_(path, std::ios_base::in | std::ios_base::app) { 
+}
 
-inline odirectorystream::odirectorystream(const std::string& path) : std::ostream(&buf_), buf_(path) { }
+inline odirectorystream::odirectorystream(const std::string& path) : 
+	std::ostream(&buf_), 
+	buf_(path, std::ios_base::out | std::ios_base::trunc) { 
+}
 
-inline directorystream::directorystream(const std::string& path) : std::iostream(&buf_), buf_(path) { }
+inline directorystream::directorystream(const std::string& path) : 
+	std::iostream(&buf_), 
+	buf_(path, std::ios_base::in | std::ios_base::out | std::ios_base::app) { 
+}
 
 } // namespace graft
 
