@@ -55,7 +55,7 @@ class directorystream : public std::iostream {
     directorybuf buf_;
 };
 
-inline directorybuf::directorybuf(const std::filesystem::path& path) : blockbuf(4), path_(path) { 
+inline directorybuf::directorybuf(const std::filesystem::path& path) : blockbuf(1024), path_(path) { 
 	std::filesystem::create_directory(path);
 }
 

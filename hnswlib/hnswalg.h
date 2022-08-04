@@ -10,6 +10,8 @@
 #include <unordered_set>
 #include <list>
 
+#include "graft_utils/directorystream.h"
+
 namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
@@ -587,9 +589,13 @@ namespace hnswlib {
         }
 
         void saveIndex(const std::string &location) {
-            std::ofstream ofs(location, std::ios::binary);
-            saveIndex(ofs);
-            ofs.close();
+            //std::ofstream ofs(location, std::ios::binary);
+            //saveIndex(ofs);
+            //ofs.close();
+
+            graft::odirectorystream ods(location);
+            saveIndex(ods);
+            ods.flush();
         }
 
         void saveIndex(std::ostream& os) {
@@ -619,11 +625,14 @@ namespace hnswlib {
         }
 
         void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
-            std::ifstream ifs(location, std::ios::binary);
-            if (!ifs.is_open())
-                throw std::runtime_error("Cannot open file");
-            loadIndex(ifs, s, max_elements);
-            ifs.close();
+            //std::ifstream ifs(location, std::ios::binary);
+            //if (!ifs.is_open())
+            //    throw std::runtime_error("Cannot open file");
+            //loadIndex(ifs, s, max_elements);
+            //ifs.close();
+
+            graft::idirectorystream ids(location);
+            LoadIndex(ids, s, max_elements);
         }
 
         void loadIndex(std::istream& is, SpaceInterface<dist_t> *s, size_t max_elements_i) {
