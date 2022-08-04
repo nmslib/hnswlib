@@ -95,7 +95,7 @@ class BuildExt(build_ext):
         c_opts['unix'].append("-fopenmp")
         link_opts['unix'].extend(['-fopenmp', '-pthread'])
 
-		link_opts.extend(['-aws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
+    link_opts.extend(['-aws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
