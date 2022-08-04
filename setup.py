@@ -27,7 +27,7 @@ else:
 
 
 libraries = ['aws-cpp-sdk-core', 'aws-cpp-sdk-s3']
-library_dirs = ['/usr/local/lib/']
+library_dirs = ['/usr/local/lib/libaws-cpp-sdk-core.dylib', '/usr/local/lib/libaws-cpp-sdk-s3.dylib']
 
 extra_objects = []
 
