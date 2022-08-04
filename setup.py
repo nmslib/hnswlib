@@ -27,9 +27,7 @@ else:
 
 
 libraries = []
-
 library_dirs = []
-
 extra_objects = []
 
 ext_modules = [
