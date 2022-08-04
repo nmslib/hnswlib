@@ -615,13 +615,13 @@ namespace hnswlib {
         }
 
          void saveIndex(const std::string &location) {
-            //std::ofstream ofs(location, std::ios::binary);
-            //saveIndex(ofs);
-            //ofs.close();
+            std::ofstream ofs(location, std::ios::binary);
+            saveIndex(ofs);
+            ofs.close();
 
-            graft::odirectorystream ods(location);
-            saveIndex(ods);
-            ods.flush();
+            //graft::odirectorystream ods(location);
+            //saveIndex(ods);
+            //ods.flush();
         }
 
         void loadIndex(std::istream& is, SpaceInterface<dist_t> *s, size_t max_elements_i) {
@@ -724,14 +724,14 @@ namespace hnswlib {
         }
 
         void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i=0) {
-            //std::ifstream ifs(location, std::ios::binary);
-            //if (!ifs.is_open())
-            //    throw std::runtime_error("Cannot open file");
-            //loadIndex(ifs, s, max_elements_i);
-            //ifs.close();
+            std::ifstream ifs(location, std::ios::binary);
+            if (!ifs.is_open())
+                throw std::runtime_error("Cannot open file");
+            loadIndex(ifs, s, max_elements_i);
+            ifs.close();
 
-            graft::idirectorystream ids(location);
-            loadIndex(ids, s, max_elements_i);
+            //graft::idirectorystream ids(location);
+            //loadIndex(ids, s, max_elements_i);
         }
 
         template<typename data_t>
