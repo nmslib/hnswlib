@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <list>
 
+#include <cstdlib> // delete me
 #include "graft_utils/directorystream.h"
 
 namespace hnswlib {
@@ -619,6 +620,9 @@ namespace hnswlib {
             //saveIndex(ofs);
             //ofs.close();
 
+						std::ostringstream oss;
+						oss << "rm -rf " << location;
+						std::system(oss.str().c_str());
             graft::odirectorystream ods(location);
             saveIndex(ods);
             ods.flush();
@@ -730,6 +734,9 @@ namespace hnswlib {
             //loadIndex(ifs, s, max_elements_i);
             //ifs.close();
 
+						std::ostringstream oss;
+						oss << "rm -rf " << location;
+						std::system(oss.str().c_str());
             graft::idirectorystream ids(location);
             loadIndex(ids, s, max_elements_i);
         }
