@@ -112,9 +112,16 @@ class BuildExt(build_ext):
         for ext in self.extensions:
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(self.link_opts.get(ct, []))
+            ext.extra_compile_args.extend(['-L/usr/local/lib', '-laws-cpp-sdk-core', '-laws-cpp-sdk-s3'])
 
         build_ext.build_extensions(self)
 
+    def build_extension(self, ext):
+        print("BUILD EXTENSION...")
+        print(ext.sources)
+        print(ext.extra_compile_args)
+        print(self.get_libraries(ext))
+        super().build_extension(ext)
 
 setup(
     name='hnswlib',
