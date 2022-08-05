@@ -24,7 +24,7 @@ class s3buf : public blockbuf {
     ~s3buf() override;
 
   private:
-		static const size_t BLOCK_SIZE = 4;//32 * 1024 * 1024; // 32MB
+		static const size_t BLOCK_SIZE = 32 * 1024 * 1024; // 32MB
 
 		int read(size_t block_id, char_type* buffer, size_t offset) override;
 		int write(size_t block_id, char_type* buffer, size_t n) override; 
