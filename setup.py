@@ -118,6 +118,9 @@ class BuildExt(build_ext):
             # NOTE(eschkufz): I've added dependencies on aws
             ext.libraries = ['aws-cpp-sdk-s3', 'aws-cpp-sdk-core']
 
+        # TODO(eschkufz): Figure out how to force rebuild from the command line
+        self.force = True
+
         build_ext.build_extensions(self)
 
     # TODO(eschkufz): DELETE ME
