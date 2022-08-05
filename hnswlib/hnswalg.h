@@ -85,22 +85,21 @@ namespace hnswlib {
             delete visited_list_pool_;
         }
 
-        size_t max_elements_;
-        size_t cur_element_count;
-        size_t size_data_per_element_;
-        size_t size_links_per_element_;
-        size_t num_deleted_;
+        size_t max_elements_{0};
+        size_t cur_element_count{0};
+        size_t size_data_per_element_{0};
+        size_t size_links_per_element_{0};
+        size_t num_deleted_{0};
+        size_t M_{0};
+        size_t maxM_{0};
+        size_t maxM0_{0};
+        size_t ef_construction_{0};
 
-        size_t M_;
-        size_t maxM_;
-        size_t maxM0_;
-        size_t ef_construction_;
-
-        double mult_, revSize_;
-        int maxlevel_;
+        double mult_{0.0}, revSize_{0.0};
+        int maxlevel_{0};
 
 
-        VisitedListPool *visited_list_pool_;
+        VisitedListPool *visited_list_pool_{nullptr};
         std::mutex cur_element_count_guard_;
 
         std::vector<std::mutex> link_list_locks_;
@@ -108,20 +107,20 @@ namespace hnswlib {
         // Locks to prevent race condition during update/insert of an element at same time.
         // Note: Locks for additions can also be used to prevent this race condition if the querying of KNN is not exposed along with update/inserts i.e multithread insert/update/query in parallel.
         std::vector<std::mutex> link_list_update_locks_;
-        tableint enterpoint_node_;
+        tableint enterpoint_node_{0};
 
-        size_t size_links_level0_;
-        size_t offsetData_, offsetLevel0_;
+        size_t size_links_level0_{0};
+        size_t offsetData_{0}, offsetLevel0_{0};
 
-        char *data_level0_memory_;
-        char **linkLists_;
+        char *data_level0_memory_{nullptr};
+        char **linkLists_{nullptr};
         std::vector<int> element_levels_;
 
-        size_t data_size_;
+        size_t data_size_{0};
 
-        size_t label_offset_;
+        size_t label_offset_{0};
         DISTFUNC<dist_t> fstdistfunc_;
-        void *dist_func_param_;
+        void *dist_func_param_{nullptr};
         std::unordered_map<labeltype, tableint> label_lookup_;
 
         std::default_random_engine level_generator_;
@@ -234,8 +233,8 @@ namespace hnswlib {
             return top_candidates;
         }
 
-        mutable std::atomic<long> metric_distance_computations;
-        mutable std::atomic<long> metric_hops;
+        mutable std::atomic<long> metric_distance_computations{0};
+        mutable std::atomic<long> metric_hops{0};
 
         template <bool has_deletions, bool collect_metrics=false>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
@@ -504,7 +503,7 @@ namespace hnswlib {
         }
 
         std::mutex global;
-        size_t ef_;
+        size_t ef_{0};
 
         void setEf(size_t ef) {
             ef_ = ef;
