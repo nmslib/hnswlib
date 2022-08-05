@@ -145,6 +145,22 @@ public:
         appr_alg->ef_ = ef;
     }
 
+    void set_alpha(float alpha){
+        appr_alg->set_alpha(alpha);
+    }
+
+    int get_distance_computations(){
+        return appr_alg->metric_distance_computations;
+    }
+    int get_hops(){
+        return appr_alg->metric_hops;
+    }
+
+    void reset_metrics_computations(){
+        appr_alg->metric_distance_computations=0;
+        appr_alg->metric_hops=0;
+    }
+
     void set_num_threads(int num_threads) {
         this->num_threads_default = num_threads;
     }
@@ -850,6 +866,13 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
+        .def("set_alpha", &Index<float>::set_alpha, py::arg("alpha"))
+
+        .def("get_hops", &Index<float>::get_hops)
+        .def("get_distance_computations", &Index<float>::get_distance_computations)
+        .def("reset_metrics_computations", &Index<float>::reset_metrics_computations)
+        
+
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements")=0)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))

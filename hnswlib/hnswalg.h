@@ -99,6 +99,11 @@ namespace hnswlib {
         double mult_, revSize_;
         int maxlevel_;
 
+        float alpha=1.0f;
+    
+        void set_alpha(float alpha1){
+            this->alpha=alpha1;
+        }
 
         VisitedListPool *visited_list_pool_;
         std::mutex cur_element_count_guard_;
@@ -237,7 +242,7 @@ namespace hnswlib {
         mutable std::atomic<long> metric_distance_computations;
         mutable std::atomic<long> metric_hops;
 
-        template <bool has_deletions, bool collect_metrics=false>
+        template <bool has_deletions, bool collect_metrics=true>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
         searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef) const {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
@@ -352,7 +357,9 @@ namespace hnswlib {
                             fstdistfunc_(getDataByInternalId(second_pair.second),
                                          getDataByInternalId(curent_pair.second),
                                          dist_func_param_);;
-                    if (curdist < dist_to_query) {
+                    //
+                    //std::cout<<this->alpha<<"\n";
+                    if (curdist*this->alpha < dist_to_query) {
                         good = false;
                         break;
                     }
