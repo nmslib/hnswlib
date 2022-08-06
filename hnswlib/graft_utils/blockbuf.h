@@ -110,12 +110,19 @@ inline void blockbuf::open(std::ios_base::openmode mode) {
 	// Position write head at end of last block, get area to fault on first read.
 	if (mode & std::ios_base::app) {
 		std::cout << "OPEN IN APPEND MODE" << std::endl;
-		get_id_ = -1;
-		setg(get_area_, get_area_, get_area_);
 		put_id_ = device_end() - 1;
 		const auto n = read(put_id_, put_area_, 0);
 		setp(put_area_, put_area_+n);
 		pbump(n);
+		// If the get and put areas overlap, we fault in to the get area for free.
+		if (put_id_ == 0) {
+			get_id_ = 0;
+			std::copy(pbase(), pptr(), get_area_);
+			setg(get_area_, get_area_, get_area_+(pbase()-pptr()));
+		} else {
+			get_id_ = -1;
+			setg(get_area_, get_area_, get_area_);
+		}
 	}
 	// Regardless of mode, we start clean
 	dirty_ = false;
