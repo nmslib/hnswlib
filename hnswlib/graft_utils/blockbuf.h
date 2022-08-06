@@ -109,6 +109,7 @@ inline void blockbuf::open(std::ios_base::openmode mode) {
 	// Append mode: 
 	// Position write head at end of last block, get area to fault on first read.
 	if (mode & std::ios_base::app) {
+		std::cout << "OPEN IN APPEND MODE" << std::endl;
 		get_id_ = -1;
 		setg(get_area_, get_area_, get_area_);
 		put_id_ = device_end() - 1;
@@ -172,6 +173,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 	if (which & std::ios_base::in) {
 		int capacity = egptr()-eback();
 		if (block_id != get_id_) {
+			std::cout << "JUMP TO NEW GET AREA" << std::endl;
 			capacity = read(block_id, get_area_, 0);
 			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type(off_type(-1));
@@ -186,6 +188,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 		if (block_id != put_id_) {
 			sync();
 			put_id_ = block_id;
+			std::cout << "JUMP TO NEW PUT AREA" << std::endl;
 			const auto capacity = read(put_id_, put_area_, 0);
 			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type	(off_type(-1));
@@ -196,6 +199,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 		// Jumping past epptr(): Refresh the curent block, and reset pointers.
 		else if (offset >= (epptr()-pbase())) {
 			const auto size = pptr()-pbase();
+			std::cout << "JUMP WITHIN PUT AREA" << std::endl;
 			const auto capacity = read(put_id_, put_area_, size);
 			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type	(off_type(-1));
@@ -213,6 +217,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 }
 
 inline int blockbuf::sync() {
+	std::cout << "SYNC" << std::endl;
 	// If the dirty bit isn't set there's nothing to do.
 	if (!dirty_) {
 		return 0;
@@ -252,6 +257,7 @@ inline std::streamsize blockbuf::showmanyc() {
 }
 
 inline blockbuf::int_type blockbuf::underflow() {
+	std::cout << "UNDERFLOW" << std::endl;
 	// If this is the last block, we're at the end of file
 	if (get_id_+1 == device_end()) {
     return traits_type::eof(); 

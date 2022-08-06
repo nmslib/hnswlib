@@ -111,6 +111,7 @@ inline size_t s3buf::block_capacity() {
 }
 
 inline size_t s3buf::block_size(size_t block_id) {
+	std::cout << "BLOCK SIZE " << block_id << std::endl;
 	return read(block_id, nullptr, block_capacity()+1);
 }
 
