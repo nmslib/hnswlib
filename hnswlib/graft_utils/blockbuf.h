@@ -118,7 +118,7 @@ inline void blockbuf::open(std::ios_base::openmode mode) {
 		if (put_id_ == 0) {
 			get_id_ = 0;
 			std::copy(pbase(), pptr(), get_area_);
-			setg(get_area_, get_area_, get_area_+(pbase()-pptr()));
+			setg(get_area_, get_area_, get_area_+(pptr()-pbase()));
 		} else {
 			get_id_ = -1;
 			setg(get_area_, get_area_, get_area_);
