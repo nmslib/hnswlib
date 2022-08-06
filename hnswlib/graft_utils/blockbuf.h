@@ -168,6 +168,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 	}
 	// Get Area
 	if (which & std::ios_base::in) {
+		std::cout << "SEEKPOS " << pos << " -> " << block_id << " " << offset << " " << get_id_ << std::endl;
 		int capacity = egptr()-eback();
 		if (block_id != get_id_) {
 			capacity = read(block_id, get_area_, 0);
