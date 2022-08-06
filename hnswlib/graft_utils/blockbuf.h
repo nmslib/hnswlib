@@ -151,7 +151,11 @@ inline blockbuf::pos_type blockbuf::seekoff(off_type off, std::ios_base::seekdir
 		pos.first = pos.second = off;
 	} else if (dir == std::ios_base::end) {
 		const auto block_id = device_end() - 1;
-		pos.first = pos.second = block_capacity() * block_id + block_size(block_id) + off;
+		const auto size = ((get_id_ != block_id) || (put_id != block_id)) ? block_size(block_id) : 0;
+		const auto get_size = (get_id_ == block_id) ? (egptr()-eback()) : size;
+		const auto put_size = (put_id_ == block_id) ? (epptr()-pbase()) : size;
+		pos.first = block_capacity() * block_id + get_size + off;
+		pos.second = block_capacity() * block_id + put_size + off;
 	} else {
 		pos.first = block_capacity() * get_id_ + (gptr()-eback()) + off;
 		pos.second = block_capacity() * put_id_ + (pptr()-pbase()) + off;
