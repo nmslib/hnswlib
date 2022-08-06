@@ -111,12 +111,10 @@ inline size_t s3buf::block_capacity() {
 }
 
 inline size_t s3buf::block_size(size_t block_id) {
-	std::cout << "BLOCK SIZE " << block_id << std::endl;
 	return read(block_id, nullptr, block_capacity()+1);
 }
 
 inline int s3buf::read(size_t block_id, char_type* buffer, size_t offset) {
-	std::cout << "READ " << block_id << std::endl;
 	// Open backing file for this block (id+1)
 	get_request_.SetKey(get_key(block_id+1));
 	auto res = client_.GetObject(get_request_);
@@ -137,7 +135,6 @@ inline int s3buf::read(size_t block_id, char_type* buffer, size_t offset) {
 }
 
 inline int s3buf::write(size_t block_id, char_type* buffer, size_t n) {
-	std::cout << "WRITE " << block_id << std::endl;
 	// Open backing file for this block (id+1).
 	put_request_.SetKey(get_key(block_id+1));
 	// Write blocksize and new data.
