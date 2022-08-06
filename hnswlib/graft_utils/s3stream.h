@@ -168,7 +168,7 @@ inline size_t s3buf::read_cached_device_end() {
 		} 
 		else {
 			auto& ss = res.GetResult().GetBody();
-			ss >> device_end_;
+			ss.read(reinterpret_cast<char*>(&device_end_), sizeof(device_end_));
 		}
 	}
 	return device_end_;
@@ -185,7 +185,7 @@ inline void s3buf::write_cached_device_end() {
 		put_request_.SetKey(get_key(0));
 		const auto mode = std::ios::binary | std::ios::in | std::ios::out;
 		std::shared_ptr<Aws::StringStream> ss = Aws::MakeShared<Aws::StringStream>("SampleAllocationTag", mode);
-		*ss << device_end_;
+		ss->write(reinterpret_cast<char*>(&device_end_), sizeof(device_end_));
 		put_request_.SetBody(ss);
 		client_.PutObject(put_request_);
 	}
