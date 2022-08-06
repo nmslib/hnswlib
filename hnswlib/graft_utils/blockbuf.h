@@ -5,8 +5,8 @@
 #include <streambuf>
 
 // This class provides a c++ stream interface to a block storage device. The
-// underlying abstraction to that device is that blocks can be read/written
-// atomically.
+// underlying abstraction to that device is that blocks are zero indexed
+// and can be read/written atomically. 
 
 namespace graft {
 
@@ -20,23 +20,46 @@ class blockbuf : public std::streambuf {
     typedef std::streambuf::off_type off_type;
    
     // Constructors:
-    explicit blockbuf(char_type* get_area, char_type* put_area, size_t block_size);
-    ~blockbuf() override = default;
+    explicit blockbuf(char_type* get_area, char_type* put_area);
+    virtual ~blockbuf() override = default;
+
+		// API:
+		void open(std::ios_base::openmode mode);
+		void close();
 
 	protected:
-		// Block storage interface
-		// Read block into buffer beginning at offset, return the size of the block, or -1 for error.
+		// Block storage meta data interface:
+		//
+		// Points one past the last (0-indexed) block in use. 
+		virtual size_t device_end() = 0;
+		// Point device_end() back to 1.
+		virtual void device_clear() = 0;
+		// Get the maximum number of bytes a block can hold.
+		virtual size_t block_capacity() = 0;
+		// Get the number of bytes currently stored in a block.
+		virtual size_t block_size(size_t block_id) = 0;
+
+		// Block storage read/write interface:
+		//
+		// buffer[offset:] = block_id[offset:]. 
+		//  - Return the number of bytes in the block, or -1 on error.
+		//  - Reading from a block beyond num_blocks() is undefined.
+		//  - Reading from a block which was never written is undefined.
 		virtual int read(size_t block_id, char_type* buffer, size_t offset) = 0;
-		// Write buffer to a block, return the size of the block, or -1 for error.
+		// block_id[0:n] = buffer[0:n] .
+		//  - Write n bytes to a block. This updates the size of the block in bytes.
+		//  - Writes to a block beyond num_blocks() should update num_blocks().
 		virtual int write(size_t block_id, char_type* buffer, size_t n) = 0; 
 
-    // Storage for get and put areas (provided by implementations)
+    // Get and Put areas (provided by the implementation)
     char_type* get_area_;
 		char_type* put_area_;
 
+		// Dirty bit for put area
+		bool dirty_;
+
   private:
-		// Blocksize and block ids (provided by implementations) for get and put areas
-		size_t block_size_;
+		// Get and Put area ids
 		int get_id_;
 		int put_id_;
 
@@ -63,17 +86,42 @@ class blockbuf : public std::streambuf {
     int_type pbackfail(int_type c = traits_type::eof()) override;
 
 		// Put Area Helper Methods:
-		// Push back the end of the put area to make up to blocksize bytes of n available.
+		// Push back the end of the put area to make min(block_size, n) bytes available.
 		int extend_put_area(size_t n);
-		// Sync the put area, move to the next block id, and make up to blocksize bytes of n available.
+		// Sync the put area, move to the next block id, and make min(block_size, n) available.
 		int bump_put_area(size_t n);
 };
 
-inline blockbuf::blockbuf(char_type* get_area, char_type* put_area, size_t block_size) : 
-		get_area_(get_area), put_area_(put_area), block_size_(block_size), get_id_(-1), put_id_(0) {
-	// Configure get and put areas to fault on first read/write
-  setg(get_area_, get_area_, get_area_);
-  setp(put_area_, put_area_+1);
+inline blockbuf::blockbuf(char_type* get_area, char_type* put_area) : get_area_(get_area), put_area_(put_area) {
+	// TODO(eschkufz): Open in a benign mode.
+}
+
+inline void blockbuf::open(std::ios_base::openmode mode) {
+	// Trunc mode: 
+	// Set num blocks to zero, get and put areas to fault to block 0 on first read/write
+	if (mode & std::ios_base::trunc) {
+		device_clear();
+		get_id_ = -1;
+		setg(get_area_, get_area_, get_area_);
+		put_id_ = 0;
+		setp(put_area_, put_area_);
+	} 
+	// Append mode: 
+	// Position write head at end of last block, get area to fault on first read.
+	if (mode & std::ios_base::app) {
+		get_id_ = -1;
+		setg(get_area_, get_area_, get_area_);
+		put_id_ = device_end() - 1;
+		const auto n = read(put_id_, put_area_, 0);
+		setp(put_area_, put_area_+n);
+		pbump(n);
+	}
+	// Regardless of mode, we start clean
+	dirty_ = false;
+}
+
+inline void blockbuf::close() {
+	pubsync();
 }
 
 inline void blockbuf::imbue(const std::locale& loc) {
@@ -106,22 +154,24 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 }
 
 inline int blockbuf::sync() {
-	// Compute offset in the put area.
-	const size_t offset = pptr()-pbase();
-	// If the put area is empty, there's nothing to do.
-	if (offset == 0) {
+	// If the dirty bit isn't set there's nothing to do.
+	if (!dirty_) {
 		return 0;
 	}
-	// If the put area doesn't span a full block, we need to read the part of the block we're missing.
-	auto size = offset;
-	if (size != block_size_) {
-		size = read(put_id_, put_area_, offset);
-		if (size == -1) {
+	// If the put area is empty, there's nothing to do.
+	const auto size = pptr()-pbase();
+	if (size == 0) {
+		dirty_ = false;
+		return 0;
+	}
+	// If we're not at the end of the put area, read back what we're missing.
+	if (pptr() != epptr()) {
+		const auto capacity = read(put_id_, put_area_, size);
+		if (capacity == -1) {
 			return -1;
 		}
-		size = std::max(size, offset);
-		setp(pbase(), pbase()+size);
-		pbump(offset);
+		setp(pbase(), pbase()+capacity);
+		pbump(size);
 	}
 	// Write back 
 	if (write(put_id_, put_area_, size) == -1) {
@@ -129,10 +179,11 @@ inline int blockbuf::sync() {
 	}
 	// If get and put areas refer to the same block, copy the put area to the get area.
 	if (get_id_ == put_id_) {
-		const auto n = epptr()-pbase();
+		const auto capacity = epptr()-pbase();
 		std::copy(pbase(), epptr(), eback());
-		setg(eback(), gptr(), eback()+n);
+		setg(eback(), gptr(), eback()+capacity);
 	}
+	dirty_ = false;
 	return 0;
 }
 
@@ -142,15 +193,14 @@ inline std::streamsize blockbuf::showmanyc() {
 }
 
 inline blockbuf::int_type blockbuf::underflow() {
-	// Read the next block from block storage.
-	const auto n = read(get_id_+1, eback(), 0);
-	// If the read returned zero bytes, we're at the end of file.
-	if (n == 0) {
+	// If this is the last block, we're at the end of file
+	if (get_id_+1 == device_end()) {
     return traits_type::eof(); 
 	}
-	// Otherwise, increment the get pointer and reset the get area.
+	// Otherwise, read in the next block and update the get area
 	++get_id_;			
-  setg(eback(), eback(), eback()+n);
+	const auto capacity = read(get_id_, eback(), 0);
+  setg(eback(), eback(), eback()+capacity);
 	// Return the first element in the new get area.
   return traits_type::to_int_type(get_area_[0]);
 }
@@ -230,15 +280,16 @@ inline blockbuf::int_type blockbuf::pbackfail(int_type c) {
 
 inline int blockbuf::extend_put_area(size_t n) {
 	// We can't do anything if the put area spans an entire block.
-	const auto capacity = block_size_ - (epptr()-pbase());
-	if (capacity == 0) {
+	const auto available = block_capacity() - (epptr()-pbase());
+	if (available == 0) {
 		return -1;
 	}
-	// Extend by what's left or the request, whichever is smaller.
-	const auto current = pptr()-pbase();
-	const auto extension = std::min(n, capacity);
-	setp(pbase(), pbase()+current+extension);
-	pbump(current);
+	// Extend by what's left or the request, whichever is smaller, and set dirty bit.
+	const auto size = pptr()-pbase();
+	const auto additional = std::min(n, available);
+	setp(pbase(), pbase()+size+additional);
+	pbump(size);
+	dirty_ = true;
 	return 0;
 }
 
@@ -247,10 +298,11 @@ inline int blockbuf::bump_put_area(size_t n) {
 	if (sync() == -1) {
 		return -1;
 	}
-	// Reset pointers
+	// Reset pointers and set dirty bit
 	++put_id_;
-	const auto extension = std::min(n, block_size_);
-	setp(pbase(), pbase()+extension);
+	const auto additional = std::min(n, block_capacity());
+	setp(pbase(), pbase()+additional);
+	dirty_ = true;
 	return 0;
 }
 
