@@ -159,20 +159,21 @@ inline blockbuf::pos_type blockbuf::seekoff(off_type off, std::ios_base::seekdir
 }
 
 inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmode which) {
-	// Check where we're going.
+	// Compute which block we're going to, if it's out of bounds it's an error.
 	const auto block_id = pos / block_capacity();
-	const auto offset = pos % block_capacity();
-	// If we're going out of bounds, it's an error.
-	if (block_id >= device_end() || offset > block_size(block_id)) {
+	if (block_id >= device_end()) {
 		return pos_type(off_type(-1));
 	}
+	// Compute the offset. 
+	// Wait until we know for sure we're changing blocks to check out of bounds.
+	// Calling block_size() is wasteful when we could just check the size of the get/put area.
+	const auto offset = pos % block_capacity();
 	// Get Area
 	if (which & std::ios_base::in) {
-		std::cout << "SEEKPOS " << pos << " -> " << block_id << " " << offset << " " << get_id_ << std::endl;
 		int capacity = egptr()-eback();
 		if (block_id != get_id_) {
 			capacity = read(block_id, get_area_, 0);
-			if (capacity == -1) {
+			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type(off_type(-1));
 			}
 			get_id_ = block_id;
@@ -186,7 +187,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 			sync();
 			put_id_ = block_id;
 			const auto capacity = read(put_id_, put_area_, 0);
-			if (capacity == -1) {
+			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type	(off_type(-1));
 			}
 			setp(put_area_, put_area_+capacity);
@@ -196,7 +197,7 @@ inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmod
 		else if (offset >= (epptr()-pbase())) {
 			const auto size = pptr()-pbase();
 			const auto capacity = read(put_id_, put_area_, size);
-			if (capacity == -1) {
+			if ((capacity == -1) || (offset > capacity)) {
 				return pos_type	(off_type(-1));
 			}
 			setp(put_area_, put_area_+capacity);
