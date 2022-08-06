@@ -127,7 +127,7 @@ namespace hnswlib {
     template<typename T>
     static void writeBinaryPOD(std::ostream &out, const T &podRef) {
 				uint64_t checksum = 0;
-				for (size_i = 0; i < sizeof(T); ++i) {
+				for (size_t i = 0; i < sizeof(T); ++i) {
 					checksum += *((char*)&podRef);
 				}
 				std::cout << "WRITE CHECKSUM = " << checksum std::endl;
@@ -137,7 +137,7 @@ namespace hnswlib {
     template<typename T>
     static void readBinaryPOD(std::istream &in, T &podRef) {
 				uint64_t checksum = 0;
-				for (size_i = 0; i < sizeof(T); ++i) {
+				for (size_t i = 0; i < sizeof(T); ++i) {
 					checksum += *((char*)&podRef);
 				}
 				std::cout << "WRITE CHECKSUM = " << checksum std::endl;
