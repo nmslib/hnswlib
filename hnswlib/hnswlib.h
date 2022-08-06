@@ -130,7 +130,7 @@ namespace hnswlib {
 				for (size_t i = 0; i < sizeof(T); ++i) {
 					checksum += *((char*)&podRef);
 				}
-				std::cout << "WRITE CHECKSUM = " << checksum std::endl;
+				std::cout << "WRITE CHECKSUM = " << checksum << std::endl;
         out.write((char *) &podRef, sizeof(T));
     }
 
@@ -140,7 +140,7 @@ namespace hnswlib {
 				for (size_t i = 0; i < sizeof(T); ++i) {
 					checksum += *((char*)&podRef);
 				}
-				std::cout << "WRITE CHECKSUM = " << checksum std::endl;
+				std::cout << "WRITE CHECKSUM = " << checksum << std::endl;
         in.read((char *) &podRef, sizeof(T));
     }
 
