@@ -137,20 +137,77 @@ inline blockbuf* blockbuf::setbuf(char_type* s, std::streamsize n) {
 }
 
 inline blockbuf::pos_type blockbuf::seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which) {
-  // Does nothing.
-	// TODO(eschkufz): Update get/put, page in new blocks if necessary.
-  (void) off;
-  (void) dir;
-  (void) which;
-  return pos_type(off_type(-1));
+	// Compute offsets into get and and put areas.
+	auto pos = std::pair<pos_type, pos_type>(0,0);
+	if (dir == std::ios_base::beg) {
+		pos.first = pos.second = off;
+	} else if (dir == std::ios_base::end) {
+		const auto block_id = device_end() - 1;
+		pos.first = pos.second = block_capacity() * block_id + block_size(block_id) + off;
+	} else {
+		pos.first = block_capacity() * get_id_ + (gptr()-eback()) + off;
+		pos.second = block_capacity() * put_id_ + (pptr()-pbase()) + off;
+	}
+	// Use these values as arguments to seekpos.
+	if ((which & std::ios_base::in) && (seekpos(pos.first, std::ios_base::in) == pos_type(off_type(-1)))) {
+		return pos_type(off_type(-1));
+	}
+	if ((which & std::ios_base::out) && (seekpos(pos.second, std::ios_base::out) == pos_type(off_type(-1)))) {
+		return pos_type(off_type(-1));
+	}
+  return pos.first;;
 }
 
 inline blockbuf::pos_type blockbuf::seekpos(pos_type pos, std::ios_base::openmode which) {
-	// Does nothing.
-	// TODO(eschkufz): Update get/put, page in new blocks if necessary.
-  (void) pos;
-  (void) which;
-  return pos_type(off_type(-1));
+	// Check where we're going.
+	const auto block_id = pos / block_capacity();
+	const auto offset = pos % block_capacity();
+	// If we're going out of bounds, it's an error.
+	if (block_id >= device_end() || offset > block_size(block_id)) {
+		return pos_type(off_type(-1));
+	}
+	// Get Area
+	if (which & std::ios_base::in) {
+		int capacity = egptr()-eback();
+		if (block_id != get_id_) {
+			capacity = read(block_id, get_area_, 0);
+			if (capacity == -1) {
+				return pos_type(off_type(-1));
+			}
+			get_id_ = block_id;
+		}
+		setg(get_area_, get_area_+offset, get_area_+capacity);
+	}
+	// Put Area
+	if (which & std::ios_base::out) {
+		// Changing blocks: Sync the current block, read the new one, and reset pointers
+		if (block_id != put_id_) {
+			sync();
+			put_id_ = block_id;
+			const auto capacity = read(put_id_, put_area_, 0);
+			if (capacity == -1) {
+				return pos_type	(off_type(-1));
+			}
+			setp(put_area_, put_area_+capacity);
+			pbump(offset);
+		} 
+		// Jumping past epptr(): Refresh the curent block, and reset pointers.
+		else if (offset >= (epptr()-pbase())) {
+			const auto size = pptr()-pbase();
+			const auto capacity = read(put_id_, put_area_, size);
+			if (capacity == -1) {
+				return pos_type	(off_type(-1));
+			}
+			setp(put_area_, put_area_+capacity);
+			pbump(offset);	
+		}
+		// Jumping back in the current block.
+		else {
+			setp(pbase(), epptr());
+			pbump(offset);
+		}
+	}
+  return pos;
 }
 
 inline int blockbuf::sync() {
