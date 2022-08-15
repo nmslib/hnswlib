@@ -5,8 +5,8 @@
 #include <algorithm>
 
 namespace hnswlib {
-    template<typename dist_t>
-    class BruteforceSearch : public AlgorithmInterface<dist_t> {
+    template<typename dist_t, typename filter_func_t=FILTERFUNC>
+    class BruteforceSearch : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
         BruteforceSearch(SpaceInterface <dist_t> *s) : data_(nullptr), maxelements_(0), 
         cur_element_count(0), size_per_element_(0), data_size_(0), 
@@ -92,20 +92,24 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t isIdAllowed=allowAllIds) const {
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             if (cur_element_count == 0) return topResults;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
-                topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
-                                                                                    data_size_))));
+                labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
+                if(isIdAllowed(label)) {
+                    topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                }
             }
             dist_t lastdist = topResults.top().first;
             for (int i = k; i < cur_element_count; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 if (dist <= lastdist) {
-                    topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
-                                                                                        data_size_))));
+                    labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
+                    if(isIdAllowed(label)) {
+                        topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                    }
                     if (topResults.size() > k)
                         topResults.pop();
                     lastdist = topResults.top().first;
