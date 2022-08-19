@@ -21,7 +21,7 @@ bool pickIdsDivisibleBySeven(unsigned int ep_id) {
 }
 
 template<typename filter_func_t>
-void test(filter_func_t filter_func, size_t div_num) {
+void test(filter_func_t filter_func, size_t div_num, size_t label_id_start) {
     int d = 4;
     idx_t n = 100;
     idx_t nq = 10;
@@ -40,15 +40,15 @@ void test(filter_func_t filter_func, size_t div_num) {
     for (idx_t i = 0; i < nq * d; ++i) {
         query[i] = distrib(rng);
     }
-      
 
     hnswlib::L2Space space(d);
     hnswlib::AlgorithmInterface<float>* alg_brute  = new hnswlib::BruteforceSearch<float,hnswlib::FILTERFUNC>(&space, 2 * n);
     hnswlib::AlgorithmInterface<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float,hnswlib::FILTERFUNC>(&space, 2 * n);
 
     for (size_t i = 0; i < n; ++i) {
-        alg_brute->addPoint(data.data() + d * i, i);
-        alg_hnsw->addPoint(data.data() + d * i, i);
+        // `label_id_start` is used to ensure that the returned IDs are labels and not internal IDs
+        alg_brute->addPoint(data.data() + d * i, label_id_start + i);
+        alg_hnsw->addPoint(data.data() + d * i, label_id_start + i);
     }
 
     // test searchKnnCloserFirst of BruteforceSearch with filtering
@@ -87,8 +87,8 @@ void test(filter_func_t filter_func, size_t div_num) {
 
 int main() {
     std::cout << "Testing ..." << std::endl;
-    test(pickIdsDivisibleByThree, 3);
-    test(pickIdsDivisibleBySeven, 7);
+    test(pickIdsDivisibleByThree, 3, 17);
+    test(pickIdsDivisibleBySeven, 7, 17);
     std::cout << "Test ok" << std::endl;
 
     return 0;
