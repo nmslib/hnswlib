@@ -102,7 +102,7 @@ namespace hnswlib {
                     topResults.push(std::pair<dist_t, labeltype>(dist, label));
                 }
             }
-            dist_t lastdist = topResults.top().first;
+            dist_t lastdist = topResults.empty() ? std::numeric_limits<dist_t>::max() : topResults.top().first;
             for (int i = k; i < cur_element_count; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 if (dist <= lastdist) {
@@ -112,7 +112,10 @@ namespace hnswlib {
                     }
                     if (topResults.size() > k)
                         topResults.pop();
-                    lastdist = topResults.top().first;
+
+                    if (!topResults.empty()) {
+                        lastdist = topResults.top().first;
+                    }
                 }
 
             }
