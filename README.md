@@ -267,7 +267,7 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
 * .Net implementation: https://github.com/microsoft/HNSW.Net
 * CUDA implementation: https://github.com/js1010/cuhnsw
-
+* Rust implementation for memory and thread safety purposes and There is  A Trait to enable the user to implement its own distances. It takes as data slices of types T satisfying T:Serialize+Clone+Send+Sync.: https://github.com/jean-pierreBoth/hnswlib-rs
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset (from root directory):
