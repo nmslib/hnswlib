@@ -116,7 +116,7 @@ static bool AVX512Capable() {
 namespace hnswlib {
     typedef size_t labeltype;
 
-    bool allowAllIds(unsigned int ep_id) {
+    static bool allowAllIds(unsigned int ep_id) {
         return true;
     }
 
