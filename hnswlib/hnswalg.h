@@ -13,7 +13,7 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t, typename filter_func_t=FILTERFUNC>
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
     class HierarchicalNSW : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
         static const tableint max_update_element_locks = 65536;
@@ -238,7 +238,7 @@ namespace hnswlib {
 
         template <bool has_deletions, bool collect_metrics=false>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, filter_func_t isIdAllowed) const {
+        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, filter_func_t& isIdAllowed) const {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -1111,7 +1111,7 @@ namespace hnswlib {
         };
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k, filter_func_t isIdAllowed=allowAllIds) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
             std::priority_queue<std::pair<dist_t, labeltype >> result;
             if (cur_element_count == 0) return result;
 

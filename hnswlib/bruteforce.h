@@ -5,7 +5,7 @@
 #include <algorithm>
 
 namespace hnswlib {
-    template<typename dist_t, typename filter_func_t=FILTERFUNC>
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
     class BruteforceSearch : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
         BruteforceSearch(SpaceInterface <dist_t> *s) : data_(nullptr), maxelements_(0), 
@@ -92,7 +92,7 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k, filter_func_t isIdAllowed=allowAllIds) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             if (cur_element_count == 0) return topResults;
             for (int i = 0; i < k; i++) {
