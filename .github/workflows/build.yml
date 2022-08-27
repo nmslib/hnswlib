@@ -3,15 +3,15 @@ name: HNSW CI
 on: [push, pull_request]
 
 jobs:
-  test:
+  test_python:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.6', '3.7', '3.8', '3.9']
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
           
@@ -20,3 +20,31 @@ jobs:
       
       - name: Test
         run: python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
+  
+  test_cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+
+      - name: Prepare test data
+        run: |
+          pip install numpy
+          cd examples
+          python update_gen_data.py
+      
+      - name: Test
+        run: |
+          cd build
+          ./searchKnnCloserFirst_test
+          ./test_updates
+          ./test_updates update
