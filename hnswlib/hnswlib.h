@@ -122,7 +122,7 @@ namespace hnswlib {
         bool operator()(Args&&...) { return true; }
     };
 
-    FilterFunctor allowAllIds;
+    static FilterFunctor allowAllIds;
 
     template <typename T>
     class pairGreater {
