@@ -155,7 +155,7 @@ public:
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
       if (appr_alg) {
-          std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+          std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
       appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
@@ -768,7 +768,7 @@ public:
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
         if (alg) {
-            std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+            std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
             delete alg;
         }
         alg = new hnswlib::BruteforceSearch<dist_t>(space, path_to_index);

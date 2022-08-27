@@ -11,8 +11,8 @@ else:
     rm_dir_cmd = "rm -rf"
 
 speedtest_src_path = os.path.join("examples", "speedtest.py")
-speedtest_path = os.path.join("examples", "speedtest2.py")
-os.system(f"{copy_cmd} {speedtest_src_path} {speedtest_path}")  # the file has to be outside of git
+speedtest_copy_path = os.path.join("examples", "speedtest2.py")
+os.system(f"{copy_cmd} {speedtest_src_path} {speedtest_copy_path}")  # the file has to be outside of git
 
 commits = list(Repository('.', from_tag="v0.6.0").traverse_commits())
 print("Found commits:")
@@ -37,8 +37,8 @@ for commit in commits:
         print("build failed!!!!")
         continue
 
-    os.system(f'python {speedtest_path} -n "{name}" -d 4 -t 1')
-    os.system(f'python {speedtest_path} -n "{name}" -d 64 -t 1')
-    os.system(f'python {speedtest_path} -n "{name}" -d 128 -t 1')
-    os.system(f'python {speedtest_path} -n "{name}" -d 4 -t 24')
-    os.system(f'python {speedtest_path} -n "{name}" -d 128 -t 24')
+    os.system(f'python {speedtest_copy_path} -n "{name}" -d 4 -t 1')
+    os.system(f'python {speedtest_copy_path} -n "{name}" -d 64 -t 1')
+    os.system(f'python {speedtest_copy_path} -n "{name}" -d 128 -t 1')
+    os.system(f'python {speedtest_copy_path} -n "{name}" -d 4 -t 24')
+    os.system(f'python {speedtest_copy_path} -n "{name}" -d 128 -t 24')
