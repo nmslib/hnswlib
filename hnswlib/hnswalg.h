@@ -247,7 +247,8 @@ namespace hnswlib {
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
             dist_t lowerBound;
-            if ((!has_deletions || !isMarkedDeleted(ep_id)) && isIdAllowed(getExternalLabel(ep_id))) {
+            bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
+            if ((!has_deletions || !isMarkedDeleted(ep_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(ep_id)))) {
                 dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
                 lowerBound = dist;
                 top_candidates.emplace(dist, ep_id);
@@ -307,7 +308,8 @@ namespace hnswlib {
                                          _MM_HINT_T0);////////////////////////
 #endif
 
-                            if ((!has_deletions || !isMarkedDeleted(candidate_id)) && isIdAllowed(getExternalLabel(candidate_id)))
+                            is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
+                            if ((!has_deletions || !isMarkedDeleted(candidate_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(candidate_id))))
                                 top_candidates.emplace(dist, candidate_id);
 
                             if (top_candidates.size() > ef)
