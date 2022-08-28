@@ -148,7 +148,7 @@ class CustomFilterFunctor: public hnswlib::FilterFunctor {
 public:
     explicit CustomFilterFunctor(const std::unordered_set<unsigned int>& values) : allowed_values(values) {}
 
-    constexpr bool operator()(unsigned int id) const {
+    bool operator()(unsigned int id) {
         return allowed_values.count(id) != 0;
     }
 };
