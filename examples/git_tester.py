@@ -1,18 +1,13 @@
 import os
+import shutil
 
 from sys import platform
 from pydriller import Repository
 
-if platform == "win32":
-    copy_cmd = "copy"
-    rm_dir_cmd = "rmdir /s /q"
-else:
-    copy_cmd = "cp"
-    rm_dir_cmd = "rm -rf"
 
 speedtest_src_path = os.path.join("examples", "speedtest.py")
 speedtest_copy_path = os.path.join("examples", "speedtest2.py")
-os.system(f"{copy_cmd} {speedtest_src_path} {speedtest_copy_path}")  # the file has to be outside of git
+shutil.copyfile(speedtest_src_path, speedtest_copy_path) # the file has to be outside of git
 
 commits = list(Repository('.', from_tag="v0.6.0").traverse_commits())
 print("Found commits:")
@@ -24,8 +19,9 @@ for commit in commits:
     name = commit.msg.replace('\n', ' ').replace('\r', ' ')
     print("\nProcessing", commit.hash, name)
 
+    if os.path.exists("build"):
+        shutil.rmtree("build")
     os.system(f"git checkout {commit.hash}")
-    os.system(f"{rm_dir_cmd} build")
     print("\n\n--------------------\n\n")
     ret = os.system("python -m pip install .")
     print("Install result:", ret)
