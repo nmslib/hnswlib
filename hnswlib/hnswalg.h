@@ -308,7 +308,6 @@ namespace hnswlib {
                                          _MM_HINT_T0);////////////////////////
 #endif
 
-                            is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
                             if ((!has_deletions || !isMarkedDeleted(candidate_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(candidate_id))))
                                 top_candidates.emplace(dist, candidate_id);
 
