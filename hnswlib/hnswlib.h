@@ -15,8 +15,7 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
-#include "cpu_x86.h"
-void cpu_x86::cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
+void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
     __cpuidex(out, eax, ecx);
 }
 __int64 xgetbv(unsigned int x) {
