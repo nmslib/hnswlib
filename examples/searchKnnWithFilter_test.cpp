@@ -7,8 +7,7 @@
 #include <vector>
 #include <iostream>
 
-namespace
-{
+namespace {
 
 using idx_t = hnswlib::labeltype;
 
@@ -30,7 +29,7 @@ void test_some_filtering(filter_func_t& filter_func, size_t div_num, size_t labe
     idx_t n = 100;
     idx_t nq = 10;
     size_t k = 10;
-   
+
     std::vector<float> data(n * d);
     std::vector<float> query(nq * d);
 
@@ -46,8 +45,8 @@ void test_some_filtering(filter_func_t& filter_func, size_t div_num, size_t labe
     }
 
     hnswlib::L2Space space(d);
-    hnswlib::AlgorithmInterface<float,filter_func_t>* alg_brute  = new hnswlib::BruteforceSearch<float,filter_func_t>(&space, 2 * n);
-    hnswlib::AlgorithmInterface<float,filter_func_t>* alg_hnsw = new hnswlib::HierarchicalNSW<float,filter_func_t>(&space, 2 * n);
+    hnswlib::AlgorithmInterface<float, filter_func_t>* alg_brute  = new hnswlib::BruteforceSearch<float, filter_func_t>(&space, 2 * n);
+    hnswlib::AlgorithmInterface<float, filter_func_t>* alg_hnsw = new hnswlib::HierarchicalNSW<float, filter_func_t>(&space, 2 * n);
 
     for (size_t i = 0; i < n; ++i) {
         // `label_id_start` is used to ensure that the returned IDs are labels and not internal IDs
@@ -82,7 +81,7 @@ void test_some_filtering(filter_func_t& filter_func, size_t div_num, size_t labe
             gd.pop();
         }
     }
-    
+
     delete alg_brute;
     delete alg_hnsw;
 }
@@ -109,8 +108,8 @@ void test_none_filtering(filter_func_t& filter_func, size_t label_id_start) {
     }
 
     hnswlib::L2Space space(d);
-    hnswlib::AlgorithmInterface<float,filter_func_t>* alg_brute  = new hnswlib::BruteforceSearch<float,filter_func_t>(&space, 2 * n);
-    hnswlib::AlgorithmInterface<float,filter_func_t>* alg_hnsw = new hnswlib::HierarchicalNSW<float,filter_func_t>(&space, 2 * n);
+    hnswlib::AlgorithmInterface<float, filter_func_t>* alg_brute  = new hnswlib::BruteforceSearch<float, filter_func_t>(&space, 2 * n);
+    hnswlib::AlgorithmInterface<float, filter_func_t>* alg_hnsw = new hnswlib::HierarchicalNSW<float, filter_func_t>(&space, 2 * n);
 
     for (size_t i = 0; i < n; ++i) {
         // `label_id_start` is used to ensure that the returned IDs are labels and not internal IDs
@@ -140,12 +139,12 @@ void test_none_filtering(filter_func_t& filter_func, size_t label_id_start) {
     delete alg_hnsw;
 }
 
-} // namespace
+}  // namespace
 
 class CustomFilterFunctor: public hnswlib::FilterFunctor {
     std::unordered_set<unsigned int> allowed_values;
 
-public:
+ public:
     explicit CustomFilterFunctor(const std::unordered_set<unsigned int>& values) : allowed_values(values) {}
 
     bool operator()(unsigned int id) {
