@@ -1,5 +1,7 @@
 #include "../hnswlib/hnswlib.h"
 #include <thread>
+
+
 class StopW
 {
     std::chrono::steady_clock::time_point time_begin;
@@ -21,6 +23,7 @@ public:
         time_begin = std::chrono::steady_clock::now();
     }
 };
+
 
 /*
  * replacement for the openmp '#pragma omp parallel for' directive
@@ -81,8 +84,6 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
             std::rethrow_exception(lastException);
         }
     }
-
-
 }
 
 
@@ -94,7 +95,7 @@ std::vector<datatype> load_batch(std::string path, int size)
     assert(sizeof(datatype) == 4);
 
     std::ifstream file;
-    file.open(path);
+    file.open(path, std::ios::binary);
     if (!file.is_open())
     {
         std::cout << "Cannot open " << path << "\n";
@@ -106,6 +107,7 @@ std::vector<datatype> load_batch(std::string path, int size)
     std::cout << " DONE\n";
     return batch;
 }
+
 
 template <typename d_type>
 static float
@@ -137,6 +139,7 @@ test_approx(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<
     return 1.0f * correct / total;
 }
 
+
 static void
 test_vs_recall(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<float> &appr_alg, size_t vecdim,
                std::vector<std::unordered_set<hnswlib::labeltype>> &answers, size_t k)
@@ -155,6 +158,8 @@ test_vs_recall(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalN
         efs.push_back(i);
     }
     std::cout << "ef\trecall\ttime\thops\tdistcomp\n";
+
+    bool test_passed = false;
     for (size_t ef : efs)
     {
         appr_alg.setEf(ef);
@@ -171,20 +176,24 @@ test_vs_recall(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalN
         std::cout << ef << "\t" << recall << "\t" << time_us_per_query << "us \t"<<hops_per_query<<"\t"<<distance_comp_per_query << "\n";
         if (recall > 0.99)
         {
+            test_passed = true;
             std::cout << "Recall is over 0.99! "<<recall << "\t" << time_us_per_query << "us \t"<<hops_per_query<<"\t"<<distance_comp_per_query << "\n";
             break;
         }
     }
+    if (!test_passed)
+    {
+        std::cerr << "Test failed\n";
+        exit(1);
+    }
 }
+
 
 int main(int argc, char **argv)
 {
-
     int M = 16;
     int efConstruction = 200;
     int num_threads = std::thread::hardware_concurrency();
-  
-
 
     bool update = false;
 
@@ -206,7 +215,6 @@ int main(int argc, char **argv)
     }
 
     std::string path = "../examples/data/";
-
 
     int N;
     int dummy_data_multiplier;
@@ -240,7 +248,6 @@ int main(int argc, char **argv)
     if (update)
     {
         std::cout << "Update iteration 0\n";
-
         
         ParallelFor(1, N, num_threads, [&](size_t i, size_t threadId) {
             appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
