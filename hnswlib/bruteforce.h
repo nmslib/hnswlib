@@ -83,7 +83,8 @@ namespace hnswlib {
             dict_external_to_internal.erase(cur_external);
 
             labeltype label=*((labeltype*)(data_ + size_per_element_ * (cur_element_count-1) + data_size_));
-            dict_external_to_internal[label]=cur_c;
+            if (cur_external != label)
+                dict_external_to_internal[label]=cur_c;
             memcpy(data_ + size_per_element_ * cur_c,
                    data_ + size_per_element_ * (cur_element_count-1),
                    data_size_+sizeof(labeltype));
