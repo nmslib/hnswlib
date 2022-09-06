@@ -2,8 +2,20 @@
 #ifndef HNSWPF_CORE_H_
 #define HNSWPF_CORE_H_
 
-#include <dirent.h>
+#if defined(_WIN32)
+#include <direct.h>
+#include <io.h>
+#define MKDIR(a) _mkdir((a))
+#define FILE_SEPARATOR "\\"
+#else
+
 #include <ftw.h>
+
+#define FILE_SEPARATOR "/"
+#define MKDIR(a) mkdir((a),0755)
+
+#endif
+
 #include "hnswlib.h"
 #include "hnswalg.h"
 
@@ -324,11 +336,9 @@ public:
     // saveIndex
     void saveIndex(const std::string &dir) {
         // if not exist, then create
-        if (nullptr == opendir(dir.c_str())) {
-            mkdir(dir.c_str(), 0755);
-        }
-        std::string vec_index_path = dir + "/" + INDEX_NAME_VEC;
-        std::string tag_index_path = dir + "/" + INDEX_NAME_TAG;
+        MKDIR(dir.c_str());
+        std::string vec_index_path = dir + FILE_SEPARATOR + INDEX_NAME_VEC;
+        std::string tag_index_path = dir + FILE_SEPARATOR + INDEX_NAME_TAG;
 
         HierarchicalNSW<dist_t>::saveIndex(vec_index_path);
 
@@ -346,8 +356,8 @@ public:
 
     // loadIndex
     void loadIndex(const std::string &dir, SpaceInterface <dist_t> *s, size_t max_elements_i = 0) {
-        std::string vec_index_path = dir + "/" + INDEX_NAME_VEC;
-        std::string tag_index_path = dir + "/" + INDEX_NAME_TAG;
+        std::string vec_index_path = dir + FILE_SEPARATOR + INDEX_NAME_VEC;
+        std::string tag_index_path = dir + FILE_SEPARATOR + INDEX_NAME_TAG;
 
         HierarchicalNSW<dist_t>::loadIndex(vec_index_path, s, max_elements_i);
 

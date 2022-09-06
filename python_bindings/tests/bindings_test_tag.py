@@ -1,4 +1,3 @@
-import shutil
 import unittest
 
 import numpy as np
@@ -153,11 +152,10 @@ def test_save_load(self, dir):
     diff = np.mean(np.abs(distances - expected_distances))
     self.assertAlmostEqual(diff, 0, delta=1e-3)
 
-    shutil.rmtree(dir)
 
 
-class RandomSelfTestCase(unittest.TestCase):
-    def testRandomSelf(self):
+class TagTestCase(unittest.TestCase):
+    def testSelf(self):
         # 1、test_space
         test_no_tag(self)
         print("TAG test_no_tag succuss")
