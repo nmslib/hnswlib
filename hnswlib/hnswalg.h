@@ -13,8 +13,8 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t>
-    class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
+    class HierarchicalNSW : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
         static const tableint max_update_element_locks = 65536;
         HierarchicalNSW(SpaceInterface<dist_t> *s) {
@@ -238,7 +238,7 @@ namespace hnswlib {
 
         template <bool has_deletions, bool collect_metrics=false>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef) const {
+        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, filter_func_t& isIdAllowed) const {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -247,7 +247,8 @@ namespace hnswlib {
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
             dist_t lowerBound;
-            if (!has_deletions || !isMarkedDeleted(ep_id)) {
+            bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
+            if ((!has_deletions || !isMarkedDeleted(ep_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(ep_id)))) {
                 dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
                 lowerBound = dist;
                 top_candidates.emplace(dist, ep_id);
@@ -307,7 +308,7 @@ namespace hnswlib {
                                          _MM_HINT_T0);////////////////////////
 #endif
 
-                            if (!has_deletions || !isMarkedDeleted(candidate_id))
+                            if ((!has_deletions || !isMarkedDeleted(candidate_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(candidate_id))))
                                 top_candidates.emplace(dist, candidate_id);
 
                             if (top_candidates.size() > ef)
@@ -1111,7 +1112,7 @@ namespace hnswlib {
         };
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
             std::priority_queue<std::pair<dist_t, labeltype >> result;
             if (cur_element_count == 0) return result;
 
@@ -1148,11 +1149,11 @@ namespace hnswlib {
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
             if (num_deleted_) {
                 top_candidates=searchBaseLayerST<true,true>(
-                        currObj, query_data, std::max(ef_, k));
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
             }
             else{
                 top_candidates=searchBaseLayerST<false,true>(
-                        currObj, query_data, std::max(ef_, k));
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
             }
 
             while (top_candidates.size() > k) {

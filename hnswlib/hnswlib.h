@@ -116,6 +116,14 @@ static bool AVX512Capable() {
 namespace hnswlib {
     typedef size_t labeltype;
 
+    // This can be extended to store state for filtering (e.g. from a std::set)
+    struct FilterFunctor {
+        template<class...Args>
+        bool operator()(Args&&...) { return true; }
+    };
+
+    static FilterFunctor allowAllIds;
+
     template <typename T>
     class pairGreater {
     public:
@@ -137,7 +145,6 @@ namespace hnswlib {
     template<typename MTYPE>
     using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
 
-
     template<typename MTYPE>
     class SpaceInterface {
     public:
@@ -151,28 +158,31 @@ namespace hnswlib {
         virtual ~SpaceInterface() {}
     };
 
-    template<typename dist_t>
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
     class AlgorithmInterface {
     public:
         virtual void addPoint(const void *datapoint, labeltype label)=0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
+
+        virtual std::priority_queue<std::pair<dist_t, labeltype >>
+            searchKnn(const void*, size_t, filter_func_t& isIdAllowed=allowAllIds) const = 0;
 
         // Return k nearest neighbor in the order of closer fist
         virtual std::vector<std::pair<dist_t, labeltype>>
-            searchKnnCloserFirst(const void* query_data, size_t k) const;
+            searchKnnCloserFirst(const void* query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const;
 
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }
     };
 
-    template<typename dist_t>
+    template<typename dist_t, typename filter_func_t>
     std::vector<std::pair<dist_t, labeltype>>
-    AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k) const {
+    AlgorithmInterface<dist_t, filter_func_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+                                                                    filter_func_t& isIdAllowed) const {
         std::vector<std::pair<dist_t, labeltype>> result;
 
         // here searchKnn returns the result in the order of further first
-        auto ret = searchKnn(query_data, k);
+        auto ret = searchKnn(query_data, k, isIdAllowed);
         {
             size_t sz = ret.size();
             result.resize(sz);
