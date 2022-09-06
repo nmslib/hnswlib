@@ -155,7 +155,7 @@ def test_save_load(self, dir):
 
 
 class TagTestCase(unittest.TestCase):
-    def testSelf(self):
+    def runCase(self):
         # 1、test_space
         test_no_tag(self)
         print("TAG test_no_tag succuss")
