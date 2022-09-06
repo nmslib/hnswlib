@@ -3,6 +3,7 @@
 #include <fstream>
 #include <mutex>
 #include <algorithm>
+#include <assert.h>
 
 namespace hnswlib {
     template<typename dist_t, typename filter_func_t=FilterFunctor>
