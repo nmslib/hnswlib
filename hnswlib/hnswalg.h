@@ -13,8 +13,8 @@ namespace hnswlib {
     typedef unsigned int tableint;
     typedef unsigned int linklistsizeint;
 
-    template<typename dist_t>
-    class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
+    class HierarchicalNSW : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
         static const tableint max_update_element_locks = 65536;
         HierarchicalNSW(SpaceInterface<dist_t> *s) {
@@ -85,22 +85,21 @@ namespace hnswlib {
             delete visited_list_pool_;
         }
 
-        size_t max_elements_;
-        size_t cur_element_count;
-        size_t size_data_per_element_;
-        size_t size_links_per_element_;
-        size_t num_deleted_;
+        size_t max_elements_{0};
+        size_t cur_element_count{0};
+        size_t size_data_per_element_{0};
+        size_t size_links_per_element_{0};
+        size_t num_deleted_{0};
+        size_t M_{0};
+        size_t maxM_{0};
+        size_t maxM0_{0};
+        size_t ef_construction_{0};
 
-        size_t M_;
-        size_t maxM_;
-        size_t maxM0_;
-        size_t ef_construction_;
-
-        double mult_, revSize_;
-        int maxlevel_;
+        double mult_{0.0}, revSize_{0.0};
+        int maxlevel_{0};
 
 
-        VisitedListPool *visited_list_pool_;
+        VisitedListPool *visited_list_pool_{nullptr};
         std::mutex cur_element_count_guard_;
 
         std::vector<std::mutex> link_list_locks_;
@@ -108,20 +107,20 @@ namespace hnswlib {
         // Locks to prevent race condition during update/insert of an element at same time.
         // Note: Locks for additions can also be used to prevent this race condition if the querying of KNN is not exposed along with update/inserts i.e multithread insert/update/query in parallel.
         std::vector<std::mutex> link_list_update_locks_;
-        tableint enterpoint_node_;
+        tableint enterpoint_node_{0};
 
-        size_t size_links_level0_;
-        size_t offsetData_, offsetLevel0_;
+        size_t size_links_level0_{0};
+        size_t offsetData_{0}, offsetLevel0_{0};
 
-        char *data_level0_memory_;
-        char **linkLists_;
+        char *data_level0_memory_{nullptr};
+        char **linkLists_{nullptr};
         std::vector<int> element_levels_;
 
-        size_t data_size_;
+        size_t data_size_{0};
 
-        size_t label_offset_;
+        size_t label_offset_{0};
         DISTFUNC<dist_t> fstdistfunc_;
-        void *dist_func_param_;
+        void *dist_func_param_{nullptr};
         std::unordered_map<labeltype, tableint> label_lookup_;
 
         std::default_random_engine level_generator_;
@@ -234,12 +233,12 @@ namespace hnswlib {
             return top_candidates;
         }
 
-        mutable std::atomic<long> metric_distance_computations;
-        mutable std::atomic<long> metric_hops;
+        mutable std::atomic<long> metric_distance_computations{0};
+        mutable std::atomic<long> metric_hops{0};
 
         template <bool has_deletions, bool collect_metrics=false>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef) const {
+        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, filter_func_t& isIdAllowed) const {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
             vl_type visited_array_tag = vl->curV;
@@ -248,7 +247,8 @@ namespace hnswlib {
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
             dist_t lowerBound;
-            if (!has_deletions || !isMarkedDeleted(ep_id)) {
+            bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
+            if ((!has_deletions || !isMarkedDeleted(ep_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(ep_id)))) {
                 dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
                 lowerBound = dist;
                 top_candidates.emplace(dist, ep_id);
@@ -308,7 +308,7 @@ namespace hnswlib {
                                          _MM_HINT_T0);////////////////////////
 #endif
 
-                            if (!has_deletions || !isMarkedDeleted(candidate_id))
+                            if ((!has_deletions || !isMarkedDeleted(candidate_id)) && (is_filter_disabled || isIdAllowed(getExternalLabel(candidate_id))))
                                 top_candidates.emplace(dist, candidate_id);
 
                             if (top_candidates.size() > ef)
@@ -504,7 +504,7 @@ namespace hnswlib {
         }
 
         std::mutex global;
-        size_t ef_;
+        size_t ef_{0};
 
         void setEf(size_t ef) {
             ef_ = ef;
@@ -1112,7 +1112,7 @@ namespace hnswlib {
         };
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
             std::priority_queue<std::pair<dist_t, labeltype >> result;
             if (cur_element_count == 0) return result;
 
@@ -1149,11 +1149,11 @@ namespace hnswlib {
             std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
             if (num_deleted_) {
                 top_candidates=searchBaseLayerST<true,true>(
-                        currObj, query_data, std::max(ef_, k));
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
             }
             else{
                 top_candidates=searchBaseLayerST<false,true>(
-                        currObj, query_data, std::max(ef_, k));
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
             }
 
             while (top_candidates.size() > k) {

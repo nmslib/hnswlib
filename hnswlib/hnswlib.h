@@ -18,17 +18,17 @@
 void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
     __cpuidex(out, eax, ecx);
 }
-__int64 xgetbv(unsigned int x) {
+static __int64 xgetbv(unsigned int x) {
     return _xgetbv(x);
 }
 #else
 #include <x86intrin.h>
 #include <cpuid.h>
 #include <stdint.h>
-void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
     __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 }
-uint64_t xgetbv(unsigned int index) {
+static uint64_t xgetbv(unsigned int index) {
     uint32_t eax, edx;
     __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
     return ((uint64_t)edx << 32) | eax;
@@ -50,7 +50,7 @@ uint64_t xgetbv(unsigned int index) {
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
 
-bool AVXCapable() {
+static bool AVXCapable() {
     int cpuInfo[4];
 
     // CPU support
@@ -77,7 +77,7 @@ bool AVXCapable() {
     return HW_AVX && avxSupported;
 }
 
-bool AVX512Capable() {
+static bool AVX512Capable() {
     if (!AVXCapable()) return false;
 
     int cpuInfo[4];
@@ -115,6 +115,14 @@ bool AVX512Capable() {
 namespace hnswlib {
     typedef size_t labeltype;
 
+    // This can be extended to store state for filtering (e.g. from a std::set)
+    struct FilterFunctor {
+        template<class...Args>
+        bool operator()(Args&&...) { return true; }
+    };
+
+    static FilterFunctor allowAllIds;
+
     template <typename T>
     class pairGreater {
     public:
@@ -136,7 +144,6 @@ namespace hnswlib {
     template<typename MTYPE>
     using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
 
-
     template<typename MTYPE>
     class SpaceInterface {
     public:
@@ -150,28 +157,31 @@ namespace hnswlib {
         virtual ~SpaceInterface() {}
     };
 
-    template<typename dist_t>
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
     class AlgorithmInterface {
     public:
         virtual void addPoint(const void *datapoint, labeltype label)=0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
+
+        virtual std::priority_queue<std::pair<dist_t, labeltype >>
+            searchKnn(const void*, size_t, filter_func_t& isIdAllowed=allowAllIds) const = 0;
 
         // Return k nearest neighbor in the order of closer fist
         virtual std::vector<std::pair<dist_t, labeltype>>
-            searchKnnCloserFirst(const void* query_data, size_t k) const;
+            searchKnnCloserFirst(const void* query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const;
 
         virtual void saveIndex(const std::string &location)=0;
         virtual ~AlgorithmInterface(){
         }
     };
 
-    template<typename dist_t>
+    template<typename dist_t, typename filter_func_t>
     std::vector<std::pair<dist_t, labeltype>>
-    AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k) const {
+    AlgorithmInterface<dist_t, filter_func_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+                                                                    filter_func_t& isIdAllowed) const {
         std::vector<std::pair<dist_t, labeltype>> result;
 
         // here searchKnn returns the result in the order of further first
-        auto ret = searchKnn(query_data, k);
+        auto ret = searchKnn(query_data, k, isIdAllowed);
         {
             size_t sz = ret.size();
             result.resize(sz);

@@ -3,15 +3,20 @@
 #include <fstream>
 #include <mutex>
 #include <algorithm>
+#include <assert.h>
 
 namespace hnswlib {
-    template<typename dist_t>
-    class BruteforceSearch : public AlgorithmInterface<dist_t> {
+    template<typename dist_t, typename filter_func_t=FilterFunctor>
+    class BruteforceSearch : public AlgorithmInterface<dist_t,filter_func_t> {
     public:
-        BruteforceSearch(SpaceInterface <dist_t> *s) {
+        BruteforceSearch(SpaceInterface <dist_t> *s) : data_(nullptr), maxelements_(0), 
+        cur_element_count(0), size_per_element_(0), data_size_(0), 
+        dist_func_param_(nullptr) {
 
         }
-        BruteforceSearch(SpaceInterface<dist_t> *s, const std::string &location) {
+        BruteforceSearch(SpaceInterface<dist_t> *s, const std::string &location) : 
+        data_(nullptr), maxelements_(0), cur_element_count(0), size_per_element_(0), 
+        data_size_(0), dist_func_param_(nullptr) {
             loadIndex(location, s);
         }
 
@@ -23,7 +28,7 @@ namespace hnswlib {
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxElements * size_per_element_);
             if (data_ == nullptr)
-                std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
+                throw std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
             cur_element_count = 0;
         }
 
@@ -88,23 +93,32 @@ namespace hnswlib {
 
 
         std::priority_queue<std::pair<dist_t, labeltype >>
-        searchKnn(const void *query_data, size_t k) const {
+        searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
+            assert(k <= cur_element_count);
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             if (cur_element_count == 0) return topResults;
+            bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
-                topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
-                                                                                    data_size_))));
+                labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
+                if(is_filter_disabled || isIdAllowed(label)) {
+                    topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                }
             }
-            dist_t lastdist = topResults.top().first;
+            dist_t lastdist = topResults.empty() ? std::numeric_limits<dist_t>::max() : topResults.top().first;
             for (int i = k; i < cur_element_count; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 if (dist <= lastdist) {
-                    topResults.push(std::pair<dist_t, labeltype>(dist, *((labeltype *) (data_ + size_per_element_ * i +
-                                                                                        data_size_))));
+                    labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
+                    if(is_filter_disabled || isIdAllowed(label)) {
+                        topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                    }
                     if (topResults.size() > k)
                         topResults.pop();
-                    lastdist = topResults.top().first;
+
+                    if (!topResults.empty()) {
+                        lastdist = topResults.top().first;
+                    }
                 }
 
             }
@@ -140,7 +154,7 @@ namespace hnswlib {
             size_per_element_ = data_size_ + sizeof(labeltype);
             data_ = (char *) malloc(maxelements_ * size_per_element_);
             if (data_ == nullptr)
-                std::runtime_error("Not enough memory: loadIndex failed to allocate data");
+                throw std::runtime_error("Not enough memory: loadIndex failed to allocate data");
 
             input.read(data_, maxelements_ * size_per_element_);
 

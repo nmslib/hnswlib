@@ -281,10 +281,10 @@ namespace hnswlib {
 #endif
 
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-    DISTFUNC<float> InnerProductSIMD16Ext = InnerProductSIMD16ExtSSE;
-    DISTFUNC<float> InnerProductSIMD4Ext = InnerProductSIMD4ExtSSE;
-    DISTFUNC<float> InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtSSE;
-    DISTFUNC<float> InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtSSE;
+    static DISTFUNC<float> InnerProductSIMD16Ext = InnerProductSIMD16ExtSSE;
+    static DISTFUNC<float> InnerProductSIMD4Ext = InnerProductSIMD4ExtSSE;
+    static DISTFUNC<float> InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtSSE;
+    static DISTFUNC<float> InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtSSE;
 
     static float
     InnerProductDistanceSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {

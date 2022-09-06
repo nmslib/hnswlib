@@ -247,7 +247,7 @@ Please make pull requests against the `develop` branch.
 
 When making changes please run tests (and please add a test to `python_bindings/tests` in case there is new functionality):
 ```bash
-python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py
+python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
 ```
 
 
@@ -267,7 +267,7 @@ https://github.com/dbaranchuk/ivf-hnsw
 * Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
 * .Net implementation: https://github.com/microsoft/HNSW.Net
 * CUDA implementation: https://github.com/js1010/cuhnsw
-
+* Rust implementation for memory and thread safety purposes and There is  A Trait to enable the user to implement its own distances. It takes as data slices of types T satisfying T:Serialize+Clone+Send+Sync.: https://github.com/jean-pierreBoth/hnswlib-rs
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset (from root directory):

@@ -27,7 +27,7 @@ max_elements defines the maximum number of elements that can be stored in the st
 
 ### measuring recall example
 
-```
+```python
 import hnswlib
 import numpy as np
 

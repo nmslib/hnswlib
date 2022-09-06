@@ -96,7 +96,7 @@ public:
       l2space = new hnswlib::InnerProductSpace(dim);
       normalize=true;
     } else {
-      throw new std::runtime_error("Space name must be one of l2, ip, or cosine.");
+      throw std::runtime_error("Space name must be one of l2, ip, or cosine.");
     }
     appr_alg = NULL;
     ep_added = true;
@@ -129,7 +129,7 @@ public:
 
     void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
         if (appr_alg) {
-            throw new std::runtime_error("The index is already initiated.");
+            throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
@@ -155,7 +155,7 @@ public:
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
       if (appr_alg) {
-          std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+          std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
       appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
@@ -668,7 +668,7 @@ public:
             space = new hnswlib::InnerProductSpace(dim);
             normalize=true;
         } else {
-            throw new std::runtime_error("Space name must be one of l2, ip, or cosine.");
+            throw std::runtime_error("Space name must be one of l2, ip, or cosine.");
         }
         alg = NULL;
         index_inited = false;
@@ -693,7 +693,7 @@ public:
 
     void init_new_index(const size_t maxElements) {
         if (alg) {
-            throw new std::runtime_error("The index is already initiated.");
+            throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
         alg = new hnswlib::BruteforceSearch<dist_t>(space, maxElements);
@@ -768,7 +768,7 @@ public:
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
         if (alg) {
-            std::cerr<<"Warning: Calling load_index for an already inited index. Old index is being deallocated.";
+            std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
             delete alg;
         }
         alg = new hnswlib::BruteforceSearch<dist_t>(space, path_to_index);
