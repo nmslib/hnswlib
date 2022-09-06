@@ -1,6 +1,6 @@
 #pragma once
 #ifndef NO_MANUAL_VECTORIZATION
-#ifdef __SSE__
+#if (defined(__SSE__) || _M_IX86_FP > 0 || defined(_M_AMD64) || defined(_M_X64))
 #define USE_SSE
 #ifdef __AVX__
 #define USE_AVX
@@ -15,8 +15,7 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
-#include "cpu_x86.h"
-static void cpu_x86::cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
+void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
     __cpuidex(out, eax, ecx);
 }
 static __int64 xgetbv(unsigned int x) {
