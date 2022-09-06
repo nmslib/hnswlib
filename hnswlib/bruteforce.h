@@ -93,12 +93,14 @@ namespace hnswlib {
 
         std::priority_queue<std::pair<dist_t, labeltype >>
         searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const {
+            assert(k <= cur_element_count);
             std::priority_queue<std::pair<dist_t, labeltype >> topResults;
             if (cur_element_count == 0) return topResults;
+            bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
             for (int i = 0; i < k; i++) {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
-                if(isIdAllowed(label)) {
+                if(is_filter_disabled || isIdAllowed(label)) {
                     topResults.push(std::pair<dist_t, labeltype>(dist, label));
                 }
             }
@@ -107,7 +109,7 @@ namespace hnswlib {
                 dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
                 if (dist <= lastdist) {
                     labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
-                    if(isIdAllowed(label)) {
+                    if(is_filter_disabled || isIdAllowed(label)) {
                         topResults.push(std::pair<dist_t, labeltype>(dist, label));
                     }
                     if (topResults.size() > k)
