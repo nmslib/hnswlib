@@ -231,12 +231,12 @@ inline bool exists_test(const std::string &name) {
 void sift_test1B() {
 	
 	
-	int subset_size_milllions = 200;
+	int subset_size_millions = 200;
 	int efConstruction = 40;
 	int M = 16;
 	
 
-    size_t vecsize = subset_size_milllions * 1000000;
+    size_t vecsize = subset_size_millions * 1000000;
 
     size_t qsize = 10000;
     size_t vecdim = 128;
@@ -244,9 +244,9 @@ void sift_test1B() {
     char path_gt[1024];
     char *path_q = "../bigann/bigann_query.bvecs";
     char *path_data = "../bigann/bigann_base.bvecs";
-    sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_milllions, efConstruction, M);
+    sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_millions, efConstruction, M);
 
-    sprintf(path_gt, "../bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
+    sprintf(path_gt, "../bigann/gnd/idx_%dM.ivecs", subset_size_millions);
 
 
     unsigned char *massb = new unsigned char[vecdim];
