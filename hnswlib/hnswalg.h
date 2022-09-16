@@ -273,10 +273,9 @@ namespace hnswlib {
                 int *data = (int *) get_linklist0(current_node_id);
                 size_t size = getListCount((linklistsizeint*)data);
 //                bool cur_node_deleted = isMarkedDeleted(current_node_id);
-                if(collect_metrics){
+                if(collect_metrics)
                     metric_hops++;
-                    metric_distance_computations+=size;
-                }
+                
 
 #ifdef USE_SSE
                 _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
@@ -294,7 +293,8 @@ namespace hnswlib {
                                  _MM_HINT_T0);////////////
 #endif
                     if (!(visited_array[candidate_id] == visited_array_tag)) {
-
+                                    if(collect_metrics)metric_distance_computations++;
+                
                         visited_array[candidate_id] = visited_array_tag;
 
                         char *currObj1 = (getDataByInternalId(candidate_id));
