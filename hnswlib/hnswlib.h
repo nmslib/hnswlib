@@ -87,7 +87,7 @@ static bool AVX512Capable() {
     int nIds = cpuInfo[0];
 
     bool HW_AVX512F = false;
-    if (nIds >= 0x00000007) { //  AVX512 Foundation
+    if (nIds >= 0x00000007) {  //  AVX512 Foundation
         cpuid(cpuInfo, 0x00000007, 0);
         HW_AVX512F = (cpuInfo[1] & ((int)1 << 16)) != 0;
     }
@@ -113,87 +113,87 @@ static bool AVX512Capable() {
 #include <string.h>
 
 namespace hnswlib {
-    typedef size_t labeltype;
+typedef size_t labeltype;
 
-    // This can be extended to store state for filtering (e.g. from a std::set)
-    struct FilterFunctor {
-        template<class...Args>
-        bool operator()(Args&&...) { return true; }
-    };
+// This can be extended to store state for filtering (e.g. from a std::set)
+struct FilterFunctor {
+    template<class...Args>
+    bool operator()(Args&&...) { return true; }
+};
 
-    static FilterFunctor allowAllIds;
+static FilterFunctor allowAllIds;
 
-    template <typename T>
-    class pairGreater {
-    public:
-        bool operator()(const T& p1, const T& p2) {
-            return p1.first > p2.first;
-        }
-    };
-
-    template<typename T>
-    static void writeBinaryPOD(std::ostream &out, const T &podRef) {
-        out.write((char *) &podRef, sizeof(T));
+template <typename T>
+class pairGreater {
+ public:
+    bool operator()(const T& p1, const T& p2) {
+        return p1.first > p2.first;
     }
+};
 
-    template<typename T>
-    static void readBinaryPOD(std::istream &in, T &podRef) {
-        in.read((char *) &podRef, sizeof(T));
-    }
-
-    template<typename MTYPE>
-    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
-
-    template<typename MTYPE>
-    class SpaceInterface {
-    public:
-        //virtual void search(void *);
-        virtual size_t get_data_size() = 0;
-
-        virtual DISTFUNC<MTYPE> get_dist_func() = 0;
-
-        virtual void *get_dist_func_param() = 0;
-
-        virtual ~SpaceInterface() {}
-    };
-
-    template<typename dist_t, typename filter_func_t=FilterFunctor>
-    class AlgorithmInterface {
-    public:
-        virtual void addPoint(const void *datapoint, labeltype label)=0;
-
-        virtual std::priority_queue<std::pair<dist_t, labeltype >>
-            searchKnn(const void*, size_t, filter_func_t& isIdAllowed=allowAllIds) const = 0;
-
-        // Return k nearest neighbor in the order of closer fist
-        virtual std::vector<std::pair<dist_t, labeltype>>
-            searchKnnCloserFirst(const void* query_data, size_t k, filter_func_t& isIdAllowed=allowAllIds) const;
-
-        virtual void saveIndex(const std::string &location)=0;
-        virtual ~AlgorithmInterface(){
-        }
-    };
-
-    template<typename dist_t, typename filter_func_t>
-    std::vector<std::pair<dist_t, labeltype>>
-    AlgorithmInterface<dist_t, filter_func_t>::searchKnnCloserFirst(const void* query_data, size_t k,
-                                                                    filter_func_t& isIdAllowed) const {
-        std::vector<std::pair<dist_t, labeltype>> result;
-
-        // here searchKnn returns the result in the order of further first
-        auto ret = searchKnn(query_data, k, isIdAllowed);
-        {
-            size_t sz = ret.size();
-            result.resize(sz);
-            while (!ret.empty()) {
-                result[--sz] = ret.top();
-                ret.pop();
-            }
-        }
-
-        return result;
-    }
+template<typename T>
+static void writeBinaryPOD(std::ostream &out, const T &podRef) {
+    out.write((char *) &podRef, sizeof(T));
 }
+
+template<typename T>
+static void readBinaryPOD(std::istream &in, T &podRef) {
+    in.read((char *) &podRef, sizeof(T));
+}
+
+template<typename MTYPE>
+using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
+
+template<typename MTYPE>
+class SpaceInterface {
+ public:
+    // virtual void search(void *);
+    virtual size_t get_data_size() = 0;
+
+    virtual DISTFUNC<MTYPE> get_dist_func() = 0;
+
+    virtual void *get_dist_func_param() = 0;
+
+    virtual ~SpaceInterface() {}
+};
+
+template<typename dist_t, typename filter_func_t = FilterFunctor>
+class AlgorithmInterface {
+ public:
+    virtual void addPoint(const void *datapoint, labeltype label) = 0;
+
+    virtual std::priority_queue<std::pair<dist_t, labeltype>>
+        searchKnn(const void*, size_t, filter_func_t& isIdAllowed = allowAllIds) const = 0;
+
+    // Return k nearest neighbor in the order of closer fist
+    virtual std::vector<std::pair<dist_t, labeltype>>
+        searchKnnCloserFirst(const void* query_data, size_t k, filter_func_t& isIdAllowed = allowAllIds) const;
+
+    virtual void saveIndex(const std::string &location) = 0;
+    virtual ~AlgorithmInterface(){
+    }
+};
+
+template<typename dist_t, typename filter_func_t>
+std::vector<std::pair<dist_t, labeltype>>
+AlgorithmInterface<dist_t, filter_func_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+                                                                filter_func_t& isIdAllowed) const {
+    std::vector<std::pair<dist_t, labeltype>> result;
+
+    // here searchKnn returns the result in the order of further first
+    auto ret = searchKnn(query_data, k, isIdAllowed);
+    {
+        size_t sz = ret.size();
+        result.resize(sz);
+        while (!ret.empty()) {
+            result[--sz] = ret.top();
+            ret.pop();
+        }
+    }
+
+    return result;
+}
+}  // namespace hnswlib
 
 #include "space_l2.h"
 #include "space_ip.h"

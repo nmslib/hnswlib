@@ -8,4 +8,4 @@ hnswlib.cpython*.so
 var/
 .idea/
 .vscode/
-
+.vs/
