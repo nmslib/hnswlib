@@ -42,7 +42,7 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
                 while (true) {
                     size_t id = current.fetch_add(1);
 
-                    if ((id >= end)) {
+                    if (id >= end) {
                         break;
                     }
 
@@ -76,6 +76,45 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 inline void assert_true(bool expr, const std::string & msg) {
     if (expr == false) throw std::runtime_error("Unpickle Error: " + msg);
     return;
+}
+
+
+inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, size_t* features) {
+    if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
+    if (buffer.ndim == 2) {
+        *rows = buffer.shape[0];
+        *features = buffer.shape[1];
+    } else {
+        *rows = 1;
+        *features = buffer.shape[0];
+    }
+}
+
+
+inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_, size_t rows) {
+    std::vector<size_t> ids;
+    if (!ids_.is_none()) {
+        py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
+        auto ids_numpy = items.request();
+        // check shapes
+        bool valid = false;
+        if ((ids_numpy.ndim == 1 && ids_numpy.shape[0] == rows) || (ids_numpy.ndim == 0 && rows == 1)) {
+            valid = true;
+        }
+        if (!valid) throw std::runtime_error("wrong dimensionality of the labels");
+        // extract data
+        if (ids_numpy.ndim == 1) {
+            std::vector<size_t> ids1(ids_numpy.shape[0]);
+            for (size_t i = 0; i < ids1.size(); i++) {
+                ids1[i] = items.data()[i];
+            }
+            ids.swap(ids1);
+        } else if (ids_numpy.ndim == 0) {
+            ids.push_back(*items.data());
+        }
+    }
+
+    return ids;
 }
 
 
@@ -146,7 +185,7 @@ class Index {
     void set_ef(size_t ef) {
       default_ef = ef;
       if (appr_alg)
-        appr_alg->ef_ = ef;
+          appr_alg->ef_ = ef;
     }
 
 
@@ -188,15 +227,7 @@ class Index {
             num_threads = num_threads_default;
 
         size_t rows, features;
-
-        if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
-        if (buffer.ndim == 2) {
-            rows = buffer.shape[0];
-            features = buffer.shape[1];
-        } else {
-            rows = 1;
-            features = buffer.shape[0];
-        }
+        get_input_array_shapes(buffer, &rows, &features);
 
         if (features != dim)
             throw std::runtime_error("wrong dimensionality of the vectors");
@@ -206,23 +237,7 @@ class Index {
             num_threads = 1;
         }
 
-        std::vector<size_t> ids;
-
-        if (!ids_.is_none()) {
-            py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
-            auto ids_numpy = items.request();
-            if (ids_numpy.ndim == 1 && ids_numpy.shape[0] == rows) {
-                std::vector<size_t> ids1(ids_numpy.shape[0]);
-                for (size_t i = 0; i < ids1.size(); i++) {
-                    ids1[i] = items.data()[i];
-                }
-                ids.swap(ids1);
-            } else if (ids_numpy.ndim == 0 && rows == 1) {
-                ids.push_back(*items.data());
-            } else {
-                throw std::runtime_error("wrong dimensionality of the labels");
-            }
-        }
+        std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
         {
             int start = 0;
@@ -561,15 +576,7 @@ class Index {
 
         {
             py::gil_scoped_release l;
-
-            if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
-            if (buffer.ndim == 2) {
-                rows = buffer.shape[0];
-                features = buffer.shape[1];
-            } else {
-                rows = 1;
-                features = buffer.shape[0];
-            }
+            get_input_array_shapes(buffer, &rows, &features);
 
             // avoid using threads when the number of searches is small:
             if (rows <= num_threads * 4) {
@@ -725,36 +732,12 @@ class BFIndex {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         size_t rows, features;
-
-        if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
-        if (buffer.ndim == 2) {
-            rows = buffer.shape[0];
-            features = buffer.shape[1];
-        } else {
-            rows = 1;
-            features = buffer.shape[0];
-        }
+        get_input_array_shapes(buffer, &rows, &features);
 
         if (features != dim)
             throw std::runtime_error("wrong dimensionality of the vectors");
 
-        std::vector<size_t> ids;
-
-        if (!ids_.is_none()) {
-            py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
-            auto ids_numpy = items.request();
-            if (ids_numpy.ndim == 1 && ids_numpy.shape[0] == rows) {
-                std::vector<size_t> ids1(ids_numpy.shape[0]);
-                for (size_t i = 0; i < ids1.size(); i++) {
-                    ids1[i] = items.data()[i];
-                }
-                ids.swap(ids1);
-            } else if (ids_numpy.ndim == 0 && rows == 1) {
-                ids.push_back(*items.data());
-            } else {
-                throw std::runtime_error("wrong dimensionality of the labels");
-            }
-        }
+        std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
         {
             for (size_t row = 0; row < rows; row++) {
@@ -802,14 +785,7 @@ class BFIndex {
         {
             py::gil_scoped_release l;
 
-            if (buffer.ndim != 2 && buffer.ndim != 1) throw std::runtime_error("data must be a 1d/2d array");
-            if (buffer.ndim == 2) {
-                rows = buffer.shape[0];
-                features = buffer.shape[1];
-            } else {
-                rows = 1;
-                features = buffer.shape[0];
-            }
+            get_input_array_shapes(buffer, &rows, &features);
 
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
@@ -836,14 +812,14 @@ class BFIndex {
 
         return py::make_tuple(
                 py::array_t<hnswlib::labeltype>(
-                        {rows, k},  // shape
-                        {k * sizeof(hnswlib::labeltype),
+                        { rows, k },  // shape
+                        { k * sizeof(hnswlib::labeltype),
                           sizeof(hnswlib::labeltype)},  // C-style contiguous strides for each index
                         data_numpy_l,  // the data pointer
                         free_when_done_l),
                 py::array_t<dist_t>(
-                        {rows, k},  // shape
-                        {k * sizeof(dist_t), sizeof(dist_t)},  // C-style contiguous strides for each index
+                        { rows, k },  // shape
+                        { k * sizeof(dist_t), sizeof(dist_t) },  // C-style contiguous strides for each index
                         data_numpy_d,  // the data pointer
                         free_when_done_d));
     }
