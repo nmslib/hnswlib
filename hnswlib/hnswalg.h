@@ -66,6 +66,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
     mutable std::atomic<long> metric_distance_computations{0};
     mutable std::atomic<long> metric_hops{0};
 
+    bool replace_deleted = false;
+
+    std::mutex deleted_elements_lock;
+    std::unordered_set<tableint> deleted_elements;
+
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -75,7 +80,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         SpaceInterface<dist_t> *s,
         const std::string &location,
         bool nmslib = false,
-        size_t max_elements = 0) {
+        size_t max_elements = 0,
+        bool replace_deleted = false)
+        : replace_deleted(replace_deleted) {
         loadIndex(location, s, max_elements);
     }
 
@@ -85,10 +92,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         size_t max_elements,
         size_t M = 16,
         size_t ef_construction = 200,
-        size_t random_seed = 100)
+        size_t random_seed = 100,
+        bool replace_deleted = false)
         : link_list_locks_(max_elements),
             link_list_update_locks_(max_update_element_locks),
-            element_levels_(max_elements) {
+            element_levels_(max_elements),
+            replace_deleted(replace_deleted) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -694,6 +703,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         for (size_t i = 0; i < cur_element_count; i++) {
             if (isMarkedDeleted(i)) {
                 num_deleted_ += 1;
+                if (replace_deleted) deleted_elements.insert(i);
             }
         }
 
@@ -747,6 +757,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+2;
             *ll_cur |= DELETE_MARK;
             num_deleted_ += 1;
+            if (replace_deleted) deleted_elements.insert(internalId);
         } else {
             throw std::runtime_error("The requested to delete element is already deleted");
         }
@@ -775,6 +786,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId)) + 2;
             *ll_cur &= ~DELETE_MARK;
             num_deleted_ -= 1;
+            if (replace_deleted) deleted_elements.erase(internalId);
         } else {
             throw std::runtime_error("The requested to undelete element is not deleted");
         }
@@ -797,6 +809,48 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
 
     void setListCount(linklistsizeint * ptr, unsigned short int size) const {
         *((unsigned short int*)(ptr))=*((unsigned short int *)&size);
+    }
+
+
+    /**
+    * Adds point and replaces previously deleted point if any, updating it with new point
+    *
+    * If deleted point was replaced returns its label, else returns label of added point
+    */
+    labeltype insertPoint(const void* data_point, labeltype label) {
+        if (!replace_deleted) {
+            throw std::runtime_error("Don't use insertPoint when replacement of deleted elements is disabled");
+        }
+
+        std::unique_lock <std::mutex> tmp_del_el_lock(deleted_elements_lock);
+        bool is_empty = deleted_elements.empty();
+        tmp_del_el_lock.unlock();
+
+        if (is_empty) {
+            addPoint(data_point, label);
+            return label;
+        }
+        else {
+            tmp_del_el_lock.lock();
+            tableint id_replace = *deleted_elements.begin();
+            deleted_elements.erase(id_replace);
+            tmp_del_el_lock.unlock();
+
+            // use link list locks to not block calls for other elements
+            std::unique_lock <std::mutex> lock_label_update(link_list_update_locks_[(id_replace & (max_update_element_locks - 1))]);
+            labeltype label_replace = getExternalLabel(id_replace);
+            setExternalLabel(id_replace, label);
+            lock_label_update.unlock();
+
+            std::unique_lock <std::mutex> tmp_label_lookup_lock(label_lookup_lock);
+            label_lookup_.erase(label_replace);
+            label_lookup_[label] = id_replace;
+            tmp_label_lookup_lock.unlock();
+
+            addPoint(data_point, label);
+
+            return label_replace;
+        }
     }
 
 
