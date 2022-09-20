@@ -13,6 +13,8 @@ class RandomSelfTestCase(unittest.TestCase):
         num_elements = 5000
         max_num_elements = 2 * num_elements
 
+        recall_threshold = 0.98
+
         # Generating sample data
         print("Generating data")
         # batch 1
@@ -119,7 +121,7 @@ class RandomSelfTestCase(unittest.TestCase):
         labels_found, _ = hnsw_index.knn_query(data4, k=1)
         recall = np.mean(labels_found.reshape(-1) == labels4)
         print(f"Recall for the 4 batch: {recall}")
-        self.assertGreater(recall, 0.98)
+        self.assertGreater(recall, recall_threshold)
 
         # Delete batch 4
         print("Deleting batch 4")
@@ -138,6 +140,6 @@ class RandomSelfTestCase(unittest.TestCase):
         labels_found, _ = hnsw_index_pckl.knn_query(data3, k=1)
         recall = np.mean(labels_found.reshape(-1) == labels3)
         print(f"Recall for the 3 batch: {recall}")
-        self.assertGreater(recall, 0.98)
+        self.assertGreater(recall, recall_threshold)
 
         os.remove(index_path)
