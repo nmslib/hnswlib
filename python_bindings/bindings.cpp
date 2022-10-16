@@ -81,14 +81,14 @@ inline void assert_true(bool expr, const std::string & msg) {
 
 
 class CustomFilterFunctor: public hnswlib::FilterFunctor {
-    std::function<int(int)> filter;
+    std::function<bool(hnswlib::labeltype)> filter;
 
-public:
-    explicit CustomFilterFunctor(const std::function<bool(unsigned int)> &f) {
+ public:
+    explicit CustomFilterFunctor(const std::function<bool(hnswlib::labeltype)> &f) {
         filter = f;
     }
 
-    bool operator()(unsigned int id) {
+    bool operator()(hnswlib::labeltype id) {
         return filter(id);
     }
 };
@@ -142,7 +142,7 @@ inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_
 }
 
 
-template<typename dist_t, typename data_t=float, typename filter_func_t=CustomFilterFunctor>
+template<typename dist_t, typename data_t = float, typename filter_func_t = CustomFilterFunctor>
 class Index {
  public:
     static const int ser_version = 1;  // serialization version
@@ -588,7 +588,11 @@ class Index {
     }
 
 
-    py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1, const std::function<bool(unsigned int)> &filter = nullptr) {
+    py::object knnQuery_return_numpy(
+        py::object input,
+        size_t k = 1,
+        int num_threads = -1,
+        const std::function<bool(hnswlib::labeltype)> &filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype* data_numpy_l;
@@ -610,7 +614,7 @@ class Index {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
-            CustomFilterFunctor idFilter((filter != nullptr)?filter:[](unsigned int id){return true;});
+            CustomFilterFunctor idFilter((filter != nullptr)?filter:[](hnswlib::labeltype id){return true;});
 
             if (normalize == false) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
