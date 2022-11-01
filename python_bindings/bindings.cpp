@@ -80,11 +80,11 @@ inline void assert_true(bool expr, const std::string & msg) {
 }
 
 
-class CustomFilterFunctor: public hnswlib::FilterFunctor {
+class CustomFilterFunctor: public hnswlib::BaseFilterFunctor {
     std::function<bool(hnswlib::labeltype)> filter;
 
  public:
-    explicit CustomFilterFunctor(const std::function<bool(hnswlib::labeltype)> &f) {
+    explicit CustomFilterFunctor(const std::function<bool(hnswlib::labeltype)>& f) {
         filter = f;
     }
 
@@ -142,7 +142,7 @@ inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_
 }
 
 
-template<typename dist_t, typename data_t = float, typename filter_func_t = CustomFilterFunctor>
+template<typename dist_t, typename data_t = float>
 class Index {
  public:
     static const int ser_version = 1;  // serialization version
@@ -157,7 +157,7 @@ class Index {
     bool normalize;
     int num_threads_default;
     hnswlib::labeltype cur_l;
-    hnswlib::HierarchicalNSW<dist_t, filter_func_t>* appr_alg;
+    hnswlib::HierarchicalNSW<dist_t>* appr_alg;
     hnswlib::SpaceInterface<float>* l2space;
 
 
@@ -198,7 +198,7 @@ class Index {
             throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t, filter_func_t>(l2space, maxElements, M, efConstruction, random_seed);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
         index_inited = true;
         ep_added = false;
         appr_alg->ef_ = default_ef;
@@ -228,7 +228,7 @@ class Index {
           std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
-      appr_alg = new hnswlib::HierarchicalNSW<dist_t, filter_func_t>(l2space, path_to_index, false, max_elements);
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
@@ -483,7 +483,7 @@ class Index {
         new_index->seed = d["seed"].cast<size_t>();
 
         if (index_inited_) {
-            new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t, filter_func_t>(
+            new_index->appr_alg = new hnswlib::HierarchicalNSW<dist_t>(
                 new_index->l2space,
                 d["max_elements"].cast<size_t>(),
                 d["M"].cast<size_t>(),
@@ -592,7 +592,7 @@ class Index {
         py::object input,
         size_t k = 1,
         int num_threads = -1,
-        const std::function<bool(hnswlib::labeltype)> &filter = nullptr) {
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype* data_numpy_l;
@@ -614,12 +614,13 @@ class Index {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
-            CustomFilterFunctor idFilter((filter != nullptr)?filter:[](hnswlib::labeltype id){return true;});
+            CustomFilterFunctor idFilter(filter);
+            CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
 
             if (normalize == false) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)items.data(row), k, idFilter);
+                        (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
@@ -639,7 +640,7 @@ class Index {
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)(norm_array.data() + start_idx), k, idFilter);
+                        (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
@@ -806,7 +807,10 @@ class BFIndex {
     }
 
 
-    py::object knnQuery_return_numpy(py::object input, size_t k = 1) {
+    py::object knnQuery_return_numpy(
+        py::object input,
+        size_t k = 1,
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype *data_numpy_l;
@@ -820,9 +824,12 @@ class BFIndex {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
+            CustomFilterFunctor idFilter(filter);
+            CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
+
             for (size_t row = 0; row < rows; row++) {
                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
-                        (void *) items.data(row), k);
+                        (void *) items.data(row), k, p_idFilter);
                 for (int i = k - 1; i >= 0; i--) {
                     auto &result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
@@ -920,7 +927,7 @@ PYBIND11_PLUGIN(hnswlib) {
         py::class_<BFIndex<float>>(m, "BFIndex")
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &BFIndex<float>::init_new_index, py::arg("max_elements"))
-        .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1)
+        .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("filter") = py::none())
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
         .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
         .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
