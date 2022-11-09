@@ -116,12 +116,10 @@ namespace hnswlib {
 typedef size_t labeltype;
 
 // This can be extended to store state for filtering (e.g. from a std::set)
-struct FilterFunctor {
-    template<class...Args>
-    bool operator()(Args&&...) { return true; }
+class BaseFilterFunctor {
+ public:
+    virtual bool operator()(hnswlib::labeltype id) { return true; }
 };
-
-static FilterFunctor allowAllIds;
 
 template <typename T>
 class pairGreater {
@@ -157,27 +155,27 @@ class SpaceInterface {
     virtual ~SpaceInterface() {}
 };
 
-template<typename dist_t, typename filter_func_t = FilterFunctor>
+template<typename dist_t>
 class AlgorithmInterface {
  public:
     virtual void addPoint(const void *datapoint, labeltype label) = 0;
 
     virtual std::priority_queue<std::pair<dist_t, labeltype>>
-        searchKnn(const void*, size_t, filter_func_t& isIdAllowed = allowAllIds) const = 0;
+        searchKnn(const void*, size_t, BaseFilterFunctor* isIdAllowed = nullptr) const = 0;
 
     // Return k nearest neighbor in the order of closer fist
     virtual std::vector<std::pair<dist_t, labeltype>>
-        searchKnnCloserFirst(const void* query_data, size_t k, filter_func_t& isIdAllowed = allowAllIds) const;
+        searchKnnCloserFirst(const void* query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const;
 
     virtual void saveIndex(const std::string &location) = 0;
     virtual ~AlgorithmInterface(){
     }
 };
 
-template<typename dist_t, typename filter_func_t>
+template<typename dist_t>
 std::vector<std::pair<dist_t, labeltype>>
-AlgorithmInterface<dist_t, filter_func_t>::searchKnnCloserFirst(const void* query_data, size_t k,
-                                                                filter_func_t& isIdAllowed) const {
+AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+                                                 BaseFilterFunctor* isIdAllowed) const {
     std::vector<std::pair<dist_t, labeltype>> result;
 
     // here searchKnn returns the result in the order of further first

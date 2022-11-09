@@ -1,4 +1,5 @@
 #include <iostream>
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -77,6 +78,20 @@ inline void assert_true(bool expr, const std::string & msg) {
     if (expr == false) throw std::runtime_error("Unpickle Error: " + msg);
     return;
 }
+
+
+class CustomFilterFunctor: public hnswlib::BaseFilterFunctor {
+    std::function<bool(hnswlib::labeltype)> filter;
+
+ public:
+    explicit CustomFilterFunctor(const std::function<bool(hnswlib::labeltype)>& f) {
+        filter = f;
+    }
+
+    bool operator()(hnswlib::labeltype id) {
+        return filter(id);
+    }
+};
 
 
 inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, size_t* features) {
@@ -573,7 +588,11 @@ class Index {
     }
 
 
-    py::object knnQuery_return_numpy(py::object input, size_t k = 1, int num_threads = -1) {
+    py::object knnQuery_return_numpy(
+        py::object input,
+        size_t k = 1,
+        int num_threads = -1,
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype* data_numpy_l;
@@ -595,10 +614,13 @@ class Index {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
+            CustomFilterFunctor idFilter(filter);
+            CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
+
             if (normalize == false) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)items.data(row), k);
+                        (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
@@ -618,7 +640,7 @@ class Index {
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)(norm_array.data() + start_idx), k);
+                        (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
@@ -785,7 +807,10 @@ class BFIndex {
     }
 
 
-    py::object knnQuery_return_numpy(py::object input, size_t k = 1) {
+    py::object knnQuery_return_numpy(
+        py::object input,
+        size_t k = 1,
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype *data_numpy_l;
@@ -799,9 +824,12 @@ class BFIndex {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
+            CustomFilterFunctor idFilter(filter);
+            CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
+
             for (size_t row = 0; row < rows; row++) {
                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
-                        (void *) items.data(row), k);
+                        (void *) items.data(row), k, p_idFilter);
                 for (int i = k - 1; i >= 0; i--) {
                     auto &result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
@@ -844,7 +872,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M") = 16, py::arg("ef_construction") = 200, py::arg("random_seed") = 100)
-        .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("num_threads") = -1)
+        .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("num_threads") = -1, py::arg("filter") = py::none())
         .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads") = -1)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("get_ids_list", &Index<float>::getIdsList)
@@ -899,7 +927,7 @@ PYBIND11_PLUGIN(hnswlib) {
         py::class_<BFIndex<float>>(m, "BFIndex")
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &BFIndex<float>::init_new_index, py::arg("max_elements"))
-        .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1)
+        .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("filter") = py::none())
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
         .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
         .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
