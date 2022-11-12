@@ -66,7 +66,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
     mutable std::atomic<long> metric_distance_computations{0};
     mutable std::atomic<long> metric_hops{0};
 
-    bool replace_deleted = false;
+    bool replace_deleted_ = false;
 
     std::mutex deleted_elements_lock;
     std::unordered_set<tableint> deleted_elements;
@@ -82,7 +82,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         bool nmslib = false,
         size_t max_elements = 0,
         bool replace_deleted = false)
-        : replace_deleted(replace_deleted) {
+        : replace_deleted_(replace_deleted) {
         loadIndex(location, s, max_elements);
     }
 
@@ -97,7 +97,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         : link_list_locks_(max_elements),
             link_list_update_locks_(max_update_element_locks),
             element_levels_(max_elements),
-            replace_deleted(replace_deleted) {
+            replace_deleted_(replace_deleted) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -703,7 +703,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
         for (size_t i = 0; i < cur_element_count; i++) {
             if (isMarkedDeleted(i)) {
                 num_deleted_ += 1;
-                if (replace_deleted) deleted_elements.insert(i);
+                if (replace_deleted_) deleted_elements.insert(i);
             }
         }
 
@@ -757,7 +757,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+2;
             *ll_cur |= DELETE_MARK;
             num_deleted_ += 1;
-            if (replace_deleted) deleted_elements.insert(internalId);
+            if (replace_deleted_) deleted_elements.insert(internalId);
         } else {
             throw std::runtime_error("The requested to delete element is already deleted");
         }
@@ -786,7 +786,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId)) + 2;
             *ll_cur &= ~DELETE_MARK;
             num_deleted_ -= 1;
-            if (replace_deleted) deleted_elements.erase(internalId);
+            if (replace_deleted_) deleted_elements.erase(internalId);
         } else {
             throw std::runtime_error("The requested to undelete element is not deleted");
         }
@@ -817,9 +817,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t, filter_func_t> {
     *
     * If deleted point was replaced returns its label, else returns label of added point
     */
-    labeltype insertPoint(const void* data_point, labeltype label) {
-        if (!replace_deleted) {
-            throw std::runtime_error("Don't use insertPoint when replacement of deleted elements is disabled");
+    labeltype addPointToVacantPlace(const void* data_point, labeltype label) {
+        if (!replace_deleted_) {
+            throw std::runtime_error("Can't use addPointToVacantPlace when replacement of deleted elements is disabled");
         }
 
         std::unique_lock <std::mutex> tmp_del_el_lock(deleted_elements_lock);

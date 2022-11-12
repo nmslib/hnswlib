@@ -230,7 +230,7 @@ class Index {
     }
 
 
-    py::object insertItems_return_numpy(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
+    py::object add_items_to_vacant_place_return_numpy(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
         size_t rows, features;
         hnswlib::labeltype* data_numpy_l = NULL;
 
@@ -261,7 +261,7 @@ class Index {
                     normalize_vector(vector_data, norm_array.data());
                     vector_data = norm_array.data();
                 }
-                hnswlib::labeltype label = appr_alg->insertPoint((void*)vector_data, (size_t)id);
+                hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)vector_data, (size_t)id);
                 data_numpy_l[start] = label;
                 start = 1;
                 ep_added = true;
@@ -271,7 +271,7 @@ class Index {
             if (normalize == false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    hnswlib::labeltype label = appr_alg->insertPoint((void*)items.data(row), (size_t)id);
+                    hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)items.data(row), (size_t)id);
                     data_numpy_l[row] = label;
                     });
             }
@@ -283,7 +283,7 @@ class Index {
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    hnswlib::labeltype label = appr_alg->insertPoint((void*)(norm_array.data() + start_idx), (size_t)id);
+                    hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)(norm_array.data() + start_idx), (size_t)id);
                     data_numpy_l[row] = label;
                     });
             }
@@ -472,7 +472,7 @@ class Index {
             "ef"_a = appr_alg->ef_,
             "has_deletions"_a = (bool)appr_alg->num_deleted_,
             "size_links_per_element"_a = appr_alg->size_links_per_element_,
-            "replace_deleted"_a = appr_alg->replace_deleted,
+            "replace_deleted"_a = appr_alg->replace_deleted_,
 
             "label_lookup_external"_a = py::array_t<hnswlib::labeltype>(
                 { appr_alg->label_lookup_.size() },  // shape
@@ -639,7 +639,7 @@ class Index {
         if (d.contains("replace_deleted")) {
             replace_deleted = d["replace_deleted"].cast<bool>();
         }
-        appr_alg->replace_deleted = replace_deleted;
+        appr_alg->replace_deleted_= replace_deleted;
 
         appr_alg->num_deleted_ = 0;
         bool has_deletions = d["has_deletions"].cast<bool>();
@@ -941,8 +941,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("data"),
             py::arg("ids") = py::none(),
             py::arg("num_threads") = -1)
-        .def("insert_items",
-            &Index<float>::insertItems_return_numpy,
+        .def("add_items_to_vacant_place",
+            &Index<float>::add_items_to_vacant_place_return_numpy,
             py::arg("data"),
             py::arg("ids") = py::none(),
             py::arg("num_threads") = -1)

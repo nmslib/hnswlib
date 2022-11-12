@@ -72,7 +72,7 @@ class RandomSelfTestCase(unittest.TestCase):
         print("Inserting batch 3 by replacing deleted elements")
         # Maximum number of elements is reached therefore we cannot add new items
         # but we can replace the deleted ones
-        labels_replaced = hnsw_index.insert_items(data3, labels3)
+        labels_replaced = hnsw_index.add_items_to_vacant_place(data3, labels3)
         labels2_deleted_list = [l[0] for l in labels2_deleted]
         labels_replaced_list = labels_replaced.tolist()
         labels2_deleted_list.sort()
@@ -114,7 +114,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Insert batch 4
         print("Inserting batch 4 by replacing deleted elements")
-        labels_replaced = hnsw_index.insert_items(data4, labels4)
+        labels_replaced = hnsw_index.add_items_to_vacant_place(data4, labels4)
 
         # Check recall
         print("Checking recall")
@@ -133,7 +133,7 @@ class RandomSelfTestCase(unittest.TestCase):
         del hnsw_index
         # Insert batch 3
         print("Inserting batch 3 by replacing deleted elements")
-        labels_replaced = hnsw_index_pckl.insert_items(data3, labels3)
+        labels_replaced = hnsw_index_pckl.add_items_to_vacant_place(data3, labels3)
 
         # Check recall
         print("Checking recall")
