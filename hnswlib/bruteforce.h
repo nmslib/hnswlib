@@ -6,8 +6,8 @@
 #include <assert.h>
 
 namespace hnswlib {
-template<typename dist_t, typename filter_func_t = FilterFunctor>
-class BruteforceSearch : public AlgorithmInterface<dist_t, filter_func_t> {
+template<typename dist_t>
+class BruteforceSearch : public AlgorithmInterface<dist_t> {
  public:
     char *data_;
     size_t maxelements_;
@@ -98,15 +98,14 @@ class BruteforceSearch : public AlgorithmInterface<dist_t, filter_func_t> {
 
 
     std::priority_queue<std::pair<dist_t, labeltype >>
-    searchKnn(const void *query_data, size_t k, filter_func_t& isIdAllowed = allowAllIds) const {
+    searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
         assert(k <= cur_element_count);
         std::priority_queue<std::pair<dist_t, labeltype >> topResults;
         if (cur_element_count == 0) return topResults;
-        bool is_filter_disabled = std::is_same<filter_func_t, decltype(allowAllIds)>::value;
         for (int i = 0; i < k; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
-            if (is_filter_disabled || isIdAllowed(label)) {
+            if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                 topResults.push(std::pair<dist_t, labeltype>(dist, label));
             }
         }
@@ -115,7 +114,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t, filter_func_t> {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             if (dist <= lastdist) {
                 labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
-                if (is_filter_disabled || isIdAllowed(label)) {
+                if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                     topResults.push(std::pair<dist_t, labeltype>(dist, label));
                 }
                 if (topResults.size() > k)
