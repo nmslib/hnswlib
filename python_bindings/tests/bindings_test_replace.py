@@ -57,7 +57,7 @@ class RandomSelfTestCase(unittest.TestCase):
         for l in labels2_deleted:
             hnsw_index.mark_deleted(l[0])
         labels1_found, _ = hnsw_index.knn_query(data1, k=1)
-        items = hnsw_index.get_items(labels1)
+        items = hnsw_index.get_items(labels1_found)
         diff_with_gt_labels = np.mean(np.abs(data1-items))
         self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3)
 
