@@ -721,8 +721,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
-        // wait for element addition or update
-        std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(internalId & (max_update_element_locks - 1))]);
         char* data_ptrv = getDataByInternalId(internalId);
         size_t dim = *((size_t *) dist_func_param_);
         std::vector<data_t> data;
@@ -746,8 +744,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
-        // wait for element addition or update
-        std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(internalId & (max_update_element_locks - 1))]);
         markDeletedInternal(internalId);
     }
 
@@ -773,8 +769,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     /**
-        * Remove the deleted mark of the node, does NOT really change the current graph.
-        */
+    * Remove the deleted mark of the node, does NOT really change the current graph.
+    * 
+    * Note: the method is not safe to use when replacement of deleted elements is enabled
+    *  bacause elements marked as deleted can be completely removed from the index
+    */
     void unmarkDelete(labeltype label) {
         std::unique_lock <std::mutex> lock_table(label_lookup_lock);
         auto search = label_lookup_.find(label);
@@ -783,19 +782,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
-        // wait for element addition or update
-        std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(internalId & (max_update_element_locks - 1))]);
         unmarkDeletedInternal(internalId);
     }
 
 
 
     /**
-    * Remove the deleted mark of the node.
-    * 
-    * Note: the method is not safe to use when replacement of deleted elements is enabled
-    *  bacause elements marked as deleted can be completely removed from the index
-    */
+        * Remove the deleted mark of the node.
+        */
     void unmarkDeletedInternal(tableint internalId) {
         assert(internalId < cur_element_count);
         if (isMarkedDeleted(internalId)) {
@@ -860,18 +854,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             addPoint(data_point, label);
             return label;
         } else {
-            // wait for element addition or update
-            std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(internal_id_replaced & (max_update_element_locks - 1))]);
+            // no need to protect element from additions and updates as
+            // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
             setExternalLabel(internal_id_replaced, label);
-            lock_el_update.unlock();
 
             std::unique_lock <std::mutex> lock_table(label_lookup_lock);
             label_lookup_.erase(label_replaced);
             label_lookup_[label] = internal_id_replaced;
             lock_table.unlock();
 
-            lock_el_update.lock();
             unmarkDeletedInternal(internal_id_replaced);
             updatePoint(data_point, internal_id_replaced, 1.0);
 
