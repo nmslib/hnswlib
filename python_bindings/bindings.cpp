@@ -843,11 +843,6 @@ class BFIndex {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
 
-            // avoid using threads when the number of searches is small:
-            if (rows <= num_threads * 4) {
-                num_threads = 1;
-            }
-
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
