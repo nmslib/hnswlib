@@ -16,7 +16,6 @@ typedef unsigned int linklistsizeint;
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
  public:
-    static const tableint MAX_ELEMENT_UPDATE_LOCKS = 65536;
     static const tableint MAX_LABEL_OPERATION_LOCKS = 65536;
     static const unsigned char DELETE_MARK = 0x01;
 
@@ -36,10 +35,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     VisitedListPool *visited_list_pool_{nullptr};
 
-    // Locks to prevent race condition during update/insert of an element at same time.
-    // Note: Locks for additions can also be used to prevent this race condition
-    // if the querying of KNN is not exposed along with update/inserts i.e multithread insert/update/query in parallel.
-    mutable std::vector<std::mutex> element_update_locks_;
     // Locks operations with element by label value
     mutable std::vector<std::mutex> label_op_locks_;
 
@@ -98,7 +93,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t random_seed = 100,
         bool replace_deleted = false)
         : link_list_locks_(max_elements),
-            element_update_locks_(MAX_ELEMENT_UPDATE_LOCKS),
             label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             element_levels_(max_elements),
             replace_deleted_(replace_deleted) {
@@ -164,13 +158,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     void setEf(size_t ef) {
         ef_ = ef;
-    }
-
-
-    inline std::mutex& getUpdateElMutex(tableint internal_id) const {
-        // calculate hash
-        size_t lock_id = internal_id & (MAX_ELEMENT_UPDATE_LOCKS - 1);
-        return element_update_locks_[lock_id];
     }
 
 
@@ -691,7 +678,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
         std::vector<std::mutex>(max_elements).swap(link_list_locks_);
-        std::vector<std::mutex>(MAX_ELEMENT_UPDATE_LOCKS).swap(element_update_locks_);
         std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
 
         visited_list_pool_ = new VisitedListPool(1, max_elements);
@@ -1081,15 +1067,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (search != label_lookup_.end()) {
                 tableint existingInternalId = search->second;
                 if (replace_deleted_) {
-                    // wait for element addition or update
-                    std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(existingInternalId));
                     if (isMarkedDeleted(existingInternalId)) {
                         throw std::runtime_error("Can't use addPoint to update deleted elements if replacement of deleted elements is enabled.");
                     }
                 }
                 lock_table.unlock();
-
-                std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(existingInternalId));
 
                 if (isMarkedDeleted(existingInternalId)) {
                     unmarkDeletedInternal(existingInternalId);
@@ -1108,8 +1090,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             label_lookup_[label] = cur_c;
         }
 
-        // Take update lock to prevent race conditions on an element with insertion/update at the same time.
-        std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(cur_c));
         std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
         int curlevel = getRandomLevel(mult_);
         if (level > 0)

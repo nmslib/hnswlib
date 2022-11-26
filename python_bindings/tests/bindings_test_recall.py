@@ -40,7 +40,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Set number of threads used during batch search/construction in hnsw
         # By default using all available cores
-        hnsw_index.set_num_threads(1)
+        hnsw_index.set_num_threads(4)
 
         print("Adding batch of %d elements" % (len(data)))
         hnsw_index.add_items(data)
