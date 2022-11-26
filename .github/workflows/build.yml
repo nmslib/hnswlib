@@ -19,6 +19,7 @@ jobs:
         run: python -m pip install .
       
       - name: Test
+        timeout-minutes: 15
         run: python -m unittest discover -v --start-directory python_bindings/tests --pattern "*_test*.py"
   
   test_cpp:
@@ -52,6 +53,7 @@ jobs:
         shell: bash
       
       - name: Test
+        timeout-minutes: 15
         run: |
           cd build
           if [ "$RUNNER_OS" == "Windows" ]; then

@@ -2,8 +2,10 @@
 #include <thread>
 
 int main() {
+
+    std::cout << "Running multithread load test" << std::endl;
     int d = 16;
-    int max_elements = 100;
+    int max_elements = 1000;
 
     std::mt19937 rng;
     rng.seed(47);
@@ -49,5 +51,6 @@ int main() {
         start_id += num_ids;
     }
     
+    std::cout << "Finish" << std::endl;
     return 0;
 }
