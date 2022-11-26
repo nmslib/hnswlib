@@ -14,8 +14,9 @@ int main() {
     hnswlib::L2Space space(d);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements);
 
+    // with these parameters about 7 threads will do operations with the same label simultaneously
     int num_threads = 40;
-    int num_ids = 1;
+    int num_ids = 10;
 
     int num_iterations = 10;
     int start_id = 0;

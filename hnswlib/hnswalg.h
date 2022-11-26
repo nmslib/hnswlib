@@ -16,7 +16,8 @@ typedef unsigned int linklistsizeint;
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
  public:
-    static const tableint max_update_element_locks = 65536;
+    static const tableint MAX_ELEMENT_UPDATE_LOCKS = 65536;
+    static const tableint MAX_LABEL_OPERATION_LOCKS = 65536;
     static const unsigned char DELETE_MARK = 0x01;
 
     size_t max_elements_{0};
@@ -38,7 +39,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     // Locks to prevent race condition during update/insert of an element at same time.
     // Note: Locks for additions can also be used to prevent this race condition
     // if the querying of KNN is not exposed along with update/inserts i.e multithread insert/update/query in parallel.
-    mutable std::vector<std::mutex> link_list_update_locks_;
+    mutable std::vector<std::mutex> element_update_locks_;
+    // Locks operations with element by label value
+    mutable std::vector<std::mutex> label_op_locks_;
 
     std::mutex global;
     std::vector<std::mutex> link_list_locks_;
@@ -95,7 +98,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t random_seed = 100,
         bool replace_deleted = false)
         : link_list_locks_(max_elements),
-            link_list_update_locks_(max_update_element_locks),
+            element_update_locks_(MAX_ELEMENT_UPDATE_LOCKS),
+            label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             element_levels_(max_elements),
             replace_deleted_(replace_deleted) {
         max_elements_ = max_elements;
@@ -160,6 +164,20 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     void setEf(size_t ef) {
         ef_ = ef;
+    }
+
+
+    inline std::mutex& getUpdateElMutex(tableint internal_id) const {
+        // calculate hash
+        size_t lock_id = internal_id & (MAX_ELEMENT_UPDATE_LOCKS - 1);
+        return element_update_locks_[lock_id];
+    }
+
+
+    inline std::mutex& getLabelOpMutex(labeltype label) const {
+        // calculate hash
+        size_t lock_id = label & (MAX_LABEL_OPERATION_LOCKS - 1);
+        return label_op_locks_[lock_id];
     }
 
 
@@ -673,7 +691,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
         std::vector<std::mutex>(max_elements).swap(link_list_locks_);
-        std::vector<std::mutex>(max_update_element_locks).swap(link_list_update_locks_);
+        std::vector<std::mutex>(MAX_ELEMENT_UPDATE_LOCKS).swap(element_update_locks_);
+        std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
 
         visited_list_pool_ = new VisitedListPool(1, max_elements);
 
@@ -714,6 +733,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     template<typename data_t>
     std::vector<data_t> getDataByLabel(labeltype label) const {
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
+        
         std::unique_lock <std::mutex> lock_table(label_lookup_lock);
         auto search = label_lookup_.find(label);
         if (search == label_lookup_.end() || isMarkedDeleted(search->second)) {
@@ -721,6 +743,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
+
         char* data_ptrv = getDataByInternalId(internalId);
         size_t dim = *((size_t *) dist_func_param_);
         std::vector<data_t> data;
@@ -733,10 +756,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    /**
-        * Marks an element with the given label deleted, does NOT really change the current graph.
-        */
+    /*
+    * Marks an element with the given label deleted, does NOT really change the current graph.
+    */
     void markDelete(labeltype label) {
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
+
         std::unique_lock <std::mutex> lock_table(label_lookup_lock);
         auto search = label_lookup_.find(label);
         if (search == label_lookup_.end()) {
@@ -744,14 +770,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
+
         markDeletedInternal(internalId);
     }
 
 
-    /**
-        * Uses the last 16 bits of the memory for the linked list size to store the mark,
-        * whereas maxM0_ has to be limited to the lower 16 bits, however, still large enough in almost all cases.
-        */
+    /*
+    * Uses the last 16 bits of the memory for the linked list size to store the mark,
+    * whereas maxM0_ has to be limited to the lower 16 bits, however, still large enough in almost all cases.
+    */
     void markDeletedInternal(tableint internalId) {
         assert(internalId < cur_element_count);
         if (!isMarkedDeleted(internalId)) {
@@ -768,13 +795,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    /**
-    * Remove the deleted mark of the node, does NOT really change the current graph.
+    /*
+    * Removes the deleted mark of the node, does NOT really change the current graph.
     * 
     * Note: the method is not safe to use when replacement of deleted elements is enabled
     *  bacause elements marked as deleted can be completely removed from the index
     */
     void unmarkDelete(labeltype label) {
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
+
         std::unique_lock <std::mutex> lock_table(label_lookup_lock);
         auto search = label_lookup_.find(label);
         if (search == label_lookup_.end()) {
@@ -782,14 +812,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         tableint internalId = search->second;
         lock_table.unlock();
+
         unmarkDeletedInternal(internalId);
     }
 
 
 
-    /**
-        * Remove the deleted mark of the node.
-        */
+    /*
+    * Remove the deleted mark of the node.
+    */
     void unmarkDeletedInternal(tableint internalId) {
         assert(internalId < cur_element_count);
         if (isMarkedDeleted(internalId)) {
@@ -806,9 +837,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    /**
-        * Checks the first 16 bits of the memory to see if the element is marked deleted.
-        */
+    /*
+    * Checks the first 16 bits of the memory to see if the element is marked deleted.
+    */
     bool isMarkedDeleted(tableint internalId) const {
         unsigned char *ll_cur = ((unsigned char*)get_linklist0(internalId)) + 2;
         return *ll_cur & DELETE_MARK;
@@ -825,7 +856,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    /**
+    /*
     * Adds point and replaces previously deleted point if any, updating it with new point
     * If deleted point was replaced returns its label, else returns label of added or updated point
     * 
@@ -872,10 +903,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    /**
-        * Adds point. Updates the point if it is already in the index
+    /*
+    * Adds point. Updates the point if it is already in the index
     */
     void addPoint(const void *data_point, labeltype label) {
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
         addPoint(data_point, label, -1);
     }
 
@@ -1049,14 +1082,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 tableint existingInternalId = search->second;
                 if (replace_deleted_) {
                     // wait for element addition or update
-                    std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(existingInternalId & (max_update_element_locks - 1))]);
+                    std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(existingInternalId));
                     if (isMarkedDeleted(existingInternalId)) {
                         throw std::runtime_error("Can't use addPoint to update deleted elements if replacement of deleted elements is enabled.");
                     }
                 }
                 lock_table.unlock();
 
-                std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(existingInternalId & (max_update_element_locks - 1))]);
+                std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(existingInternalId));
 
                 if (isMarkedDeleted(existingInternalId)) {
                     unmarkDeletedInternal(existingInternalId);
@@ -1076,7 +1109,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         // Take update lock to prevent race conditions on an element with insertion/update at the same time.
-        std::unique_lock <std::mutex> lock_el_update(link_list_update_locks_[(cur_c & (max_update_element_locks - 1))]);
+        std::unique_lock <std::mutex> lock_el_update(getUpdateElMutex(cur_c));
         std::unique_lock <std::mutex> lock_el(link_list_locks_[cur_c]);
         int curlevel = getRandomLevel(mult_);
         if (level > 0)
