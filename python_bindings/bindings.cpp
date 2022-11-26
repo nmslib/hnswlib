@@ -473,7 +473,7 @@ class Index {
         return py::dict(
             "offset_level0"_a = appr_alg->offsetLevel0_,
             "max_elements"_a = appr_alg->max_elements_,
-            "cur_element_count"_a = appr_alg->cur_element_count,
+            "cur_element_count"_a = (size_t)appr_alg->cur_element_count,
             "size_data_per_element"_a = appr_alg->size_data_per_element_,
             "label_offset"_a = appr_alg->label_offset_,
             "offset_data"_a = appr_alg->offsetData_,
@@ -1006,7 +1006,7 @@ PYBIND11_PLUGIN(hnswlib) {
             return index.index_inited ? index.appr_alg->max_elements_ : 0;
         })
         .def_property_readonly("element_count", [](const Index<float> & index) {
-            return index.index_inited ? index.appr_alg->cur_element_count : 0;
+            return index.index_inited ? (size_t)index.appr_alg->cur_element_count : 0;
         })
         .def_property_readonly("ef_construction", [](const Index<float> & index) {
           return index.index_inited ? index.appr_alg->ef_construction_ : 0;
