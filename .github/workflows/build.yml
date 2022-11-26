@@ -59,6 +59,7 @@ jobs:
           fi
           ./searchKnnCloserFirst_test
           ./searchKnnWithFilter_test
+          ./multiThreadLoad_test
           ./test_updates
           ./test_updates update
         shell: bash
