@@ -785,7 +785,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     * Removes the deleted mark of the node, does NOT really change the current graph.
     * 
     * Note: the method is not safe to use when replacement of deleted elements is enabled,
-    *  bacause elements marked as deleted can be completely removed by addPointToVacantPlace
+    *  because elements marked as deleted can be completely removed by addPointToVacantPlace
     */
     void unmarkDelete(labeltype label) {
         // lock all operations with element by label
@@ -895,7 +895,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     * Adds point. Updates the point if it is already in the index
     *
     * Note: the method is not safe to use to update elements when replacement of deleted elements is enabled,
-    *  bacause elements marked as deleted can be completely removed by addPointToVacantPlace: 
+    *  because elements marked as deleted can be completely removed by addPointToVacantPlace: 
     */
     void addPoint(const void *data_point, labeltype label) {
         // lock all operations with element by label
