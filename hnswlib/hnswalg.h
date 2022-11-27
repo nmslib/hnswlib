@@ -784,8 +784,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     /*
     * Removes the deleted mark of the node, does NOT really change the current graph.
     * 
-    * Note: the method is not safe to use when replacement of deleted elements is enabled
-    *  bacause elements marked as deleted can be completely removed from the index
+    * Note: the method is not safe to use when replacement of deleted elements is enabled,
+    *  bacause elements marked as deleted can be completely removed by addPointToVacantPlace
     */
     void unmarkDelete(labeltype label) {
         // lock all operations with element by label
@@ -848,9 +848,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     * 
     * Note:
     *  Methods that can work with deleted elements unmarkDelete and addPoint are not safe to use
-    *  with this method. Because addPointToVacantPlace removes deleted elements from the index. 
+    *  with this method, because addPointToVacantPlace removes deleted elements from the index. 
     */
     labeltype addPointToVacantPlace(const void* data_point, labeltype label) {
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
+
         if (!replace_deleted_) {
             throw std::runtime_error("Can't use addPointToVacantPlace when replacement of deleted elements is disabled");
         }
@@ -868,10 +871,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // if there is no vacant place then add or update point
         // else add point to vacant place
         if (!is_vacant_place) {
-            addPoint(data_point, label);
+            addPoint(data_point, label, -1);
             return label;
         } else {
-            // no need to protect element from additions and updates as
             // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
             setExternalLabel(internal_id_replaced, label);
@@ -891,6 +893,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     /*
     * Adds point. Updates the point if it is already in the index
+    *
+    * Note: the method is not safe to use to update elements when replacement of deleted elements is enabled,
+    *  bacause elements marked as deleted can be completely removed by addPointToVacantPlace: 
     */
     void addPoint(const void *data_point, labeltype label) {
         // lock all operations with element by label
