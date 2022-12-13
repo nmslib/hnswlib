@@ -58,5 +58,5 @@ class RandomSelfTestCase(unittest.TestCase):
             # Replace deleted elements
             # Maximum number of elements is reached therefore we cannot add new items
             # but we can replace the deleted ones
-            labels_replaced = hnsw_index.add_items_to_vacant_place(data3, labels3)
+            labels_replaced = hnsw_index.add_items(data3, labels3, replace_deleted=True)
        

@@ -245,79 +245,7 @@ class Index {
     }
 
 
-    py::object add_items_to_vacant_place_return_numpy(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
-        size_t rows, features;
-        hnswlib::labeltype* data_numpy_l = NULL;
-
-        py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
-        auto buffer = items.request();
-        if (num_threads <= 0)
-            num_threads = num_threads_default;
-        get_input_array_shapes(buffer, &rows, &features);
-        if (features != dim)
-            throw std::runtime_error("wrong dimensionality of the vectors");
-
-        // avoid using threads when the number of insertions is small:
-        if (rows <= num_threads * 4) {
-            num_threads = 1;
-        }
-
-        std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
-
-        {
-            int start = 0;
-            data_numpy_l = new hnswlib::labeltype[rows];
-
-            if (!ep_added) {
-                size_t id = ids.size() ? ids.at(0) : (cur_l);
-                float* vector_data = (float*)items.data(0);
-                std::vector<float> norm_array(dim);
-                if (normalize) {
-                    normalize_vector(vector_data, norm_array.data());
-                    vector_data = norm_array.data();
-                }
-                hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)vector_data, (size_t)id);
-                data_numpy_l[start] = label;
-                start = 1;
-                ep_added = true;
-            }
-
-            py::gil_scoped_release l;
-            if (normalize == false) {
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)items.data(row), (size_t)id);
-                    data_numpy_l[row] = label;
-                    });
-            }
-            else {
-                std::vector<float> norm_array(num_threads * dim);
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    // normalize vector:
-                    size_t start_idx = threadId * dim;
-                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
-
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    hnswlib::labeltype label = appr_alg->addPointToVacantPlace((void*)(norm_array.data() + start_idx), (size_t)id);
-                    data_numpy_l[row] = label;
-                    });
-            }
-            cur_l += rows;
-        }
-
-        py::capsule free_when_done_l(data_numpy_l, [](void* f) {
-            delete[] f;
-            });
-
-        return py::array_t<hnswlib::labeltype>(
-            { rows },  // shape
-            { sizeof(hnswlib::labeltype) },  // C-style contiguous strides for each index
-            data_numpy_l,  // the data pointer
-            free_when_done_l);
-    }
-
-
-    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
+    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         if (num_threads <= 0)
@@ -346,7 +274,7 @@ class Index {
                     normalize_vector(vector_data, norm_array.data());
                     vector_data = norm_array.data();
                 }
-                appr_alg->addPoint((void*)vector_data, (size_t)id);
+                appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
                 start = 1;
                 ep_added = true;
             }
@@ -355,7 +283,7 @@ class Index {
             if (normalize == false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)items.data(row), (size_t)id);
+                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
                     });
             } else {
                 std::vector<float> norm_array(num_threads * dim);
@@ -365,7 +293,7 @@ class Index {
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id);
+                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
                     });
             }
             cur_l += rows;
@@ -969,12 +897,8 @@ PYBIND11_PLUGIN(hnswlib) {
             &Index<float>::addItems,
             py::arg("data"),
             py::arg("ids") = py::none(),
-            py::arg("num_threads") = -1)
-        .def("add_items_to_vacant_place",
-            &Index<float>::add_items_to_vacant_place_return_numpy,
-            py::arg("data"),
-            py::arg("ids") = py::none(),
-            py::arg("num_threads") = -1)
+            py::arg("num_threads") = -1,
+            py::arg("replace_deleted") = false)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))

@@ -64,10 +64,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     mutable std::atomic<long> metric_distance_computations{0};
     mutable std::atomic<long> metric_hops{0};
 
-    bool replace_deleted_ = false;
+    bool replace_deleted_ = false;  // flag to replace deleted elements (marked as deleted) during insertions
 
     std::mutex deleted_elements_lock;  // lock for deleted_elements
-    std::unordered_set<tableint> deleted_elements;
+    std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
@@ -785,7 +785,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     * Removes the deleted mark of the node, does NOT really change the current graph.
     * 
     * Note: the method is not safe to use when replacement of deleted elements is enabled,
-    *  because elements marked as deleted can be completely removed by addPointToVacantPlace
+    *  because elements marked as deleted can be completely removed by addPoint
     */
     void unmarkDelete(labeltype label) {
         // lock all operations with element by label
@@ -843,21 +843,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     /*
-    * Adds point and replaces previously deleted point if any, updating it with new point
-    * If deleted point was replaced returns its label, else returns label of added or updated point
-    * 
-    * Note:
-    *  Methods that can work with deleted elements unmarkDelete and addPoint are not safe to use
-    *  with this method, because addPointToVacantPlace removes deleted elements from the index. 
+    * Adds point. Updates the point if it is already in the index.
+    * If replacement of deleted elements is enabled: replaces previously deleted point if any, updating it with new point
     */
-    labeltype addPointToVacantPlace(const void* data_point, labeltype label) {
-        // lock all operations with element by label
-        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
-
-        if (!replace_deleted_) {
-            throw std::runtime_error("Can't use addPointToVacantPlace when replacement of deleted elements is disabled");
+    void addPoint(const void *data_point, labeltype label, bool replace_deleted = false) {
+        if ((replace_deleted_ == false) && (replace_deleted == true)) {
+            throw std::runtime_error("Replacement of deleted elements is disabled in constructor");
         }
 
+        // lock all operations with element by label
+        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
+        if (!replace_deleted) {
+            addPoint(data_point, label, -1);
+        }
         // check if there is vacant place
         tableint internal_id_replaced;
         std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);
@@ -872,7 +870,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // else add point to vacant place
         if (!is_vacant_place) {
             addPoint(data_point, label, -1);
-            return label;
         } else {
             // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
@@ -885,22 +882,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
             unmarkDeletedInternal(internal_id_replaced);
             updatePoint(data_point, internal_id_replaced, 1.0);
-
-            return label_replaced;
         }
-    }
-
-
-    /*
-    * Adds point. Updates the point if it is already in the index
-    *
-    * Note: the method is not safe to use to update elements when replacement of deleted elements is enabled,
-    *  because elements marked as deleted can be completely removed by addPointToVacantPlace: 
-    */
-    void addPoint(const void *data_point, labeltype label) {
-        // lock all operations with element by label
-        std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
-        addPoint(data_point, label, -1);
     }
 
 

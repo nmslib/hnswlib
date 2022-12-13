@@ -72,17 +72,13 @@ class RandomSelfTestCase(unittest.TestCase):
         print("Inserting batch 3 by replacing deleted elements")
         # Maximum number of elements is reached therefore we cannot add new items
         # but we can replace the deleted ones
-        labels_replaced = hnsw_index.add_items_to_vacant_place(data3, labels3)
-        labels2_deleted_list = [l[0] for l in labels2_deleted]
-        labels_replaced_list = labels_replaced.tolist()
-        labels2_deleted_list.sort()
-        labels_replaced_list.sort()
-        self.assertSequenceEqual(labels2_deleted_list, labels_replaced_list)
+        hnsw_index.add_items(data3, labels3, replace_deleted=True)
 
         # After replacing, all labels should be retrievable
         print("Checking that remaining labels are in index")
         # Get remaining data from batch 1 and batch 2 after deletion of elements
         remaining_labels = set(labels1) | set(labels2)
+        labels2_deleted_list = [l[0] for l in labels2_deleted]
         remaining_labels = remaining_labels - set(labels2_deleted_list)
         remaining_labels_list = list(remaining_labels)
         comb_data = np.concatenate((data1, data2), axis=0)
@@ -114,7 +110,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Insert batch 4
         print("Inserting batch 4 by replacing deleted elements")
-        labels_replaced = hnsw_index.add_items_to_vacant_place(data4, labels4)
+        hnsw_index.add_items(data4, labels4, replace_deleted=True)
 
         # Check recall
         print("Checking recall")
@@ -133,7 +129,7 @@ class RandomSelfTestCase(unittest.TestCase):
         del hnsw_index
         # Insert batch 3
         print("Inserting batch 3 by replacing deleted elements")
-        labels_replaced = hnsw_index_pckl.add_items_to_vacant_place(data3, labels3)
+        hnsw_index_pckl.add_items(data3, labels3, replace_deleted=True)
 
         # Check recall
         print("Checking recall")
