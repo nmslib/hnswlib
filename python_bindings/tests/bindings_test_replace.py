@@ -40,7 +40,7 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Declaring index
         hnsw_index = hnswlib.Index(space='l2', dim=dim)
-        hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, replace_deleted=True)
+        hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
 
         hnsw_index.set_ef(100)
         hnsw_index.set_num_threads(4)
@@ -106,7 +106,7 @@ class RandomSelfTestCase(unittest.TestCase):
         hnsw_index = hnswlib.Index(space='l2', dim=dim)  # the space can be changed - keeps the data, alters the distance function.
         hnsw_index.set_num_threads(4)
         print(f"Loading index from {index_path}")
-        hnsw_index.load_index(index_path, max_elements=max_num_elements, replace_deleted=True)
+        hnsw_index.load_index(index_path, max_elements=max_num_elements, allow_replace_deleted=True)
 
         # Insert batch 4
         print("Inserting batch 4 by replacing deleted elements")

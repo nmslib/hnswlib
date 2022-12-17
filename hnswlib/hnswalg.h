@@ -64,7 +64,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     mutable std::atomic<long> metric_distance_computations{0};
     mutable std::atomic<long> metric_hops{0};
 
-    bool replace_deleted_ = false;  // flag to replace deleted elements (marked as deleted) during insertions
+    bool allow_replace_deleted_ = false;  // flag to replace deleted elements (marked as deleted) during insertions
 
     std::mutex deleted_elements_lock;  // lock for deleted_elements
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
@@ -79,8 +79,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         const std::string &location,
         bool nmslib = false,
         size_t max_elements = 0,
-        bool replace_deleted = false)
-        : replace_deleted_(replace_deleted) {
+        bool allow_replace_deleted = false)
+        : allow_replace_deleted_(allow_replace_deleted) {
         loadIndex(location, s, max_elements);
     }
 
@@ -91,11 +91,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t M = 16,
         size_t ef_construction = 200,
         size_t random_seed = 100,
-        bool replace_deleted = false)
+        bool allow_replace_deleted = false)
         : link_list_locks_(max_elements),
             label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             element_levels_(max_elements),
-            replace_deleted_(replace_deleted) {
+            allow_replace_deleted_(allow_replace_deleted) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -707,7 +707,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         for (size_t i = 0; i < cur_element_count; i++) {
             if (isMarkedDeleted(i)) {
                 num_deleted_ += 1;
-                if (replace_deleted_) deleted_elements.insert(i);
+                if (allow_replace_deleted_) deleted_elements.insert(i);
             }
         }
 
@@ -771,7 +771,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId))+2;
             *ll_cur |= DELETE_MARK;
             num_deleted_ += 1;
-            if (replace_deleted_) {
+            if (allow_replace_deleted_) {
                 std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);
                 deleted_elements.insert(internalId);
             }
@@ -813,7 +813,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId)) + 2;
             *ll_cur &= ~DELETE_MARK;
             num_deleted_ -= 1;
-            if (replace_deleted_) {
+            if (allow_replace_deleted_) {
                 std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);
                 deleted_elements.erase(internalId);
             }
@@ -847,7 +847,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     * If replacement of deleted elements is enabled: replaces previously deleted point if any, updating it with new point
     */
     void addPoint(const void *data_point, labeltype label, bool replace_deleted = false) {
-        if ((replace_deleted_ == false) && (replace_deleted == true)) {
+        if ((allow_replace_deleted_ == false) && (replace_deleted == true)) {
             throw std::runtime_error("Replacement of deleted elements is disabled in constructor");
         }
 
@@ -1053,7 +1053,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             auto search = label_lookup_.find(label);
             if (search != label_lookup_.end()) {
                 tableint existingInternalId = search->second;
-                if (replace_deleted_) {
+                if (allow_replace_deleted_) {
                     if (isMarkedDeleted(existingInternalId)) {
                         throw std::runtime_error("Can't use addPoint to update deleted elements if replacement of deleted elements is enabled.");
                     }

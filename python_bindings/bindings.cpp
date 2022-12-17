@@ -194,12 +194,12 @@ class Index {
         size_t M,
         size_t efConstruction,
         size_t random_seed,
-        bool replace_deleted) {
+        bool allow_replace_deleted) {
         if (appr_alg) {
             throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, replace_deleted);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted);
         index_inited = true;
         ep_added = false;
         appr_alg->ef_ = default_ef;
@@ -224,12 +224,12 @@ class Index {
     }
 
 
-    void loadIndex(const std::string &path_to_index, size_t max_elements, bool replace_deleted) {
+    void loadIndex(const std::string &path_to_index, size_t max_elements, bool allow_replace_deleted) {
       if (appr_alg) {
           std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
-      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, replace_deleted);
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
@@ -415,7 +415,7 @@ class Index {
             "ef"_a = appr_alg->ef_,
             "has_deletions"_a = (bool)appr_alg->num_deleted_,
             "size_links_per_element"_a = appr_alg->size_links_per_element_,
-            "replace_deleted"_a = appr_alg->replace_deleted_,
+            "allow_replace_deleted"_a = appr_alg->allow_replace_deleted_,
 
             "label_lookup_external"_a = py::array_t<hnswlib::labeltype>(
                 { appr_alg->label_lookup_.size() },  // shape
@@ -578,11 +578,11 @@ class Index {
         }
 
         // process deleted elements
-        bool replace_deleted = false;
-        if (d.contains("replace_deleted")) {
-            replace_deleted = d["replace_deleted"].cast<bool>();
+        bool allow_replace_deleted = false;
+        if (d.contains("allow_replace_deleted")) {
+            allow_replace_deleted = d["allow_replace_deleted"].cast<bool>();
         }
-        appr_alg->replace_deleted_= replace_deleted;
+        appr_alg->allow_replace_deleted_= allow_replace_deleted;
 
         appr_alg->num_deleted_ = 0;
         bool has_deletions = d["has_deletions"].cast<bool>();
@@ -590,7 +590,7 @@ class Index {
             for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
                 if (appr_alg->isMarkedDeleted(i)) {
                     appr_alg->num_deleted_ += 1;
-                    if (replace_deleted) appr_alg->deleted_elements.insert(i);
+                    if (allow_replace_deleted) appr_alg->deleted_elements.insert(i);
                 }
             }
         }
@@ -886,7 +886,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("M") = 16,
             py::arg("ef_construction") = 200,
             py::arg("random_seed") = 100,
-            py::arg("replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false)
         .def("knn_query",
             &Index<float>::knnQuery_return_numpy,
             py::arg("data"),
@@ -908,7 +908,7 @@ PYBIND11_PLUGIN(hnswlib) {
             &Index<float>::loadIndex,
             py::arg("path_to_index"),
             py::arg("max_elements") = 0,
-            py::arg("replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))

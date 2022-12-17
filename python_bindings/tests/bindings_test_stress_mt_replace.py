@@ -31,7 +31,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # Declaring index
         for _ in range(100):
             hnsw_index = hnswlib.Index(space='l2', dim=dim)
-            hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, replace_deleted=True)
+            hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
 
             hnsw_index.set_ef(100)
             hnsw_index.set_num_threads(50)
