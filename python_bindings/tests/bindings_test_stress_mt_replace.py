@@ -42,21 +42,27 @@ class RandomSelfTestCase(unittest.TestCase):
 
             # Delete nearest neighbors of batch 2
             labels2_deleted, _ = hnsw_index.knn_query(data2, k=1)
-            for l in labels2_deleted:
-                hnsw_index.mark_deleted(l[0])
+            labels2_deleted_flat = labels2_deleted.flatten()
+            # delete probable duplicates from nearest neighbors
+            labels2_deleted_no_dup = set(labels2_deleted_flat)
+            for l in labels2_deleted_no_dup:
+                hnsw_index.mark_deleted(l)
             labels1_found, _ = hnsw_index.knn_query(data1, k=1)
             items = hnsw_index.get_items(labels1_found)
-            diff_with_gt_labels = np.mean(np.abs(data1-items))
+            diff_with_gt_labels = np.mean(np.abs(data1 - items))
             self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3)
 
             labels2_after, _ = hnsw_index.knn_query(data2, k=1)
             labels2_after_flat = labels2_after.flatten()
-            labels2_deleted_flat = labels2_deleted.flatten()
             common = np.intersect1d(labels2_after_flat, labels2_deleted_flat)
             self.assertTrue(common.size == 0)
 
             # Replace deleted elements
             # Maximum number of elements is reached therefore we cannot add new items
             # but we can replace the deleted ones
-            labels_replaced = hnsw_index.add_items(data3, labels3, replace_deleted=True)
-       
+            # Note: there may be less than num_elements elements.
+            #       As we could delete less than num_elements because of duplicates
+            num_duplicates = len(labels2_deleted) - len(labels2_deleted_no_dup)
+            labels3_tr = labels3[0:labels3.shape[0] - num_duplicates]
+            data3_tr = data3[0:data3.shape[0] - num_duplicates]
+            hnsw_index.add_items(data3_tr, labels3_tr, replace_deleted=True)

@@ -54,32 +54,37 @@ class RandomSelfTestCase(unittest.TestCase):
         # Delete nearest neighbors of batch 2
         print("Deleting neighbors of batch 2")
         labels2_deleted, _ = hnsw_index.knn_query(data2, k=1)
-        for l in labels2_deleted:
-            hnsw_index.mark_deleted(l[0])
+        # delete probable duplicates from nearest neighbors
+        labels2_deleted_no_dup = set(labels2_deleted.flatten())
+        num_duplicates = len(labels2_deleted) - len(labels2_deleted_no_dup)
+        for l in labels2_deleted_no_dup:
+            hnsw_index.mark_deleted(l)
         labels1_found, _ = hnsw_index.knn_query(data1, k=1)
         items = hnsw_index.get_items(labels1_found)
-        diff_with_gt_labels = np.mean(np.abs(data1-items))
+        diff_with_gt_labels = np.mean(np.abs(data1 - items))
         self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3)
 
         labels2_after, _ = hnsw_index.knn_query(data2, k=1)
         for la in labels2_after:
-            for lb in labels2_deleted:
-                if la[0] == lb[0]:
-                    self.assertTrue(False)
+            if la[0] in labels2_deleted_no_dup:
+                print(f"Found deleted label {la[0]} during knn search")
+                self.assertTrue(False)
         print("All the neighbors of data2 are removed")
 
         # Replace deleted elements
         print("Inserting batch 3 by replacing deleted elements")
         # Maximum number of elements is reached therefore we cannot add new items
         # but we can replace the deleted ones
-        hnsw_index.add_items(data3, labels3, replace_deleted=True)
+        # Note: there may be less than num_elements elements.
+        #       As we could delete less than num_elements because of duplicates
+        labels3_tr = labels3[0:labels3.shape[0] - num_duplicates]
+        data3_tr = data3[0:data3.shape[0] - num_duplicates]
+        hnsw_index.add_items(data3_tr, labels3_tr, replace_deleted=True)
 
         # After replacing, all labels should be retrievable
         print("Checking that remaining labels are in index")
         # Get remaining data from batch 1 and batch 2 after deletion of elements
-        remaining_labels = set(labels1) | set(labels2)
-        labels2_deleted_list = [l[0] for l in labels2_deleted]
-        remaining_labels = remaining_labels - set(labels2_deleted_list)
+        remaining_labels = (set(labels1) | set(labels2)) - labels2_deleted_no_dup
         remaining_labels_list = list(remaining_labels)
         comb_data = np.concatenate((data1, data2), axis=0)
         remaining_data = comb_data[remaining_labels_list]
@@ -87,13 +92,13 @@ class RandomSelfTestCase(unittest.TestCase):
         returned_items = hnsw_index.get_items(remaining_labels_list)
         self.assertSequenceEqual(remaining_data.tolist(), returned_items)
 
-        returned_items = hnsw_index.get_items(labels3)
-        self.assertSequenceEqual(data3.tolist(), returned_items)
+        returned_items = hnsw_index.get_items(labels3_tr)
+        self.assertSequenceEqual(data3_tr.tolist(), returned_items)
 
         # Check index serialization
         # Delete batch 3
         print("Deleting batch 3")
-        for l in labels3:
+        for l in labels3_tr:
             hnsw_index.mark_deleted(l)
 
         # Save index
@@ -110,18 +115,20 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # Insert batch 4
         print("Inserting batch 4 by replacing deleted elements")
-        hnsw_index.add_items(data4, labels4, replace_deleted=True)
+        labels4_tr = labels4[0:labels4.shape[0] - num_duplicates]
+        data4_tr = data4[0:data4.shape[0] - num_duplicates]
+        hnsw_index.add_items(data4_tr, labels4_tr, replace_deleted=True)
 
         # Check recall
         print("Checking recall")
-        labels_found, _ = hnsw_index.knn_query(data4, k=1)
-        recall = np.mean(labels_found.reshape(-1) == labels4)
+        labels_found, _ = hnsw_index.knn_query(data4_tr, k=1)
+        recall = np.mean(labels_found.reshape(-1) == labels4_tr)
         print(f"Recall for the 4 batch: {recall}")
         self.assertGreater(recall, recall_threshold)
 
         # Delete batch 4
         print("Deleting batch 4")
-        for l in labels4:
+        for l in labels4_tr:
             hnsw_index.mark_deleted(l)
 
         print("Testing pickle serialization")
@@ -129,12 +136,12 @@ class RandomSelfTestCase(unittest.TestCase):
         del hnsw_index
         # Insert batch 3
         print("Inserting batch 3 by replacing deleted elements")
-        hnsw_index_pckl.add_items(data3, labels3, replace_deleted=True)
+        hnsw_index_pckl.add_items(data3_tr, labels3_tr, replace_deleted=True)
 
         # Check recall
         print("Checking recall")
-        labels_found, _ = hnsw_index_pckl.knn_query(data3, k=1)
-        recall = np.mean(labels_found.reshape(-1) == labels3)
+        labels_found, _ = hnsw_index_pckl.knn_query(data3_tr, k=1)
+        recall = np.mean(labels_found.reshape(-1) == labels3_tr)
         print(f"Recall for the 3 batch: {recall}")
         self.assertGreater(recall, recall_threshold)
 

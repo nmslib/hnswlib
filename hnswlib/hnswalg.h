@@ -855,6 +855,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::unique_lock <std::mutex> lock_label(getLabelOpMutex(label));
         if (!replace_deleted) {
             addPoint(data_point, label, -1);
+            return;
         }
         // check if there is vacant place
         tableint internal_id_replaced;
