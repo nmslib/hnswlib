@@ -71,11 +71,11 @@ int main() {
 
     hnswlib::L2Space space(d);
 
-    float batch1[d * max_elements];
+    float* batch1 = new float[d * max_elements];
     for (int i = 0; i < d * max_elements; i++) {
         batch1[i] = distrib_real(rng);
     }
-    float batch2[d * num_elements];
+    float* batch2 = new float[d * num_elements];
     for (int i = 0; i < d * num_elements; i++) {
         batch2[i] = distrib_real(rng);
     }
@@ -114,5 +114,8 @@ int main() {
     }
     
     std::cout << "Finish" << std::endl;
+
+    delete[] batch1;
+    delete[] batch2;
     return 0;
 }
