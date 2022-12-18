@@ -9,7 +9,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CMAKE_CXX_STANDARD 11)
 
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-      SET( CMAKE_CXX_FLAGS  "-Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -march=native -fpic -ftree-vectorize")
+      SET( CMAKE_CXX_FLAGS  "-Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -mcpu=apple-m1 -fpic -ftree-vectorize")
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -DNDEBUG -std=c++11 -DHAVE_CXX0X -march=native -fpic -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0" )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -27,6 +27,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     add_executable(multiThreadLoad_test examples/multiThreadLoad_test.cpp)
     target_link_libraries(multiThreadLoad_test hnswlib)
+
+    add_executable(multiThread_replace_test examples/multiThread_replace_test.cpp)
+    target_link_libraries(multiThread_replace_test hnswlib)
 
     add_executable(main main.cpp sift_1b.cpp)
     target_link_libraries(main hnswlib)
