@@ -104,7 +104,7 @@ int main() {
 
         std::cout << "Updating elements\n";
         ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t threadId) {
-            int label = rand_labels[row] + 10000;
+            int label = rand_labels[row] + max_elements;
             alg_hnsw->addPoint((void*)(batch2 + d * row), label, true);
         });
 
