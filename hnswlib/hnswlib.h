@@ -16,22 +16,28 @@
 #include <intrin.h>
 #include <stdexcept>
 #include "cpu_x86.h"
-void cpu_x86::cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
+void cpu_x86::cpuid(int32_t out[4], int32_t eax, int32_t ecx)
+{
     __cpuidex(out, eax, ecx);
 }
-__int64 xgetbv(unsigned int x) {
+__int64 xgetbv(unsigned int x)
+{
     return _xgetbv(x);
 }
 #else
 #include <x86intrin.h>
 #include <cpuid.h>
 #include <stdint.h>
-void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx)
+{
     __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 }
-uint64_t xgetbv(unsigned int index) {
+uint64_t xgetbv(unsigned int index)
+{
     uint32_t eax, edx;
-    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+    __asm__ __volatile__("xgetbv"
+                         : "=a"(eax), "=d"(edx)
+                         : "c"(index));
     return ((uint64_t)edx << 32) | eax;
 }
 #endif
@@ -49,9 +55,10 @@ uint64_t xgetbv(unsigned int index) {
 #endif
 
 // Adapted from https://github.com/Mysticial/FeatureDetector
-#define _XCR_XFEATURE_ENABLED_MASK  0
+#define _XCR_XFEATURE_ENABLED_MASK 0
 
-bool AVXCapable() {
+bool AVXCapable()
+{
     int cpuInfo[4];
 
     // CPU support
@@ -59,7 +66,8 @@ bool AVXCapable() {
     int nIds = cpuInfo[0];
 
     bool HW_AVX = false;
-    if (nIds >= 0x00000001) {
+    if (nIds >= 0x00000001)
+    {
         cpuid(cpuInfo, 0x00000001, 0);
         HW_AVX = (cpuInfo[2] & ((int)1 << 28)) != 0;
     }
@@ -71,15 +79,18 @@ bool AVXCapable() {
     bool cpuAVXSuport = (cpuInfo[2] & (1 << 28)) != 0;
 
     bool avxSupported = false;
-    if (osUsesXSAVE_XRSTORE && cpuAVXSuport) {
+    if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
+    {
         uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
         avxSupported = (xcrFeatureMask & 0x6) == 0x6;
     }
     return HW_AVX && avxSupported;
 }
 
-bool AVX512Capable() {
-    if (!AVXCapable()) return false;
+bool AVX512Capable()
+{
+    if (!AVXCapable())
+        return false;
 
     int cpuInfo[4];
 
@@ -88,7 +99,8 @@ bool AVX512Capable() {
     int nIds = cpuInfo[0];
 
     bool HW_AVX512F = false;
-    if (nIds >= 0x00000007) { //  AVX512 Foundation
+    if (nIds >= 0x00000007)
+    { //  AVX512 Foundation
         cpuid(cpuInfo, 0x00000007, 0);
         HW_AVX512F = (cpuInfo[1] & ((int)1 << 16)) != 0;
     }
@@ -100,7 +112,8 @@ bool AVX512Capable() {
     bool cpuAVXSuport = (cpuInfo[2] & (1 << 28)) != 0;
 
     bool avx512Supported = false;
-    if (osUsesXSAVE_XRSTORE && cpuAVXSuport) {
+    if (osUsesXSAVE_XRSTORE && cpuAVXSuport)
+    {
         uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
         avx512Supported = (xcrFeatureMask & 0xe6) == 0xe6;
     }
@@ -113,35 +126,40 @@ bool AVX512Capable() {
 #include <iostream>
 #include <string.h>
 
-namespace hnswlib {
+namespace hnswlib
+{
     typedef size_t labeltype;
 
     template <typename T>
-    class pairGreater {
+    class pairGreater
+    {
     public:
-        bool operator()(const T& p1, const T& p2) {
+        bool operator()(const T &p1, const T &p2)
+        {
             return p1.first > p2.first;
         }
     };
 
-    template<typename T>
-    static void writeBinaryPOD(std::ostream &out, const T &podRef) {
-        out.write((char *) &podRef, sizeof(T));
+    template <typename T>
+    static void writeBinaryPOD(std::ostream &out, const T &podRef)
+    {
+        out.write((char *)&podRef, sizeof(T));
     }
 
-    template<typename T>
-    static void readBinaryPOD(std::istream &in, T &podRef) {
-        in.read((char *) &podRef, sizeof(T));
+    template <typename T>
+    static void readBinaryPOD(std::istream &in, T &podRef)
+    {
+        in.read((char *)&podRef, sizeof(T));
     }
 
-    template<typename MTYPE>
-    using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
+    template <typename MTYPE>
+    using DISTFUNC = MTYPE (*)(const void *, const void *, const void *);
 
-
-    template<typename MTYPE>
-    class SpaceInterface {
+    template <typename MTYPE>
+    class SpaceInterface
+    {
     public:
-        //virtual void search(void *);
+        // virtual void search(void *);
         virtual size_t get_data_size() = 0;
 
         virtual DISTFUNC<MTYPE> get_dist_func() = 0;
@@ -151,24 +169,27 @@ namespace hnswlib {
         virtual ~SpaceInterface() {}
     };
 
-    template<typename dist_t>
-    class AlgorithmInterface {
+    template <typename dist_t>
+    class AlgorithmInterface
+    {
     public:
-        virtual void addPoint(const void *datapoint, labeltype label)=0;
-        virtual std::priority_queue<std::pair<dist_t, labeltype >> searchKnn(const void *, size_t) const = 0;
+        virtual void addPoint(const float *datapoint, labeltype label) = 0;
+        virtual std::priority_queue<std::pair<dist_t, labeltype>> searchKnn(const void *, size_t) = 0;
 
         // Return k nearest neighbor in the order of closer fist
         virtual std::vector<std::pair<dist_t, labeltype>>
-            searchKnnCloserFirst(const void* query_data, size_t k) const;
+        searchKnnCloserFirst(const void *query_data, size_t k);
 
-        virtual void saveIndex(const std::string &location)=0;
-        virtual ~AlgorithmInterface(){
+        virtual void saveIndex(const std::string &location) = 0;
+        virtual ~AlgorithmInterface()
+        {
         }
     };
 
-    template<typename dist_t>
+    template <typename dist_t>
     std::vector<std::pair<dist_t, labeltype>>
-    AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k) const {
+    AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void *query_data, size_t k)
+    {
         std::vector<std::pair<dist_t, labeltype>> result;
 
         // here searchKnn returns the result in the order of further first
@@ -176,7 +197,8 @@ namespace hnswlib {
         {
             size_t sz = ret.size();
             result.resize(sz);
-            while (!ret.empty()) {
+            while (!ret.empty())
+            {
                 result[--sz] = ret.top();
                 ret.pop();
             }
