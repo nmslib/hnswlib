@@ -116,8 +116,7 @@ public:
         appr_alg = NULL;
         ep_added = true;
         index_inited = false;
-        // num_threads_default = std::thread::hardware_concurrency();
-        num_threads_default = 1;
+        num_threads_default = std::thread::hardware_concurrency();
 
         default_ef = 10;
         useNormFactor = useNormFactor_;
@@ -272,8 +271,6 @@ public:
             }
 
             // call the factor thing here
-            // maybe sample only a few data here...? but then here's the question: how to do KNN?
-
             if (useNormFactor) {
                 // add dataset and get the factors
                 for(int row = 0; row<rows; row++) {
