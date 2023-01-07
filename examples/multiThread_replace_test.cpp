@@ -71,6 +71,7 @@ int main() {
 
     hnswlib::L2Space space(d);
 
+    // generate batch1 and batch2 data
     float* batch1 = new float[d * max_elements];
     for (int i = 0; i < d * max_elements; i++) {
         batch1[i] = distrib_real(rng);
@@ -80,6 +81,7 @@ int main() {
         batch2[i] = distrib_real(rng);
     }
 
+    // generate random labels to delete them from index
     std::vector<int> rand_labels(max_elements);
     for (int i = 0; i < max_elements; i++) {
         rand_labels[i] = i;
@@ -92,16 +94,19 @@ int main() {
 
         hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, 16, 200, 123, true);
 
+        // add batch1 data
         std::cout << "Building index\n";
         ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
             alg_hnsw->addPoint((void*)(batch1 + d * row), row);
         });
 
+        // delete batch1 data
         std::cout << "Deleting\n";
         for (int i = 0; i < num_elements; i++) {
             alg_hnsw->markDelete(rand_labels[i]);
         }
 
+        // replace batch1 data with batch2 data
         std::cout << "Updating elements\n";
         ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t threadId) {
             int label = rand_labels[row] + max_elements;

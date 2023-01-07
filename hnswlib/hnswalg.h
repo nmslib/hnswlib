@@ -451,6 +451,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         tableint next_closest_entry_point = selectedNeighbors.back();
 
         {
+            std::unique_lock <std::mutex> lock(link_list_locks_[cur_c], std::defer_lock);
+            if (isUpdate) {
+                lock.lock();
+            }
             linklistsizeint *ll_cur;
             if (level == 0)
                 ll_cur = get_linklist0(cur_c);
