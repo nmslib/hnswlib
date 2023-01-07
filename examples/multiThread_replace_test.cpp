@@ -89,7 +89,7 @@ int main() {
     std::shuffle(rand_labels.begin(), rand_labels.end(), rng);
 
     int iter = 0;
-    while (iter < 1000) {
+    while (iter < 200) {
         std::cout << iter << std::endl;
 
         hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, 16, 200, 123, true);
