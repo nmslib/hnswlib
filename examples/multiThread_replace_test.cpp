@@ -90,24 +90,19 @@ int main() {
 
     int iter = 0;
     while (iter < 200) {
-        std::cout << iter << std::endl;
-
         hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, 16, 200, 123, true);
 
         // add batch1 data
-        std::cout << "Building index\n";
         ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
             alg_hnsw->addPoint((void*)(batch1 + d * row), row);
         });
 
         // delete half random elements of batch1 data
-        std::cout << "Deleting\n";
         for (int i = 0; i < num_elements; i++) {
             alg_hnsw->markDelete(rand_labels[i]);
         }
 
         // replace deleted elements with batch2 data
-        std::cout << "Updating elements\n";
         ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t threadId) {
             int label = rand_labels[row] + max_elements;
             alg_hnsw->addPoint((void*)(batch2 + d * row), label, true);
