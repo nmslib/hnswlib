@@ -100,13 +100,13 @@ int main() {
             alg_hnsw->addPoint((void*)(batch1 + d * row), row);
         });
 
-        // delete batch1 data
+        // delete half random elements of batch1 data
         std::cout << "Deleting\n";
         for (int i = 0; i < num_elements; i++) {
             alg_hnsw->markDelete(rand_labels[i]);
         }
 
-        // replace batch1 data with batch2 data
+        // replace deleted elements with batch2 data
         std::cout << "Updating elements\n";
         ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t threadId) {
             int label = rand_labels[row] + max_elements;

@@ -9,6 +9,10 @@ import hnswlib
 
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
+        """
+            Tests if replace of deleted elements works correctly
+            Tests serialization of the index with replaced elements
+        """
         dim = 16
         num_elements = 5000
         max_num_elements = 2 * num_elements
@@ -146,3 +150,96 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertGreater(recall, recall_threshold)
 
         os.remove(index_path)
+
+
+    def test_recall_degradation(self):
+        """
+            Compares recall of the index with replaced elements and without
+            Measures recall degradation
+        """
+        dim = 16
+        num_elements = 10_000
+        max_num_elements = 2 * num_elements
+        query_size = 1_000
+        k = 100
+
+        recall_threshold = 0.98
+        max_recall_diff = 0.02
+
+        # Generating sample data
+        print("Generating data")
+        # batch 1
+        first_id = 0
+        last_id = num_elements
+        labels1 = np.arange(first_id, last_id)
+        data1 = np.float32(np.random.random((num_elements, dim)))
+        # batch 2
+        first_id += num_elements
+        last_id += num_elements
+        labels2 = np.arange(first_id, last_id)
+        data2 = np.float32(np.random.random((num_elements, dim)))
+        # batch 3
+        first_id += num_elements
+        last_id += num_elements
+        labels3 = np.arange(first_id, last_id)
+        data3 = np.float32(np.random.random((num_elements, dim)))
+        # query to test recall
+        query_data = np.float32(np.random.random((query_size, dim)))
+
+        # Declaring index
+        hnsw_index_no_replace = hnswlib.Index(space='l2', dim=dim)
+        hnsw_index_no_replace.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=False)
+        hnsw_index_with_replace = hnswlib.Index(space='l2', dim=dim)
+        hnsw_index_with_replace.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+
+        bf_index = hnswlib.BFIndex(space='l2', dim=dim)
+        bf_index.init_index(max_elements=max_num_elements)
+
+        hnsw_index_no_replace.set_ef(100)
+        hnsw_index_no_replace.set_num_threads(50)
+        hnsw_index_with_replace.set_ef(100)
+        hnsw_index_with_replace.set_num_threads(50)
+
+        # Add data
+        print("Adding data")
+        hnsw_index_with_replace.add_items(data1, labels1)
+        hnsw_index_with_replace.add_items(data2, labels2)  # maximum number of elements is reached
+        bf_index.add_items(data1, labels1)
+        bf_index.add_items(data3, labels3)  # maximum number of elements is reached
+
+        for l in labels2:
+            hnsw_index_with_replace.mark_deleted(l)
+        hnsw_index_with_replace.add_items(data3, labels3, replace_deleted=True)
+
+        hnsw_index_no_replace.add_items(data1, labels1)
+        hnsw_index_no_replace.add_items(data3, labels3)  # maximum number of elements is reached
+
+        # Query the elements and measure recall:
+        labels_hnsw_with_replace, _ = hnsw_index_with_replace.knn_query(query_data, k)
+        labels_hnsw_no_replace, _ = hnsw_index_no_replace.knn_query(query_data, k)
+        labels_bf, distances_bf = bf_index.knn_query(query_data, k)
+
+        # Measure recall
+        correct_with_replace = 0
+        correct_no_replace = 0
+        for i in range(query_size):
+            for label in labels_hnsw_with_replace[i]:
+                for correct_label in labels_bf[i]:
+                    if label == correct_label:
+                        correct_with_replace += 1
+                        break
+            for label in labels_hnsw_no_replace[i]:
+                for correct_label in labels_bf[i]:
+                    if label == correct_label:
+                        correct_no_replace += 1
+                        break
+
+        recall_with_replace = float(correct_with_replace) / (k*query_size)
+        recall_no_replace = float(correct_no_replace) / (k*query_size)
+        print("recall with replace:", recall_with_replace)
+        print("recall without replace:", recall_no_replace)
+
+        recall_diff = abs(recall_with_replace - recall_with_replace)
+
+        self.assertGreater(recall_no_replace, recall_threshold)
+        self.assertLess(recall_diff, max_recall_diff)
