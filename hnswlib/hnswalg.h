@@ -13,7 +13,10 @@
 #include <cmath>
 #include <stdlib.h>
 #include <unordered_map>
-#include<utility>
+#include <utility>
+#include <omp.h>
+#include <chrono>
+
 
 namespace hnswlib
 {
@@ -32,7 +35,6 @@ namespace hnswlib
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, const std::string &location, bool nmslib = false, size_t max_elements = 0)
         {
-//            loadIndex(location, s, max_elements);
         }
 
         HierarchicalNSW(SpaceInterface<dist_t> *s, size_t max_elements, size_t M = 16, size_t ef_construction = 200,
@@ -297,6 +299,7 @@ namespace hnswlib
                 float xp_sum = 0;
                 float pp_sum = 0;
 
+//                #pragma omp parallel for reduction(+:xp_sum,pp_sum)
                 for (int j = 0; j < z; j++) // samples
                 {
                     int random_indice = getRandomIndice(range_start_indices[i], range_start_indices[i + 1]);
@@ -307,8 +310,11 @@ namespace hnswlib
                     for (int n=0; n<dataset.size(); n++) {
                       // get inner product
                       float inner_product = 0;
-                      for (unsigned d = 0; d < dim_; d++) {
-                        inner_product += query[d] * dataset[n][d];
+                      for (unsigned d = 0; d < dim_; d += 4) {
+                        inner_product += query[d] * dataset[n][d] +
+                                        query[d+1] * dataset[n][d+1] +
+                                        query[d+2] * dataset[n][d+2] +
+                                        query[d+3] * dataset[n][d+3];
                       }
                       nearest_neighbours.emplace(inner_product, n);
                     }
@@ -316,23 +322,34 @@ namespace hnswlib
                     for (int n=0; n<num_neighbours; n++) {
                       neighbours[n] = dataset[nearest_neighbours.top().second];
                       // get x * p
-                      for (int d = 0; d < dim_; d++)
+                      for (int d = 0; d < dim_; d += 4)
                       {
-                        xp_sum += query[d] * neighbours[n][d];
+                        xp_sum += query[d] * neighbours[n][d] +
+                                    query[d+1] * neighbours[n][d+1] +
+                                    query[d+2] * neighbours[n][d+2] +
+                                    query[d+3] * neighbours[n][d+3];
                       }
                       nearest_neighbours.pop();
                     }
 
                     // Get p_i * p_j
+//                    #pragma omp parallel for reduction(+:pp_sum) num_threads(MAX)
                     for (int m = 0; m < num_neighbours; m++)
                     {
                         for (int n = 0; n < num_neighbours; n++)
                         {
                             if (m != n)
                             {
-                                for (int d = 0; d < dim_; d++)
+                                #pragma omp parallel for reduction(+:pp_sum) num_threads(MAX)
+//                                #pragma omp simd reduction(+:pp_sum)
+                                for (int d = 0; d < dim_; d += 6)
                                 {
-                                  pp_sum += neighbours[m][d] * neighbours[n][d];
+                                    pp_sum += neighbours[m][d] * neighbours[n][d] +
+                                              neighbours[m][d+1] * neighbours[n][d+1] +
+                                              neighbours[m][d+2] * neighbours[n][d+2] +
+                                              neighbours[m][d+3] * neighbours[n][d+3] +
+                                              neighbours[m][d+4] * neighbours[n][d+4] +
+                                              neighbours[m][d+5] * neighbours[n][d+5];
                                 }
                             }
                         }
