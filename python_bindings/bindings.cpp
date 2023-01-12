@@ -193,12 +193,13 @@ class Index {
         size_t maxElements,
         size_t M,
         size_t efConstruction,
-        size_t random_seed) {
+        size_t random_seed,
+        bool allow_replace_deleted) {
         if (appr_alg) {
             throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted);
         index_inited = true;
         ep_added = false;
         appr_alg->ef_ = default_ef;
@@ -223,12 +224,12 @@ class Index {
     }
 
 
-    void loadIndex(const std::string &path_to_index, size_t max_elements) {
+    void loadIndex(const std::string &path_to_index, size_t max_elements, bool allow_replace_deleted) {
       if (appr_alg) {
           std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
-      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements);
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
@@ -244,7 +245,7 @@ class Index {
     }
 
 
-    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1) {
+    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         if (num_threads <= 0)
@@ -273,7 +274,7 @@ class Index {
                     normalize_vector(vector_data, norm_array.data());
                     vector_data = norm_array.data();
                 }
-                appr_alg->addPoint((void*)vector_data, (size_t)id);
+                appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
                 start = 1;
                 ep_added = true;
             }
@@ -282,7 +283,7 @@ class Index {
             if (normalize == false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)items.data(row), (size_t)id);
+                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
                     });
             } else {
                 std::vector<float> norm_array(num_threads * dim);
@@ -292,7 +293,7 @@ class Index {
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id);
+                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
                     });
             }
             cur_l += rows;
@@ -400,7 +401,7 @@ class Index {
         return py::dict(
             "offset_level0"_a = appr_alg->offsetLevel0_,
             "max_elements"_a = appr_alg->max_elements_,
-            "cur_element_count"_a = appr_alg->cur_element_count,
+            "cur_element_count"_a = (size_t)appr_alg->cur_element_count,
             "size_data_per_element"_a = appr_alg->size_data_per_element_,
             "label_offset"_a = appr_alg->label_offset_,
             "offset_data"_a = appr_alg->offsetData_,
@@ -414,6 +415,7 @@ class Index {
             "ef"_a = appr_alg->ef_,
             "has_deletions"_a = (bool)appr_alg->num_deleted_,
             "size_links_per_element"_a = appr_alg->size_links_per_element_,
+            "allow_replace_deleted"_a = appr_alg->allow_replace_deleted_,
 
             "label_lookup_external"_a = py::array_t<hnswlib::labeltype>(
                 { appr_alg->label_lookup_.size() },  // shape
@@ -576,12 +578,19 @@ class Index {
         }
 
         // process deleted elements
+        bool allow_replace_deleted = false;
+        if (d.contains("allow_replace_deleted")) {
+            allow_replace_deleted = d["allow_replace_deleted"].cast<bool>();
+        }
+        appr_alg->allow_replace_deleted_= allow_replace_deleted;
+
         appr_alg->num_deleted_ = 0;
         bool has_deletions = d["has_deletions"].cast<bool>();
         if (has_deletions) {
             for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
                 if (appr_alg->isMarkedDeleted(i)) {
                     appr_alg->num_deleted_ += 1;
+                    if (allow_replace_deleted) appr_alg->deleted_elements.insert(i);
                 }
             }
         }
@@ -871,15 +880,35 @@ PYBIND11_PLUGIN(hnswlib) {
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
         .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
-        .def("init_index", &Index<float>::init_new_index, py::arg("max_elements"), py::arg("M") = 16, py::arg("ef_construction") = 200, py::arg("random_seed") = 100)
-        .def("knn_query", &Index<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("num_threads") = -1, py::arg("filter") = py::none())
-        .def("add_items", &Index<float>::addItems, py::arg("data"), py::arg("ids") = py::none(), py::arg("num_threads") = -1)
+        .def("init_index",
+            &Index<float>::init_new_index,
+            py::arg("max_elements"),
+            py::arg("M") = 16,
+            py::arg("ef_construction") = 200,
+            py::arg("random_seed") = 100,
+            py::arg("allow_replace_deleted") = false)
+        .def("knn_query",
+            &Index<float>::knnQuery_return_numpy,
+            py::arg("data"),
+            py::arg("k") = 1,
+            py::arg("num_threads") = -1,
+            py::arg("filter") = py::none())
+        .def("add_items",
+            &Index<float>::addItems,
+            py::arg("data"),
+            py::arg("ids") = py::none(),
+            py::arg("num_threads") = -1,
+            py::arg("replace_deleted") = false)
         .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
-        .def("load_index", &Index<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements") = 0)
+        .def("load_index",
+            &Index<float>::loadIndex,
+            py::arg("path_to_index"),
+            py::arg("max_elements") = 0,
+            py::arg("allow_replace_deleted") = false)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
@@ -901,7 +930,7 @@ PYBIND11_PLUGIN(hnswlib) {
             return index.index_inited ? index.appr_alg->max_elements_ : 0;
         })
         .def_property_readonly("element_count", [](const Index<float> & index) {
-            return index.index_inited ? index.appr_alg->cur_element_count : 0;
+            return index.index_inited ? (size_t)index.appr_alg->cur_element_count : 0;
         })
         .def_property_readonly("ef_construction", [](const Index<float> & index) {
           return index.index_inited ? index.appr_alg->ef_construction_ : 0;

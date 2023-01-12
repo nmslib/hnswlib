@@ -25,6 +25,12 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(searchKnnWithFilter_test examples/searchKnnWithFilter_test.cpp)
     target_link_libraries(searchKnnWithFilter_test hnswlib)
 
+    add_executable(multiThreadLoad_test examples/multiThreadLoad_test.cpp)
+    target_link_libraries(multiThreadLoad_test hnswlib)
+
+    add_executable(multiThread_replace_test examples/multiThread_replace_test.cpp)
+    target_link_libraries(multiThread_replace_test hnswlib)
+
     add_executable(main main.cpp sift_1b.cpp)
     target_link_libraries(main hnswlib)
 endif()

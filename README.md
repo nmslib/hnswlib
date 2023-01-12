@@ -54,19 +54,22 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 `hnswlib.Index` methods:
-* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100)` initializes the index from with no elements. 
+* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100, allow_replace_deleted = False)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
+    * `allow_replace_deleted` enables replacing of deleted elements with new added ones.
     
-* `add_items(data, ids, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
+* `add_items(data, ids, num_threads = -1, replace_deleted = False)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
+    * `replace_deleted` replaces deleted elements. Note it allows to save memory.
+      - to use it `init_index` should be called with `allow_replace_deleted=True`
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
 * `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results. Throws an exception if it is already deleted.
-* 
+
 * `unmark_deleted(label)`  - unmarks the element as deleted, so it will be not be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
@@ -74,13 +77,15 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
-* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closest elements for each element of the 
+* `knn_query(data, k = 1, num_threads = -1, filter = None)` make a batch query for `k` closest elements for each element of the 
     * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
+    * `filter` filters elements by its labels, returns elements with allowed ids
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
     
-* `load_index(path_to_index, max_elements = 0)` loads the index from persistence to the uninitialized index.
+* `load_index(path_to_index, max_elements = 0, allow_replace_deleted = False)` loads the index from persistence to the uninitialized index.
     * `max_elements`(optional) resets the maximum number of elements in the structure.
+    * `allow_replace_deleted` specifies whether the index being loaded has enabled replacing of deleted elements.
       
 * `save_index(path_to_index)` saves the index from persistence.
 
@@ -142,7 +147,7 @@ p.add_items(data, ids)
 # Controlling the recall by setting ef:
 p.set_ef(50) # ef should always be > k
 
-# Query dataset, k - number of closest elements (returns 2 numpy arrays)
+# Query dataset, k - number of the closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
 
 # Index objects support pickling
@@ -155,7 +160,6 @@ print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim
 print(f"Index construction: M={p_copy.M}, ef_construction={p_copy.ef_construction}")
 print(f"Index size is {p_copy.element_count} and index capacity is {p_copy.max_elements}")
 print(f"Search speed/quality trade-off parameter: ef={p_copy.ef}")
-
 ```
 
 An example with updates after serialization/deserialization:
@@ -196,7 +200,6 @@ p.set_ef(10)
 # By default using all available cores
 p.set_num_threads(4)
 
-
 print("Adding first batch of %d elements" % (len(data1)))
 p.add_items(data1)
 
@@ -224,6 +227,104 @@ p.add_items(data2)
 # Query the elements for themselves and measure recall:
 labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
+```
+
+An example with a filter:
+```python
+import hnswlib
+import numpy as np
+
+dim = 16
+num_elements = 10000
+
+# Generating sample data
+data = np.float32(np.random.random((num_elements, dim)))
+
+# Declaring index
+hnsw_index = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
+
+# Initiating index
+# max_elements - the maximum number of elements, should be known beforehand
+#     (probably will be made optional in the future)
+#
+# ef_construction - controls index search speed/build speed tradeoff
+# M - is tightly connected with internal dimensionality of the data
+#     strongly affects the memory consumption
+
+hnsw_index.init_index(max_elements=num_elements, ef_construction=100, M=16)
+
+# Controlling the recall by setting ef:
+# higher ef leads to better accuracy, but slower search
+hnsw_index.set_ef(10)
+
+# Set number of threads used during batch search/construction
+# By default using all available cores
+hnsw_index.set_num_threads(4)
+
+print("Adding %d elements" % (len(data)))
+# Added elements will have consecutive ids
+hnsw_index.add_items(data, ids=np.arange(num_elements))
+
+print("Querying only even elements")
+# Define filter function that allows only even ids
+filter_function = lambda idx: idx%2 == 0
+# Query the elements for themselves and search only for even elements:
+labels, distances = hnsw_index.knn_query(data, k=1, filter=filter_function)
+# labels contain only elements with even id
+```
+
+An example with replacing of deleted elements:
+```python
+import hnswlib
+import numpy as np
+
+dim = 16
+num_elements = 1_000
+max_num_elements = 2 * num_elements
+
+# Generating sample data
+labels1 = np.arange(0, num_elements)
+data1 = np.float32(np.random.random((num_elements, dim)))  # batch 1
+labels2 = np.arange(num_elements, 2 * num_elements)
+data2 = np.float32(np.random.random((num_elements, dim)))  # batch 2
+labels3 = np.arange(2 * num_elements, 3 * num_elements)
+data3 = np.float32(np.random.random((num_elements, dim)))  # batch 3
+
+# Declaring index
+hnsw_index = hnswlib.Index(space='l2', dim=dim)
+
+# Initiating index
+# max_elements - the maximum number of elements, should be known beforehand
+#     (probably will be made optional in the future)
+#
+# ef_construction - controls index search speed/build speed tradeoff
+# M - is tightly connected with internal dimensionality of the data
+#     strongly affects the memory consumption
+
+# Enable replacing of deleted elements
+hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+
+# Controlling the recall by setting ef:
+# higher ef leads to better accuracy, but slower search
+hnsw_index.set_ef(10)
+
+# Set number of threads used during batch search/construction
+# By default using all available cores
+hnsw_index.set_num_threads(4)
+
+# Add batch 1 and 2 data
+hnsw_index.add_items(data1, labels1)
+hnsw_index.add_items(data2, labels2)  # Note: maximum number of elements is reached
+
+# Delete data of batch 2
+for label in labels2:
+    hnsw_index.mark_deleted(label)
+
+# Replace deleted elements
+# Maximum number of elements is reached therefore we cannot add new items,
+# but we can replace the deleted ones by using replace_deleted=True
+hnsw_index.add_items(data3, labels3, replace_deleted=True)
+# hnsw_index contains the data of batch 1 and batch 3 only
 ```
 
 ### Bindings installation

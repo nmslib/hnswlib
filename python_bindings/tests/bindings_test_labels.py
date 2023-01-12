@@ -95,19 +95,20 @@ class RandomSelfTestCase(unittest.TestCase):
 
             # Delete data1
             labels1_deleted, _ = p.knn_query(data1, k=1)
-
-            for l in labels1_deleted:
-                p.mark_deleted(l[0])
+            # delete probable duplicates from nearest neighbors
+            labels1_deleted_no_dup = set(labels1_deleted.flatten())
+            for l in labels1_deleted_no_dup:
+                p.mark_deleted(l)
             labels2, _ = p.knn_query(data2, k=1)
             items = p.get_items(labels2)
             diff_with_gt_labels = np.mean(np.abs(data2-items))
-            self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3) # console
+            self.assertAlmostEqual(diff_with_gt_labels, 0, delta=1e-3)
 
             labels1_after, _ = p.knn_query(data1, k=1)
             for la in labels1_after:
-                for lb in labels1_deleted:
-                    if la[0] == lb[0]:
-                        self.assertTrue(False)
+                if la[0] in labels1_deleted_no_dup:
+                    print(f"Found deleted label {la[0]} during knn search")
+                    self.assertTrue(False)
             print("All the data in data1 are removed")
 
             # Checking saving/loading index with elements marked as deleted
@@ -119,13 +120,13 @@ class RandomSelfTestCase(unittest.TestCase):
 
             labels1_after, _ = p.knn_query(data1, k=1)
             for la in labels1_after:
-                for lb in labels1_deleted:
-                    if la[0] == lb[0]:
-                        self.assertTrue(False)
+                if la[0] in labels1_deleted_no_dup:
+                    print(f"Found deleted label {la[0]} during knn search after index loading")
+                    self.assertTrue(False)
 
             # Unmark deleted data
-            for l in labels1_deleted:
-                p.unmark_deleted(l[0])
+            for l in labels1_deleted_no_dup:
+                p.unmark_deleted(l)
             labels_restored, _ = p.knn_query(data1, k=1)
             self.assertAlmostEqual(np.mean(labels_restored.reshape(-1) == np.arange(len(data1))), 1.0, 3)
             print("All the data in data1 are restored")
