@@ -28,8 +28,8 @@ class RandomSelfTestCase(unittest.TestCase):
         labels3 = np.arange(first_id, last_id)
         data3 = np.float32(np.random.random((num_elements, dim)))
 
-        # Declaring index
         for _ in range(100):
+            # Declaring index
             hnsw_index = hnswlib.Index(space='l2', dim=dim)
             hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
 
