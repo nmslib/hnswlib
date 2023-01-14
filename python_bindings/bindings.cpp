@@ -611,6 +611,10 @@ class Index {
         if (num_threads <= 0)
             num_threads = num_threads_default;
 
+        if ((filter != nullptr) && (num_threads != 1)) {
+            std::cout << "Warning: search with python filter works slow in multi-threaded mode. For best performance set num_threads=1\n";
+        }
+
         {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
