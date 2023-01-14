@@ -1,6 +1,6 @@
 // This is a test file for testing the filtering feature
 
-#include "../hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 
 #include <assert.h>
 

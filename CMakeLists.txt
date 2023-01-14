@@ -16,21 +16,21 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
       SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -march=native -fpic -w -fopenmp -ftree-vectorize" )
     endif()
 
-    add_executable(test_updates examples/updates_test.cpp)
+    add_executable(test_updates tests/cpp/updates_test.cpp)
     target_link_libraries(test_updates hnswlib)
 
-    add_executable(searchKnnCloserFirst_test examples/searchKnnCloserFirst_test.cpp)
+    add_executable(searchKnnCloserFirst_test tests/cpp/searchKnnCloserFirst_test.cpp)
     target_link_libraries(searchKnnCloserFirst_test hnswlib)
 
-    add_executable(searchKnnWithFilter_test examples/searchKnnWithFilter_test.cpp)
+    add_executable(searchKnnWithFilter_test tests/cpp/searchKnnWithFilter_test.cpp)
     target_link_libraries(searchKnnWithFilter_test hnswlib)
 
-    add_executable(multiThreadLoad_test examples/multiThreadLoad_test.cpp)
+    add_executable(multiThreadLoad_test tests/cpp/multiThreadLoad_test.cpp)
     target_link_libraries(multiThreadLoad_test hnswlib)
 
-    add_executable(multiThread_replace_test examples/multiThread_replace_test.cpp)
+    add_executable(multiThread_replace_test tests/cpp/multiThread_replace_test.cpp)
     target_link_libraries(multiThread_replace_test hnswlib)
 
-    add_executable(main main.cpp sift_1b.cpp)
+    add_executable(main tests/cpp/main.cpp tests/cpp/sift_1b.cpp)
     target_link_libraries(main hnswlib)
 endif()

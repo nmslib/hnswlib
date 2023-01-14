@@ -20,7 +20,7 @@ jobs:
       
       - name: Test
         timeout-minutes: 15
-        run: python -m unittest discover -v --start-directory python_bindings/tests --pattern "*_test*.py"
+        run: python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
   
   test_cpp:
     runs-on: ${{matrix.os}}
@@ -48,7 +48,7 @@ jobs:
       - name: Prepare test data
         run: |
           pip install numpy
-          cd examples
+          cd tests/cpp/
           python update_gen_data.py
         shell: bash
       
