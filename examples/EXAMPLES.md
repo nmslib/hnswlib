@@ -1,5 +1,6 @@
 # Python bindings examples
 
+Creating index, inserting elements, searching and pickle serialization
 ```python
 import hnswlib
 import numpy as np
@@ -106,7 +107,7 @@ labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
 ```
 
-An example with a filter:
+An example with a symbolic filter `filter_function` during the search::
 ```python
 import hnswlib
 import numpy as np
@@ -150,7 +151,7 @@ labels, distances = hnsw_index.knn_query(data, k=1, filter=filter_function)
 # labels contain only elements with even id
 ```
 
-An example with replacing of deleted elements:
+An example with reusing the memory of the deleted elements when new elements are being added (via `allow_replace_deleted` flag):
 ```python
 import hnswlib
 import numpy as np

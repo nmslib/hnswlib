@@ -251,7 +251,7 @@ Please make pull requests against the `develop` branch.
 
 When making changes please run tests (and please add a test to `tests/python` in case there is new functionality):
 ```bash
-python -m unittest discover --start-directory tests/python --pattern "bindings_test*.py
+python -m unittest discover --start-directory tests/python --pattern "bindings_test*.py"
 ```
 
 
