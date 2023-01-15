@@ -20,7 +20,9 @@ jobs:
       
       - name: Test
         timeout-minutes: 15
-        run: python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
+        run: |
+          python -m unittest discover -v --start-directory examples --pattern "example*.py"
+          python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
   
   test_cpp:
     runs-on: ${{matrix.os}}

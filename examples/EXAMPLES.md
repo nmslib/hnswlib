@@ -147,7 +147,8 @@ print("Querying only even elements")
 # Define filter function that allows only even ids
 filter_function = lambda idx: idx%2 == 0
 # Query the elements for themselves and search only for even elements:
-labels, distances = hnsw_index.knn_query(data, k=1, filter=filter_function)
+# Warning: search with python filter works slow in multithreaded mode, therefore we set num_threads=1
+labels, distances = hnsw_index.knn_query(data, k=1, num_threads=1, filter=filter_function)
 # labels contain only elements with even id
 ```
 
