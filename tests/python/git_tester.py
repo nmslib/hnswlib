@@ -5,8 +5,8 @@ from sys import platform
 from pydriller import Repository
 
 
-speedtest_src_path = os.path.join("examples", "speedtest.py")
-speedtest_copy_path = os.path.join("examples", "speedtest2.py")
+speedtest_src_path = os.path.join("tests", "python", "speedtest.py")
+speedtest_copy_path = os.path.join("tests", "python", "speedtest2.py")
 shutil.copyfile(speedtest_src_path, speedtest_copy_path) # the file has to be outside of git
 
 commits = list(Repository('.', from_tag="v0.6.0").traverse_commits())

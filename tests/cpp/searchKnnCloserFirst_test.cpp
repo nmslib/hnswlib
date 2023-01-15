@@ -3,7 +3,7 @@
 //  >>>    searchKnnCloserFirst(const void* query_data, size_t k) const;
 // of class AlgorithmInterface
 
-#include "../hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 
 #include <assert.h>
 

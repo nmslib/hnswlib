@@ -1,5 +1,11 @@
+import os
 import hnswlib
 import numpy as np
+
+
+"""
+Example of index building, search and serialization/deserialization
+"""
 
 dim = 16
 num_elements = 10000
@@ -34,7 +40,6 @@ p.set_ef(10)
 # By default using all available cores
 p.set_num_threads(4)
 
-
 print("Adding first batch of %d elements" % (len(data1)))
 p.add_items(data1)
 
@@ -62,3 +67,5 @@ p.add_items(data2)
 # Query the elements for themselves and measure recall:
 labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
+
+os.remove("first_half.bin")

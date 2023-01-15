@@ -123,6 +123,7 @@ Properties of `hnswlib.Index` that support reading and writing:
         
   
 #### Python bindings examples
+[See more examples here](examples/EXAMPLES.md)
 ```python
 import hnswlib
 import numpy as np
@@ -229,104 +230,6 @@ labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
 ```
 
-An example with a filter:
-```python
-import hnswlib
-import numpy as np
-
-dim = 16
-num_elements = 10000
-
-# Generating sample data
-data = np.float32(np.random.random((num_elements, dim)))
-
-# Declaring index
-hnsw_index = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
-
-# Initiating index
-# max_elements - the maximum number of elements, should be known beforehand
-#     (probably will be made optional in the future)
-#
-# ef_construction - controls index search speed/build speed tradeoff
-# M - is tightly connected with internal dimensionality of the data
-#     strongly affects the memory consumption
-
-hnsw_index.init_index(max_elements=num_elements, ef_construction=100, M=16)
-
-# Controlling the recall by setting ef:
-# higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
-
-# Set number of threads used during batch search/construction
-# By default using all available cores
-hnsw_index.set_num_threads(4)
-
-print("Adding %d elements" % (len(data)))
-# Added elements will have consecutive ids
-hnsw_index.add_items(data, ids=np.arange(num_elements))
-
-print("Querying only even elements")
-# Define filter function that allows only even ids
-filter_function = lambda idx: idx%2 == 0
-# Query the elements for themselves and search only for even elements:
-labels, distances = hnsw_index.knn_query(data, k=1, filter=filter_function)
-# labels contain only elements with even id
-```
-
-An example with replacing of deleted elements:
-```python
-import hnswlib
-import numpy as np
-
-dim = 16
-num_elements = 1_000
-max_num_elements = 2 * num_elements
-
-# Generating sample data
-labels1 = np.arange(0, num_elements)
-data1 = np.float32(np.random.random((num_elements, dim)))  # batch 1
-labels2 = np.arange(num_elements, 2 * num_elements)
-data2 = np.float32(np.random.random((num_elements, dim)))  # batch 2
-labels3 = np.arange(2 * num_elements, 3 * num_elements)
-data3 = np.float32(np.random.random((num_elements, dim)))  # batch 3
-
-# Declaring index
-hnsw_index = hnswlib.Index(space='l2', dim=dim)
-
-# Initiating index
-# max_elements - the maximum number of elements, should be known beforehand
-#     (probably will be made optional in the future)
-#
-# ef_construction - controls index search speed/build speed tradeoff
-# M - is tightly connected with internal dimensionality of the data
-#     strongly affects the memory consumption
-
-# Enable replacing of deleted elements
-hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
-
-# Controlling the recall by setting ef:
-# higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
-
-# Set number of threads used during batch search/construction
-# By default using all available cores
-hnsw_index.set_num_threads(4)
-
-# Add batch 1 and 2 data
-hnsw_index.add_items(data1, labels1)
-hnsw_index.add_items(data2, labels2)  # Note: maximum number of elements is reached
-
-# Delete data of batch 2
-for label in labels2:
-    hnsw_index.mark_deleted(label)
-
-# Replace deleted elements
-# Maximum number of elements is reached therefore we cannot add new items,
-# but we can replace the deleted ones by using replace_deleted=True
-hnsw_index.add_items(data3, labels3, replace_deleted=True)
-# hnsw_index contains the data of batch 1 and batch 3 only
-```
-
 ### Bindings installation
 
 You can install from sources:
@@ -346,9 +249,9 @@ Contributions are highly welcome!
 
 Please make pull requests against the `develop` branch.
 
-When making changes please run tests (and please add a test to `python_bindings/tests` in case there is new functionality):
+When making changes please run tests (and please add a test to `tests/python` in case there is new functionality):
 ```bash
-python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
+python -m unittest discover --start-directory tests/python --pattern "bindings_test*.py"
 ```
 
 
@@ -373,7 +276,7 @@ https://github.com/dbaranchuk/ivf-hnsw
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset (from root directory):
 ```bash
-python3 download_bigann.py
+python tests/cpp/download_bigann.py
 ```
 To compile:
 ```bash
@@ -393,7 +296,7 @@ The size of the BigANN subset (in millions) is controlled by the variable **subs
 ### Updates test
 To generate testing data (from root directory):
 ```bash
-cd examples
+cd tests/cpp
 python update_gen_data.py
 ```
 To compile (from root directory):

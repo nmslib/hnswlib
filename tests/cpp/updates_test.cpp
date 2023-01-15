@@ -1,4 +1,4 @@
-#include "../hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 #include <thread>
 
 
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    std::string path = "../examples/data/";
+    std::string path = "../tests/cpp/data/";
 
     int N;
     int dummy_data_multiplier;

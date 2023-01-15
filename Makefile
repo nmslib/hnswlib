@@ -7,7 +7,7 @@ dist:
 	python3 -m build --sdist
 
 test:
-	python3 -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py"
+	python3 -m unittest discover --start-directory tests/python --pattern "bindings_test*.py"
 
 clean:
 	rm -rf *.egg-info build dist tmp var tests/__pycache__ hnswlib.cpython*.so
