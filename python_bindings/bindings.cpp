@@ -611,10 +611,6 @@ class Index {
         if (num_threads <= 0)
             num_threads = num_threads_default;
 
-        if ((filter != nullptr) && (num_threads != 1)) {
-            std::cout << "Warning: search with python filter works slow in multi-threaded mode. For best performance set num_threads=1\n";
-        }
-
         {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
@@ -627,6 +623,7 @@ class Index {
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];
 
+            // Warning: search with a filter works slow in python in multithreaded mode. For best performance set num_threads=1
             CustomFilterFunctor idFilter(filter);
             CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
 
