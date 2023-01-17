@@ -13,50 +13,53 @@ args = ap.parse_args()
 dim = int(args.d)
 name = args.n
 threads=int(args.t)
-num_elements = 1000000 * 4//dim
+num_elements = 400000
 
 # Generating sample data
 np.random.seed(1)
 data = np.float32(np.random.random((num_elements, dim)))
 
 
-index_path=f'speed_index{dim}.bin'
+# index_path=f'speed_index{dim}.bin'
 # Declaring index
 p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
 
-if not os.path.isfile(index_path) :
+# if not os.path.isfile(index_path) :
 
-    p.init_index(max_elements=num_elements, ef_construction=100, M=16)
+p.init_index(max_elements=num_elements, ef_construction=60, M=16)
 
-    # Controlling the recall by setting ef:
-    # higher ef leads to better accuracy, but slower search
-    p.set_ef(10)
+# Controlling the recall by setting ef:
+# higher ef leads to better accuracy, but slower search
+p.set_ef(10)
 
-    # Set number of threads used during batch search/construction
-    # By default using all available cores
-    p.set_num_threads(12)
+# Set number of threads used during batch search/construction
+# By default using all available cores
+p.set_num_threads(64)
+t0=time.time()
+p.add_items(data)
+construction_time=time.time()-t0
+# Serializing and deleting the index:
 
-    p.add_items(data)
-
-    # Serializing and deleting the index:
-
-    print("Saving index to '%s'" % index_path)
-    p.save_index(index_path)
+# print("Saving index to '%s'" % index_path)
+# p.save_index(index_path)
 p.set_num_threads(threads)
 times=[]
-time.sleep(10)
-p.set_ef(100)
-for _ in range(3):
-    p.load_index(index_path)
-    for _ in range(10):
+time.sleep(1)
+p.set_ef(15)
+for _ in range(1):
+    # p.load_index(index_path)
+    for _ in range(3):
         t0=time.time()
-        labels, distances = p.knn_query(data, k=1)
+        qdata=data[:5000*threads]
+        labels, distances = p.knn_query(qdata, k=1)
         tt=time.time()-t0
         times.append(tt)
-        print(f"{tt} seconds")    
-str_out=f"mean time:{np.mean(times)}, median time:{np.median(times)}, std time {np.std(times)} {name}"
+        recall=np.sum(labels.reshape(-1)==np.arange(len(qdata)))/len(qdata)
+        print(f"{tt} seconds, recall= {recall}")    
+        
+str_out=f"{np.mean(times)}, {np.median(times)}, {np.std(times)}, {construction_time}, {recall}, {name}"
 print(str_out)
-with open (f"log_{dim}_t{threads}.txt","a") as f:
+with open (f"log2_{dim}_t{threads}.txt","a") as f:
     f.write(str_out+"\n")
     f.flush()
 
