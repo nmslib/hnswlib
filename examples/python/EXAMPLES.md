@@ -107,7 +107,7 @@ labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
 ```
 
-An example with a symbolic filter `filter_function` during the search::
+An example with a symbolic filter `filter_function` during the search:
 ```python
 import hnswlib
 import numpy as np

@@ -123,7 +123,7 @@ Properties of `hnswlib.Index` that support reading and writing:
         
   
 #### Python bindings examples
-[See more examples here](examples/EXAMPLES.md)
+[See more examples here](examples/python/EXAMPLES.md)
 ```python
 import hnswlib
 import numpy as np
@@ -229,6 +229,10 @@ p.add_items(data2)
 labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
 ```
+
+#### C++ examples
+[See examples here](examples/cpp/EXAMPLES.md)
+
 
 ### Bindings installation
 

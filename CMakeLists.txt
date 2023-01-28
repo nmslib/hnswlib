@@ -16,6 +16,17 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
       SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -march=native -fpic -w -fopenmp -ftree-vectorize" )
     endif()
 
+    # examples
+    add_executable(example_search examples/cpp/example_search.cpp)
+    target_link_libraries(example_search hnswlib)
+
+    add_executable(example_filter examples/cpp/example_filter.cpp)
+    target_link_libraries(example_filter hnswlib)
+
+    add_executable(example_replace_deleted examples/cpp/example_replace_deleted.cpp)
+    target_link_libraries(example_replace_deleted hnswlib)
+
+    # tests
     add_executable(test_updates tests/cpp/updates_test.cpp)
     target_link_libraries(test_updates hnswlib)
 
