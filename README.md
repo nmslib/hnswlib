@@ -123,7 +123,12 @@ Properties of `hnswlib.Index` that support reading and writing:
         
   
 #### Python bindings examples
-[See more examples here](examples/python/EXAMPLES.md)
+[See more examples here](examples/python/EXAMPLES.md):
+* creating index, inserting elements, searching, serialization/deserialization
+* filtering during the search
+* delete elements and reusing the memory of the deleted elements when new elements are being added
+
+An example of creating index, inserting elements, searching and pickle serialization:
 ```python
 import hnswlib
 import numpy as np
@@ -231,7 +236,11 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 ```
 
 #### C++ examples
-[See examples here](examples/cpp/EXAMPLES.md)
+[See examples here](examples/cpp/EXAMPLES.md):
+* creating index, inserting elements, searching, serialization/deserialization
+* filtering during the search
+* delete elements and reusing the memory of the deleted elements when new elements are being added
+* multithreaded usage
 
 
 ### Bindings installation

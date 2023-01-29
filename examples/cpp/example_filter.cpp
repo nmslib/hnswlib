@@ -1,7 +1,7 @@
 #include "../../hnswlib/hnswlib.h"
 
 
-// Filter that allows labels that are divisible by divisor
+// Filter that allows labels divisible by divisor
 class PickDivisibleIds: public hnswlib::BaseFilterFunctor {
 unsigned int divisor = 1;
  public:

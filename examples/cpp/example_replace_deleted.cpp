@@ -8,9 +8,10 @@ int main() {
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
-    // Initing index
+    // Initing index with allow_replace_deleted=true
+    int seed = 100; 
     hnswlib::L2Space space(dim);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, M, ef_construction, 100, true);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, M, ef_construction, seed, true);
 
     // Generate random data
     std::mt19937 rng;
@@ -32,6 +33,7 @@ int main() {
         alg_hnsw->markDelete(i);
     }
 
+    // Generate additional random data
     float* add_data = new float[dim * num_deleted];
     for (int i = 0; i < dim * num_deleted; i++) {
         add_data[i] = distrib_real(rng);
@@ -41,7 +43,7 @@ int main() {
     // Maximum number of elements is reached therefore we cannot add new items,
     // but we can replace the deleted ones by using replace_deleted=true
     for (int i = 0; i < num_deleted; i++) {
-        int label = max_elements + i;
+        hnswlib::labeltype label = max_elements + i;
         alg_hnsw->addPoint(add_data + i * dim, label, true);
     }
 

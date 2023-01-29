@@ -64,6 +64,9 @@ jobs:
           ./example_search
           ./example_filter
           ./example_replace_deleted
+          ./example_mt_search
+          ./example_mt_filter
+          ./example_mt_replace_deleted
           ./searchKnnCloserFirst_test
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test

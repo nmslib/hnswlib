@@ -1,6 +1,6 @@
 # Python bindings examples
 
-Creating index, inserting elements, searching and pickle serialization
+Creating index, inserting elements, searching and pickle serialization:
 ```python
 import hnswlib
 import numpy as np

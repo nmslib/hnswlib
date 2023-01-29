@@ -67,7 +67,7 @@ An example with a filter during the search:
 #include "../../hnswlib/hnswlib.h"
 
 
-// Filter that allows labels that are divisible by divisor
+// Filter that allows labels divisible by divisor
 class PickDivisibleIds: public hnswlib::BaseFilterFunctor {
 unsigned int divisor = 1;
  public:
@@ -178,3 +178,8 @@ int main() {
     return 0;
 }
 ```
+
+Multithreaded examples:
+* Creating index, inserting elements, searching [example_mt_search.cpp](example_mt_search.cpp)
+* Filtering during the search [example_mt_filter.cpp](example_mt_filter.cpp)
+* Reusing the memory of the deleted elements when new elements are being added [example_mt_replace_deleted.cpp](example_mt_replace_deleted.cpp)
