@@ -62,7 +62,7 @@ int main() {
 }
 ```
 
-An example with a filter during the search:
+An example of filtering with a boolean function during the search:
 ```cpp
 #include "../../hnswlib/hnswlib.h"
 
