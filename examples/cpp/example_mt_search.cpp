@@ -3,6 +3,8 @@
 
 
 // Multithreaded executor
+// The helper function copied from python_bindings/bindings.cpp (and that itself is copied from nmslib)
+// An alternative is using #pragme omp parallel for or any other C++ threading
 template<class Function>
 inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn) {
     if (numThreads <= 0) {
