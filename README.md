@@ -1,34 +1,22 @@
 # Hnswlib - fast approximate nearest neighbor search
-Header-only C++ HNSW implementation with python bindings.
+Header-only C++ HNSW implementation with python bindings, insertions and updates.
 
 **NEWS:**
 
+**version 0.7.0** 
 
-**version 0.6.2** 
-
-* Fixed a bug in saving of large pickles. The pickles with > 4GB could have been corrupted. Thanks Kai Wohlfahrt for reporting.
-* Thanks to ([@GuyAv46](https://github.com/GuyAv46)) hnswlib inner product now is more consitent accross architectures (SSE, AVX, etc). 
-* 
-
-**version 0.6.1** 
-
-* Thanks to ([@tony-kuo](https://github.com/tony-kuo)) hnswlib AVX512 and AVX builds are not backwards-compatible with older SSE and non-AVX512 architectures. 
-* Thanks to ([@psobot](https://github.com/psobot)) there is now a sencible message instead of segfault when passing a scalar to get_items.
-* Thanks to ([@urigoren](https://github.com/urigoren)) hnswlib has a lazy index creation python wrapper.
-
-**version 0.6.0** 
-* Thanks to ([@dyashuni](https://github.com/dyashuni)) hnswlib now uses github actions for CI, there is a search speedup in some scenarios with deletions. `unmark_deleted(label)` is now also a part of the python interface (note now it throws an exception for double deletions). 
-* Thanks to ([@slice4e](https://github.com/slice4e)) we now support AVX512; thanks to ([@LTLA](https://github.com/LTLA)) the cmake interface for the lib is now updated. 
-* Thanks to ([@alonre24](https://github.com/alonre24)) we now have a python bindings for brute-force (and examples for recall tuning: [TESTING_RECALL.md](TESTING_RECALL.md). 
-* Thanks to ([@dorosy-yeong](https://github.com/dorosy-yeong)) there is a bug fixed in the handling large quantities of deleted elements and large K. 
-
-  
+* Added support to filtering (#402, #430) by [@kishorenc](https://github.com/kishorenc)
+* Added python interface for filtering (though note its performance is limited by GIL) (#417) by [@gtsoukas](https://github.com/gtsoukas)
+* Added support for replacing the elements that were marked as delete with newly inserted elements (to control the size of the index, #418) by [@dyashuni](https://github.com/dyashuni)
+* Fixed data races/deadlocks in updates/insertion, added stress test for multithreaded operation (#418) by [@dyashuni](https://github.com/dyashuni)
+* Documentation, tests, exception handling, refactoring (#375, #379, #380, #395, #396, #401, #406, #404, #409, #410, #416, #415, #431, #432, #433) by [@jlmelville](https://github.com/jlmelville), [@dyashuni](https://github.com/dyashuni), [@kishorenc](https://github.com/kishorenc), [@korzhenevski](https://github.com/korzhenevski), [@yoshoku](https://github.com/yoshoku), [@jianshu93](https://github.com/jianshu93), [@PLNech](https://github.com/PLNech)
+* global linkages (#383) by [@MasterAler](https://github.com/MasterAler), USE_SSE usage in MSVC (#408) by [@alxvth](https://github.com/alxvth)
 
 
 ### Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11
-2) Interfaces for C++, Java, Python and R (https://github.com/jlmelville/rcpphnsw).
-3) Has full support for incremental index construction. Has support for element deletions 
+2) Interfaces for C++, Python, external support for Java and R (https://github.com/jlmelville/rcpphnsw).
+3) Has full support for incremental index construction and updating the elements. Has support for element deletions 
 (by marking them in index). Index is picklable.
 4) Can work with custom user defined distances (C++).
 5) Significantly less memory footprint and faster build time compared to current nmslib's implementation.
@@ -50,23 +38,26 @@ Note that inner product is not an actual metric. An element can be closer to som
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
-#### Short API description
+#### API description
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 `hnswlib.Index` methods:
-* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100)` initializes the index from with no elements. 
+* `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100, allow_replace_deleted = False)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
+    * `allow_replace_deleted` enables replacing of deleted elements with new added ones.
     
-* `add_items(data, ids, num_threads = -1)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
+* `add_items(data, ids, num_threads = -1, replace_deleted = False)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
+    * `replace_deleted` replaces deleted elements. Note it allows to save memory.
+      - to use it `init_index` should be called with `allow_replace_deleted=True`
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
 * `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results. Throws an exception if it is already deleted.
-* 
+
 * `unmark_deleted(label)`  - unmarks the element as deleted, so it will be not be omitted from search results.
 
 * `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
@@ -74,13 +65,15 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
 
-* `knn_query(data, k = 1, num_threads = -1)` make a batch query for `k` closest elements for each element of the 
+* `knn_query(data, k = 1, num_threads = -1, filter = None)` make a batch query for `k` closest elements for each element of the 
     * `data` (shape:`N*dim`). Returns a numpy array of (shape:`N*k`).
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
+    * `filter` filters elements by its labels, returns elements with allowed ids. Note that search with a filter works slow in python in multithreaded mode. It is recommended to set `num_threads=1`
     * Thread-safe with other `knn_query` calls, but not with `add_items`.
     
-* `load_index(path_to_index, max_elements = 0)` loads the index from persistence to the uninitialized index.
+* `load_index(path_to_index, max_elements = 0, allow_replace_deleted = False)` loads the index from persistence to the uninitialized index.
     * `max_elements`(optional) resets the maximum number of elements in the structure.
+    * `allow_replace_deleted` specifies whether the index being loaded has enabled replacing of deleted elements.
       
 * `save_index(path_to_index)` saves the index from persistence.
 
@@ -118,6 +111,12 @@ Properties of `hnswlib.Index` that support reading and writing:
         
   
 #### Python bindings examples
+[See more examples here](examples/python/EXAMPLES.md):
+* Creating index, inserting elements, searching, serialization/deserialization
+* Filtering during the search with a boolean function
+* Deleting the elements and reusing the memory of the deleted elements for newly added elements
+
+An example of creating index, inserting elements, searching and pickle serialization:
 ```python
 import hnswlib
 import numpy as np
@@ -142,7 +141,7 @@ p.add_items(data, ids)
 # Controlling the recall by setting ef:
 p.set_ef(50) # ef should always be > k
 
-# Query dataset, k - number of closest elements (returns 2 numpy arrays)
+# Query dataset, k - number of the closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
 
 # Index objects support pickling
@@ -155,7 +154,6 @@ print(f"Parameters passed to constructor:  space={p_copy.space}, dim={p_copy.dim
 print(f"Index construction: M={p_copy.M}, ef_construction={p_copy.ef_construction}")
 print(f"Index size is {p_copy.element_count} and index capacity is {p_copy.max_elements}")
 print(f"Search speed/quality trade-off parameter: ef={p_copy.ef}")
-
 ```
 
 An example with updates after serialization/deserialization:
@@ -196,7 +194,6 @@ p.set_ef(10)
 # By default using all available cores
 p.set_num_threads(4)
 
-
 print("Adding first batch of %d elements" % (len(data1)))
 p.add_items(data1)
 
@@ -226,6 +223,14 @@ labels, distances = p.knn_query(data, k=1)
 print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(data))), "\n")
 ```
 
+#### C++ examples
+[See examples here](examples/cpp/EXAMPLES.md):
+* creating index, inserting elements, searching, serialization/deserialization
+* filtering during the search with a boolean function
+* deleting the elements and reusing the memory of the deleted elements for newly added elements
+* multithreaded usage
+
+
 ### Bindings installation
 
 You can install from sources:
@@ -245,9 +250,9 @@ Contributions are highly welcome!
 
 Please make pull requests against the `develop` branch.
 
-When making changes please run tests (and please add a test to `python_bindings/tests` in case there is new functionality):
+When making changes please run tests (and please add a test to `tests/python` in case there is new functionality):
 ```bash
-python -m unittest discover --start-directory python_bindings/tests --pattern "*_test*.py
+python -m unittest discover --start-directory tests/python --pattern "bindings_test*.py"
 ```
 
 
@@ -259,20 +264,23 @@ https://github.com/facebookresearch/faiss
 ["Revisiting the Inverted Indices for Billion-Scale Approximate Nearest Neighbors"](https://arxiv.org/abs/1802.02422) 
 (current state-of-the-art in compressed indexes, C++):
 https://github.com/dbaranchuk/ivf-hnsw
+* Amazon PECOS https://github.com/amzn/pecos 
 * TOROS N2 (python, C++): https://github.com/kakao/n2 
 * Online HNSW (C++): https://github.com/andrusha97/online-hnsw) 
 * Go implementation: https://github.com/Bithack/go-hnsw
 * Python implementation (as a part of the clustering code by by Matteo Dell'Amico): https://github.com/matteodellamico/flexible-clustering
+* Julia implmentation https://github.com/JuliaNeighbors/HNSW.jl
 * Java implementation: https://github.com/jelmerk/hnswlib
 * Java bindings using Java Native Access: https://github.com/stepstone-tech/hnswlib-jna
-* .Net implementation: https://github.com/microsoft/HNSW.Net
+* .Net implementation: https://github.com/curiosity-ai/hnsw-sharp
 * CUDA implementation: https://github.com/js1010/cuhnsw
-
+* Rust implementation https://github.com/rust-cv/hnsw
+* Rust implementation for memory and thread safety purposes and There is  A Trait to enable the user to implement its own distances. It takes as data slices of types T satisfying T:Serialize+Clone+Send+Sync.: https://github.com/jean-pierreBoth/hnswlib-rs
 
 ### 200M SIFT test reproduction 
 To download and extract the bigann dataset (from root directory):
 ```bash
-python3 download_bigann.py
+python tests/cpp/download_bigann.py
 ```
 To compile:
 ```bash
@@ -292,7 +300,7 @@ The size of the BigANN subset (in millions) is controlled by the variable **subs
 ### Updates test
 To generate testing data (from root directory):
 ```bash
-cd examples
+cd tests/cpp
 python update_gen_data.py
 ```
 To compile (from root directory):

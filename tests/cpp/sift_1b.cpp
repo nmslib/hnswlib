@@ -2,7 +2,7 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
-#include "hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 
 
 #include <unordered_set>
@@ -12,7 +12,7 @@ using namespace hnswlib;
 
 class StopW {
     std::chrono::steady_clock::time_point time_begin;
-public:
+ public:
     StopW() {
         time_begin = std::chrono::steady_clock::now();
     }
@@ -25,7 +25,6 @@ public:
     void reset() {
         time_begin = std::chrono::steady_clock::now();
     }
-
 };
 
 
@@ -80,8 +79,7 @@ static size_t getPeakRSS() {
     int fd = -1;
     if ((fd = open("/proc/self/psinfo", O_RDONLY)) == -1)
         return (size_t)0L;      /* Can't open? */
-    if (read(fd, &psinfo, sizeof(psinfo)) != sizeof(psinfo))
-    {
+    if (read(fd, &psinfo, sizeof(psinfo)) != sizeof(psinfo)) {
         close(fd);
         return (size_t)0L;      /* Can't read? */
     }
@@ -146,10 +144,16 @@ static size_t getCurrentRSS() {
 
 
 static void
-get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t vecsize, size_t qsize, L2SpaceI &l2space,
-       size_t vecdim, vector<std::priority_queue<std::pair<int, labeltype >>> &answers, size_t k) {
-
-
+get_gt(
+    unsigned int *massQA,
+    unsigned char *massQ,
+    unsigned char *mass,
+    size_t vecsize,
+    size_t qsize,
+    L2SpaceI &l2space,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<int, labeltype>>> &answers,
+    size_t k) {
     (vector<std::priority_queue<std::pair<int, labeltype >>>(qsize)).swap(answers);
     DISTFUNC<int> fstdistfunc_ = l2space.get_dist_func();
     cout << qsize << "\n";
@@ -161,43 +165,50 @@ get_gt(unsigned int *massQA, unsigned char *massQ, unsigned char *mass, size_t v
 }
 
 static float
-test_approx(unsigned char *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<int> &appr_alg, size_t vecdim,
-            vector<std::priority_queue<std::pair<int, labeltype >>> &answers, size_t k) {
+test_approx(
+    unsigned char *massQ,
+    size_t vecsize,
+    size_t qsize,
+    HierarchicalNSW<int> &appr_alg,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<int, labeltype>>> &answers,
+    size_t k) {
     size_t correct = 0;
     size_t total = 0;
-    //uncomment to test in parallel mode:
+    // uncomment to test in parallel mode:
     //#pragma omp parallel for
     for (int i = 0; i < qsize; i++) {
-
         std::priority_queue<std::pair<int, labeltype >> result = appr_alg.searchKnn(massQ + vecdim * i, k);
         std::priority_queue<std::pair<int, labeltype >> gt(answers[i]);
         unordered_set<labeltype> g;
         total += gt.size();
 
         while (gt.size()) {
-
-
             g.insert(gt.top().second);
             gt.pop();
         }
 
         while (result.size()) {
             if (g.find(result.top().second) != g.end()) {
-
                 correct++;
             } else {
             }
             result.pop();
         }
-
     }
     return 1.0f * correct / total;
 }
 
 static void
-test_vs_recall(unsigned char *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<int> &appr_alg, size_t vecdim,
-               vector<std::priority_queue<std::pair<int, labeltype >>> &answers, size_t k) {
-    vector<size_t> efs;// = { 10,10,10,10,10 };
+test_vs_recall(
+    unsigned char *massQ,
+    size_t vecsize,
+    size_t qsize,
+    HierarchicalNSW<int> &appr_alg,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<int, labeltype>>> &answers,
+    size_t k) {
+    vector<size_t> efs;  // = { 10,10,10,10,10 };
     for (int i = k; i < 30; i++) {
         efs.push_back(i);
     }
@@ -229,12 +240,9 @@ inline bool exists_test(const std::string &name) {
 
 
 void sift_test1B() {
-	
-	
-	int subset_size_milllions = 200;
-	int efConstruction = 40;
-	int M = 16;
-	
+    int subset_size_milllions = 200;
+    int efConstruction = 40;
+    int M = 16;
 
     size_t vecsize = subset_size_milllions * 1000000;
 
@@ -247,7 +255,6 @@ void sift_test1B() {
     sprintf(path_index, "sift1b_%dm_ef_%d_M_%d.bin", subset_size_milllions, efConstruction, M);
 
     sprintf(path_gt, "../bigann/gnd/idx_%dM.ivecs", subset_size_milllions);
-
 
     unsigned char *massb = new unsigned char[vecdim];
 
@@ -264,7 +271,7 @@ void sift_test1B() {
         }
     }
     inputGT.close();
-	
+
     cout << "Loading queries:\n";
     unsigned char *massQ = new unsigned char[qsize * vecdim];
     ifstream inputQ(path_q, ios::binary);
@@ -280,7 +287,6 @@ void sift_test1B() {
         for (int j = 0; j < vecdim; j++) {
             massQ[i * vecdim + j] = massb[j];
         }
-
     }
     inputQ.close();
 
@@ -298,7 +304,6 @@ void sift_test1B() {
     } else {
         cout << "Building index:\n";
         appr_alg = new HierarchicalNSW<int>(&l2space, vecsize, M, efConstruction);
-
 
         input.read((char *) &in, 4);
         if (in != 128) {
@@ -319,10 +324,9 @@ void sift_test1B() {
 #pragma omp parallel for
         for (int i = 1; i < vecsize; i++) {
             unsigned char mass[128];
-            int j2=0;
+            int j2 = 0;
 #pragma omp critical
             {
-
                 input.read((char *) &in, 4);
                 if (in != 128) {
                     cout << "file error";
@@ -333,7 +337,7 @@ void sift_test1B() {
                     mass[j] = massb[j];
                 }
                 j1++;
-                j2=j1;
+                j2 = j1;
                 if (j1 % report_every == 0) {
                     cout << j1 / (0.01 * vecsize) << " %, "
                          << report_every / (1000.0 * 1e-6 * stopw.getElapsedTimeMicro()) << " kips " << " Mem: "
@@ -342,8 +346,6 @@ void sift_test1B() {
                 }
             }
             appr_alg->addPoint((void *) (mass), (size_t) j2);
-
-
         }
         input.close();
         cout << "Build time:" << 1e-6 * stopw_full.getElapsedTimeMicro() << "  seconds\n";
@@ -360,6 +362,4 @@ void sift_test1B() {
         test_vs_recall(massQ, vecsize, qsize, *appr_alg, vecdim, answers, k);
     cout << "Actual memory usage: " << getCurrentRSS() / 1000000 << " Mb \n";
     return;
-
-
 }

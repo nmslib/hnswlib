@@ -2,7 +2,7 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
-#include "hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 
 
 #include <unordered_set>
@@ -22,7 +22,7 @@ static void readBinaryPOD(istream& in, T& podRef) {
 }*/
 class StopW {
     std::chrono::steady_clock::time_point time_begin;
-public:
+ public:
     StopW() {
         time_begin = std::chrono::steady_clock::now();
     }
@@ -35,11 +35,17 @@ public:
     void reset() {
         time_begin = std::chrono::steady_clock::now();
     }
-
 };
 
-void get_gt(float *mass, float *massQ, size_t vecsize, size_t qsize, L2Space &l2space, size_t vecdim,
-            vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {
+void get_gt(
+    float *mass,
+    float *massQ,
+    size_t vecsize,
+    size_t qsize,
+    L2Space &l2space,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<float, labeltype>>> &answers,
+    size_t k) {
     BruteforceSearch<float> bs(&l2space, vecsize);
     for (int i = 0; i < vecsize; i++) {
         bs.addPoint((void *) (mass + vecdim * i), (size_t) i);
@@ -53,9 +59,16 @@ void get_gt(float *mass, float *massQ, size_t vecsize, size_t qsize, L2Space &l2
 }
 
 void
-get_gt(unsigned int *massQA, float *massQ, float *mass, size_t vecsize, size_t qsize, L2Space &l2space, size_t vecdim,
-       vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {
-
+get_gt(
+    unsigned int *massQA,
+    float *massQ,
+    float *mass,
+    size_t vecsize,
+    size_t qsize,
+    L2Space &l2space,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<float, labeltype>>> &answers,
+    size_t k) {
     //answers.swap(vector<std::priority_queue< std::pair< float, labeltype >>>(qsize));
     (vector<std::priority_queue<std::pair<float, labeltype >>>(qsize)).swap(answers);
     DISTFUNC<float> fstdistfunc_ = l2space.get_dist_func();
@@ -69,13 +82,18 @@ get_gt(unsigned int *massQA, float *massQ, float *mass, size_t vecsize, size_t q
     }
 }
 
-float test_approx(float *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<float> &appr_alg, size_t vecdim,
-                  vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {
+float test_approx(
+    float *massQ,
+    size_t vecsize,
+    size_t qsize,
+    HierarchicalNSW<float> &appr_alg,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<float, labeltype>>> &answers,
+    size_t k) {
     size_t correct = 0;
     size_t total = 0;
 //#pragma omp parallel for
     for (int i = 0; i < qsize; i++) {
-
         std::priority_queue<std::pair<float, labeltype >> result = appr_alg.searchKnn(massQ + vecdim * i, 10);
         std::priority_queue<std::pair<float, labeltype >> gt(answers[i]);
         unordered_set<labeltype> g;
@@ -93,8 +111,14 @@ float test_approx(float *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<fl
     return 1.0f * correct / total;
 }
 
-void test_vs_recall(float *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<float> &appr_alg, size_t vecdim,
-                    vector<std::priority_queue<std::pair<float, labeltype >>> &answers, size_t k) {
+void test_vs_recall(
+    float *massQ,
+    size_t vecsize,
+    size_t qsize,
+    HierarchicalNSW<float> &appr_alg,
+    size_t vecdim,
+    vector<std::priority_queue<std::pair<float, labeltype>>> &answers,
+    size_t k) {
     //vector<size_t> efs = { 1,2,3,4,6,8,12,16,24,32,64,128,256,320 };//  = ; { 23 };
     vector<size_t> efs;
     for (int i = 10; i < 30; i++) {
@@ -121,7 +145,7 @@ void test_vs_recall(float *massQ, size_t vecsize, size_t qsize, HierarchicalNSW<
 }
 //void get_knn_quality(unsigned int *massA,size_t vecsize, size_t maxn, HierarchicalNSW<float> &appr_alg) {
 //    size_t total = 0;
-//    size_t correct = 0;    
+//    size_t correct = 0;
 //    for (int i = 0; i < vecsize; i++) {
 //        int *data = (int *)(appr_alg.linkList0_ + i * appr_alg.size_links_per_element0_);
 //        //cout << "numconn:" << *data<<"\n";
@@ -186,7 +210,7 @@ void sift_test() {
 //#define LOAD_I
 #ifdef LOAD_I
 
-    HierarchicalNSW<float> appr_alg(&l2space, "hnswlib_sift",false);
+    HierarchicalNSW<float> appr_alg(&l2space, "hnswlib_sift", false);
     //HierarchicalNSW<float> appr_alg(&l2space, "D:/stuff/hnsw_lib/nmslib/similarity_search/release/temp",true);
     //HierarchicalNSW<float> appr_alg(&l2space, "/mnt/d/stuff/hnsw_lib/nmslib/similarity_search/release/temp", true);
 
@@ -243,7 +267,7 @@ void sift_test() {
 //
 //    cout << appr_alg.maxlevel_ << "\n";
 //    //CHECK:
-//    //for (size_t io = 0; io < vecsize; io++) {   
+//    //for (size_t io = 0; io < vecsize; io++) {
 //    //    if (appr_alg.getExternalLabel(io) != io)
 //    //        throw new exception("bad!");
 //    //}
@@ -252,22 +276,22 @@ void sift_test() {
 //    for (int i = 0; i < vecsize; i++) {
 //        int *data = (int *)(appr_alg.linkList0_ + i * appr_alg.size_links_per_element0_);
 //        //cout << "numconn:" << *data<<"\n";
-//        tableint *datal = (tableint *)(data + 1);       
+//        tableint *datal = (tableint *)(data + 1);
 //
 //        std::priority_queue< std::pair< float, tableint >> rez;
 //        unordered_set <tableint> g;
 //        for (int j = 0; j < *data; j++) {
 //            g.insert(datal[j]);
 //        }
-//        appr_alg.setEf(400);        
+//        appr_alg.setEf(400);
 //        std::priority_queue< std::pair< float, tableint >> closest_elements = appr_alg.searchKnnInternal(appr_alg.getDataByInternalId(i), 17);
-//        while (closest_elements.size() > 0) {             
+//        while (closest_elements.size() > 0) {
 //            if (closest_elements.top().second != i) {
 //                 g.insert(closest_elements.top().second);
 //            }
 //            closest_elements.pop();
 //        }
-//            
+//
 //        for (tableint l : g) {
 //            float other = fstdistfunc_(appr_alg.getDataByInternalId(l), appr_alg.getDataByInternalId(i), l2space.get_dist_func_param());
 //            rez.emplace(other, l);
@@ -285,14 +309,14 @@ void sift_test() {
 //        }
 //
 //    }
-//    
+//
 //    //get_knn_quality(massA, vecsize, maxn, appr_alg);
 //    test_vs_recall( massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
 //    /*test_vs_recall( massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
 //    test_vs_recall( massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
 //    test_vs_recall( massQ, vecsize, qsize, appr_alg, vecdim, answers, k);*/
 //
-//    
+//
 //
 //
 //

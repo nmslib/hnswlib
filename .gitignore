@@ -8,4 +8,5 @@ hnswlib.cpython*.so
 var/
 .idea/
 .vscode/
-
+.vs/
+**.DS_Store

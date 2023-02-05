@@ -3,15 +3,14 @@
 //  >>>    searchKnnCloserFirst(const void* query_data, size_t k) const;
 // of class AlgorithmInterface
 
-#include "../hnswlib/hnswlib.h"
+#include "../../hnswlib/hnswlib.h"
 
 #include <assert.h>
 
 #include <vector>
 #include <iostream>
 
-namespace
-{
+namespace {
 
 using idx_t = hnswlib::labeltype;
 
@@ -20,7 +19,7 @@ void test() {
     idx_t n = 100;
     idx_t nq = 10;
     size_t k = 10;
-   
+
     std::vector<float> data(n * d);
     std::vector<float> query(nq * d);
 
@@ -34,7 +33,6 @@ void test() {
     for (idx_t i = 0; i < nq * d; ++i) {
         query[i] = distrib(rng);
     }
-      
 
     hnswlib::L2Space space(d);
     hnswlib::AlgorithmInterface<float>* alg_brute  = new hnswlib::BruteforceSearch<float>(&space, 2 * n);
@@ -68,12 +66,12 @@ void test() {
             gd.pop();
         }
     }
-    
+
     delete alg_brute;
     delete alg_hnsw;
 }
 
-} // namespace
+}  // namespace
 
 int main() {
     std::cout << "Testing ..." << std::endl;
