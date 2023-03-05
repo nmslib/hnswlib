@@ -92,8 +92,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t ef_construction = 200,
         size_t random_seed = 100,
         bool allow_replace_deleted = false)
-        : link_list_locks_(max_elements),
-            label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
+        : label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
+            link_list_locks_(max_elements),
             element_levels_(max_elements),
             allow_replace_deleted_(allow_replace_deleted) {
         max_elements_ = max_elements;
