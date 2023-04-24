@@ -9,12 +9,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
-        arch: [x64, arm64]
-        exclude:
-          - os: ubuntu-latest
-            arch: arm64
-          - os: windows-latest
-            arch: arm64
+        arch: [x64]
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
