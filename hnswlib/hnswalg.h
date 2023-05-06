@@ -196,6 +196,17 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return (int) r;
     }
 
+    size_t getMaxElements() {
+        return max_elements_;
+    }
+
+    size_t getCurrentElementCount() {
+        return cur_element_count;
+    }
+
+    size_t getDeletedCount() {
+        return num_deleted_;
+    }
 
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
@@ -306,7 +317,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         while (!candidate_set.empty()) {
             std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
 
-            if ((-current_node_pair.first) > lowerBound && (top_candidates.size() == ef || has_deletions == false)) {
+            if ((-current_node_pair.first) > lowerBound &&
+                (top_candidates.size() == ef || (!isIdAllowed && !has_deletions))) {
                 break;
             }
             candidate_set.pop();

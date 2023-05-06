@@ -20,7 +20,9 @@ jobs:
       
       - name: Test
         timeout-minutes: 15
-        run: python -m unittest discover -v --start-directory python_bindings/tests --pattern "*_test*.py"
+        run: |
+          python -m unittest discover -v --start-directory examples/python --pattern "example*.py"
+          python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
   
   test_cpp:
     runs-on: ${{matrix.os}}
@@ -48,7 +50,7 @@ jobs:
       - name: Prepare test data
         run: |
           pip install numpy
-          cd examples
+          cd tests/cpp/
           python update_gen_data.py
         shell: bash
       
@@ -59,6 +61,12 @@ jobs:
           if [ "$RUNNER_OS" == "Windows" ]; then
             cp ./Release/* ./
           fi
+          ./example_search
+          ./example_filter
+          ./example_replace_deleted
+          ./example_mt_search
+          ./example_mt_filter
+          ./example_mt_replace_deleted
           ./searchKnnCloserFirst_test
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test

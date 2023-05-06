@@ -47,7 +47,8 @@ class RandomSelfTestCase(unittest.TestCase):
         print("Querying only even elements")
         # Query the even elements for themselves and measure recall:
         filter_function = lambda id: id%2 == 0
-        labels, distances = hnsw_index.knn_query(data, k=1, filter=filter_function)
+        # Warning: search with a filter works slow in python in multithreaded mode, therefore we set num_threads=1
+        labels, distances = hnsw_index.knn_query(data, k=1, num_threads=1, filter=filter_function)
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), .5, 3)
         # Verify that there are only even elements:
         self.assertTrue(np.max(np.mod(labels, 2)) == 0)
