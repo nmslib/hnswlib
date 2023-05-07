@@ -1,11 +1,36 @@
-cmake_minimum_required (VERSION 2.6)
-project(hnsw_lib
+cmake_minimum_required(VERSION 3.0...3.26)
+
+project(hnswlib
     LANGUAGES CXX)
 
-add_library(hnswlib INTERFACE)
-target_include_directories(hnswlib INTERFACE .) 
+include(GNUInstallDirs)
 
+add_library(hnswlib INTERFACE)
+add_library(hnswlib::hnswlib ALIAS hnswlib)
+
+target_include_directories(hnswlib INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+# Install
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/hnswlib
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(TARGETS hnswlib
+    EXPORT hnswlibTargets)
+
+install(EXPORT hnswlibTargets
+    FILE hnswlibConfig.cmake
+    NAMESPACE hnswlib::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hnswlib)
+
+# Examples and tests
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    option(HNSWLIB_EXAMPLES "Build examples and tests." ON)
+else()
+    option(HNSWLIB_EXAMPLES "Build examples and tests." OFF)
+endif()
+if(HNSWLIB_EXAMPLES)
     set(CMAKE_CXX_STANDARD 11)
 
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
