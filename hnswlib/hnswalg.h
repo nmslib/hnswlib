@@ -343,8 +343,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 int candidate_id = *(data + j);
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
-                _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
+                _mm_prefetch((char *) (visited_array + *(data + j)), _MM_HINT_T0);
+                _mm_prefetch(data_level0_memory_ + (*(data + j)) * size_data_per_element_ + offsetData_,
                                 _MM_HINT_T0);  ////////////
 #endif
                 if (!(visited_array[candidate_id] == visited_array_tag)) {
@@ -1007,7 +1007,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 #endif
                     for (int i = 0; i < size; i++) {
 #ifdef USE_SSE
-                        _mm_prefetch(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
+                        _mm_prefetch(getDataByInternalId(*(datal + i)), _MM_HINT_T0);
 #endif
                         tableint cand = datal[i];
                         dist_t d = fstdistfunc_(dataPoint, getDataByInternalId(cand), dist_func_param_);
