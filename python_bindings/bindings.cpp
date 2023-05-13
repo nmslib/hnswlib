@@ -218,6 +218,9 @@ class Index {
         this->num_threads_default = num_threads;
     }
 
+    size_t indexFileSize() const {
+        return appr_alg->indexFileSize();
+    }
 
     void saveIndex(const std::string &path_to_index) {
         appr_alg->saveIndex(path_to_index);
@@ -926,6 +929,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
+        .def("index_file_size", &Index<float>::indexFileSize)
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index",
             &Index<float>::loadIndex,

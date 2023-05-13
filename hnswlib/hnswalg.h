@@ -595,6 +595,32 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         max_elements_ = new_max_elements;
     }
 
+    size_t indexFileSize() const {
+        size_t size = 0;
+        size += sizeof(offsetLevel0_);
+        size += sizeof(max_elements_);
+        size += sizeof(cur_element_count);
+        size += sizeof(size_data_per_element_);
+        size += sizeof(label_offset_);
+        size += sizeof(offsetData_);
+        size += sizeof(maxlevel_);
+        size += sizeof(enterpoint_node_);
+        size += sizeof(maxM_);
+
+        size += sizeof(maxM0_);
+        size += sizeof(M_);
+        size += sizeof(mult_);
+        size += sizeof(ef_construction_);
+
+        size += cur_element_count * size_data_per_element_;
+
+        for (size_t i = 0; i < cur_element_count; i++) {
+            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+            size += sizeof(linkListSize);
+            size += linkListSize;
+        }
+        return size;
+    }
 
     void saveIndex(const std::string &location) {
         std::ofstream output(location, std::ios::binary);
