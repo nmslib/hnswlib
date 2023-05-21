@@ -1272,7 +1272,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 tableint *data = (tableint *) (ll_cur + 1);
                 std::unordered_set<tableint> s;
                 for (int j = 0; j < size; j++) {
-                    assert(data[j] > 0);
                     assert(data[j] < cur_element_count);
                     assert(data[j] != i);
                     inbound_connections_num[data[j]]++;
