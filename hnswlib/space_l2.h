@@ -3,7 +3,7 @@
 
 namespace hnswlib {
 
-static float
+inline float
 L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float *pVect1 = (float *) pVect1v;
     float *pVect2 = (float *) pVect2v;
@@ -22,7 +22,7 @@ L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
 #if defined(USE_AVX512)
 
 // Favor using AVX512 if available.
-static float
+inline float
 L2SqrSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float *pVect1 = (float *) pVect1v;
     float *pVect2 = (float *) pVect2v;
@@ -57,7 +57,7 @@ L2SqrSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void *qty_p
 #if defined(USE_AVX)
 
 // Favor using AVX if available.
-static float
+inline float
 L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float *pVect1 = (float *) pVect1v;
     float *pVect2 = (float *) pVect2v;
@@ -94,7 +94,7 @@ L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr)
 
 #if defined(USE_SSE)
 
-static float
+inline float
 L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float *pVect1 = (float *) pVect1v;
     float *pVect2 = (float *) pVect2v;
@@ -144,9 +144,9 @@ L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr)
 #endif
 
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-static DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
+inline DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
 
-static float
+inline float
 L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     size_t qty = *((size_t *) qty_ptr);
     size_t qty16 = qty >> 4 << 4;
@@ -162,7 +162,7 @@ L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qt
 
 
 #if defined(USE_SSE)
-static float
+inline float
 L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float PORTABLE_ALIGN32 TmpRes[8];
     float *pVect1 = (float *) pVect1v;
@@ -189,7 +189,7 @@ L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     return TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3];
 }
 
-static float
+inline float
 L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     size_t qty = *((size_t *) qty_ptr);
     size_t qty4 = qty >> 2 << 2;
@@ -252,7 +252,7 @@ class L2Space : public SpaceInterface<float> {
     ~L2Space() {}
 };
 
-static int
+inline int
 L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
     size_t qty = *((size_t *) qty_ptr);
     int res = 0;
@@ -277,7 +277,7 @@ L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const voi
     return (res);
 }
 
-static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+inline int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
     size_t qty = *((size_t*)qty_ptr);
     int res = 0;
     unsigned char* a = (unsigned char*)pVect1;

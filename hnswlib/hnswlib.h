@@ -15,24 +15,28 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
-static void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
+namespace hnswlib {
+inline void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
     __cpuidex(out, eax, ecx);
 }
-static __int64 xgetbv(unsigned int x) {
+inline __int64 xgetbv(unsigned int x) {
     return _xgetbv(x);
 }
+}  // namespace hnswlib
 #else
 #include <x86intrin.h>
 #include <cpuid.h>
 #include <stdint.h>
-static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+namespace hnswlib {
+inline void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
     __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 }
-static uint64_t xgetbv(unsigned int index) {
+inline uint64_t xgetbv(unsigned int index) {
     uint32_t eax, edx;
     __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
     return ((uint64_t)edx << 32) | eax;
 }
+}  // namespace hnswlib
 #endif
 
 #if defined(USE_AVX512)
@@ -50,7 +54,9 @@ static uint64_t xgetbv(unsigned int index) {
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
 
-static bool AVXCapable() {
+namespace hnswlib {
+
+inline bool AVXCapable() {
     int cpuInfo[4];
 
     // CPU support
@@ -77,7 +83,7 @@ static bool AVXCapable() {
     return HW_AVX && avxSupported;
 }
 
-static bool AVX512Capable() {
+inline bool AVX512Capable() {
     if (!AVXCapable()) return false;
 
     int cpuInfo[4];
@@ -105,6 +111,8 @@ static bool AVX512Capable() {
     }
     return HW_AVX512F && avx512Supported;
 }
+
+}  // namespace hnswlib
 #endif
 
 #include <queue>
@@ -130,12 +138,12 @@ class pairGreater {
 };
 
 template<typename T>
-static void writeBinaryPOD(std::ostream &out, const T &podRef) {
+inline void writeBinaryPOD(std::ostream &out, const T &podRef) {
     out.write((char *) &podRef, sizeof(T));
 }
 
 template<typename T>
-static void readBinaryPOD(std::istream &in, T &podRef) {
+inline void readBinaryPOD(std::istream &in, T &podRef) {
     in.read((char *) &podRef, sizeof(T));
 }
 
