@@ -280,10 +280,21 @@ class Index {
             }
 
             py::gil_scoped_release l;
-            ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
-                });
+            if (normalize == false) {
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
+                    });
+            } else {
+                std::vector<float> norm_array(num_threads * dim);
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    // normalize vector:
+                    size_t start_idx = threadId * dim;
+                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
+
+                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
+                    });
             }
             cur_l += rows;
         }
