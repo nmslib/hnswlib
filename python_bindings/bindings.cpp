@@ -269,33 +269,16 @@ class Index {
             if (!ep_added) {
                 size_t id = ids.size() ? ids.at(0) : (cur_l);
                 float* vector_data = (float*)items.data(0);
-                std::vector<float> norm_array(dim);
-                if (normalize) {
-                    normalize_vector(vector_data, norm_array.data());
-                    vector_data = norm_array.data();
-                }
                 appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
                 start = 1;
                 ep_added = true;
             }
 
             py::gil_scoped_release l;
-            if (normalize == false) {
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
-                    });
-            } else {
-                std::vector<float> norm_array(num_threads * dim);
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    // normalize vector:
-                    size_t start_idx = threadId * dim;
-                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
-
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
-                    });
-            }
+            ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
+                });
             cur_l += rows;
         }
     }
