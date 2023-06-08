@@ -942,8 +942,18 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     void updatePoint(const void *dataPoint, tableint internalId, float updateNeighborProbability) {
+        const void *newPoint = dataPoint;
+
+        size_t dim = *((size_t *) dist_func_param_);
+        std::vector<float> norm_array(dim);
+        if (normalize_) {
+            float length = normalize_vector((float*)dataPoint, norm_array.data(), dim);
+            void* lengthPtr = length_memory_ + internalId * sizeof(float);
+            memcpy(length_memory_ + internalId * sizeof(float), &length, sizeof(float));
+            newPoint = norm_array.data();
+        }
         // update the feature vector associated with existing point with new vector
-        memcpy(getDataByInternalId(internalId), dataPoint, data_size_);
+        memcpy(getDataByInternalId(internalId), newPoint, data_size_);
 
         int maxLevelCopy = maxlevel_;
         tableint entryPointCopy = enterpoint_node_;
@@ -1016,7 +1026,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-        repairConnectionsForUpdate(dataPoint, entryPointCopy, internalId, elemLevel, maxLevelCopy);
+        repairConnectionsForUpdate(newPoint, entryPointCopy, internalId, elemLevel, maxLevelCopy);
     }
 
 
