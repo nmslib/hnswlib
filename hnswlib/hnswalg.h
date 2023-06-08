@@ -1168,7 +1168,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // Initialisation of the data and label and if appropriate the length
         const void* normalized_vector = data_point;
         size_t dim = *((size_t *) dist_func_param_);
-        thread_local std::vector<float> norm_array(dim);
+        std::vector<float> norm_array(dim);
         if (normalize_) {
             float length = normalize_vector((float*)data_point, norm_array.data(), dim);
             void* lengthPtr = length_memory_ + cur_c * sizeof(float);
