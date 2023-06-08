@@ -610,6 +610,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             throw std::runtime_error("Not enough memory: resizeIndex failed to allocate base layer");
         data_level0_memory_ = data_level0_memory_new;
 
+        // Reallocate length memory
+        char * length_memory_new = (char *) realloc(length_memory_, new_max_elements * sizeof(float));
+        if (length_memory_new == nullptr)
+            throw std::runtime_error("Not enough memory: resizeIndex failed to allocate length memory");
+        length_memory_ = length_memory_new;
+
         // Reallocate all other layers
         char ** linkLists_new = (char **) realloc(linkLists_, sizeof(void *) * new_max_elements);
         if (linkLists_new == nullptr)
