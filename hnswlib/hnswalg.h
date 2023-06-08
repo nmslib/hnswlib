@@ -126,7 +126,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory");
         
-        // TODO: don't hardcode to sizeof(float)
         length_memory_ = (char *) malloc(max_elements_ * sizeof(float));
         if (length_memory_ == nullptr)
             throw std::runtime_error("Not enough memory");
