@@ -224,12 +224,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         float norm = 0.0f;
         for (int i = 0; i < dim; i++)
             norm += data[i] * data[i];
-        norm = 1.0f / (sqrtf(norm) + 1e-30f);
+        float length = sqrtf(norm);
+        norm = 1.0f / (length + 1e-30f);
         for (int i = 0; i < dim; i++) {
             norm_array[i] = data[i] * norm;
         }
-        // TODO: return the length not 1 / length
-        return norm;
+        return length;
     }
 
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
@@ -785,17 +785,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         lock_table.unlock();
 
         char* data_ptrv = getDataByInternalId(internalId);
-        // TODO: Don't unncessairly multiply by length if not needed
         float length = 1.0;
         if (normalize_){
             length = ((float*)length_memory_)[internalId];
-            length = 1.0f / length;
         }
         size_t dim = *((size_t *) dist_func_param_);
         std::vector<data_t> data;
         data_t* data_ptr = (data_t*) data_ptrv;
         for (int i = 0; i < dim; i++) {
-            data.push_back(*data_ptr * length);
+            if (normalize_){
+                data.push_back(*data_ptr * length);
+            } else {
+                data.push_back(*data_ptr);
+            }
             data_ptr += 1;
         }
         return data;
