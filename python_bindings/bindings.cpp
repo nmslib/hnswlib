@@ -199,7 +199,7 @@ class Index {
             throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted, normalize);
         index_inited = true;
         ep_added = false;
         appr_alg->ef_ = default_ef;
@@ -229,7 +229,7 @@ class Index {
           std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
-      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted);
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted, normalize);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
@@ -269,33 +269,16 @@ class Index {
             if (!ep_added) {
                 size_t id = ids.size() ? ids.at(0) : (cur_l);
                 float* vector_data = (float*)items.data(0);
-                std::vector<float> norm_array(dim);
-                if (normalize) {
-                    normalize_vector(vector_data, norm_array.data());
-                    vector_data = norm_array.data();
-                }
                 appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
                 start = 1;
                 ep_added = true;
             }
 
             py::gil_scoped_release l;
-            if (normalize == false) {
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
-                    });
-            } else {
-                std::vector<float> norm_array(num_threads * dim);
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    // normalize vector:
-                    size_t start_idx = threadId * dim;
-                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
-
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
-                    });
-            }
+            ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
+                });
             cur_l += rows;
         }
     }
@@ -548,6 +531,11 @@ class Index {
             } else {
                 appr_alg->label_lookup_.insert(std::make_pair(label_lookup_key_npy.data()[i], label_lookup_val_npy.data()[i]));
             }
+        }
+
+        // Set normalize flag if needed
+        if (normalize) {
+            appr_alg->normalize_ = true;
         }
 
         memcpy(appr_alg->element_levels_.data(), element_levels_npy.data(), element_levels_npy.nbytes());

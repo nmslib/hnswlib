@@ -71,6 +71,7 @@ jobs:
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test
           ./multiThread_replace_test
+          ./getUnormalized_test
           ./test_updates
           ./test_updates update
         shell: bash
