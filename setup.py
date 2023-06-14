@@ -114,11 +114,11 @@ class BuildExt(build_ext):
 
 
 setup(
-    name='hnswlib',
+    name='chroma-hnswlib',
     version=__version__,
-    description='hnswlib',
-    author='Yury Malkov and others',
-    url='https://github.com/yurymalkov/hnsw',
+    description='Chromas fork of hnswlib',
+    author='Yury Malkov and the original hnswlib authors + Chroma',
+    url='https://github.com/chroma-core/hnswlib',
     long_description="""hnsw""",
     ext_modules=ext_modules,
     install_requires=['numpy'],
