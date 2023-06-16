@@ -9,7 +9,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CMAKE_CXX_STANDARD 11)
 
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-      SET( CMAKE_CXX_FLAGS  "-Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -march=native -fpic -ftree-vectorize")
+      # SET( CMAKE_CXX_FLAGS  "-Ofast -DNDEBUG -std=c++11 -DHAVE_CXX0X -openmp -fpic -ftree-vectorize")
+      SET( CMAKE_CXX_FLAGS  "-Ofast -std=c++11 -DHAVE_CXX0X -openmp -fpic -ftree-vectorize")
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -DNDEBUG -std=c++11 -DHAVE_CXX0X -march=native -fpic -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0" )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -56,5 +57,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     add_executable(getUnormalized_test tests/cpp/getUnormalized_test.cpp)
     target_link_libraries(getUnormalized_test hnswlib)
+
+    add_executable(persistent_test tests/cpp/persistent_test.cpp)
+    target_link_libraries(persistent_test hnswlib)
 endif()
 
