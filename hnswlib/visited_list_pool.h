@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string.h>
 #include <deque>
@@ -10,13 +11,11 @@ typedef unsigned short int vl_type;
 class VisitedList {
  public:
     vl_type curV;
-    vl_type *mass;
+    std::unique_ptr<vl_type[]> mass;
     unsigned int numelements;
 
-    VisitedList(int numelements1) {
-        curV = -1;
-        numelements = numelements1;
-        mass = new vl_type[numelements];
+    VisitedList(int numelements1): curV(-1), numelements(numelements1) {
+        mass = std::unique_ptr<vl_type[]>(new vl_type[numelements]);
     }
 
     void reset() {
@@ -26,8 +25,6 @@ class VisitedList {
             curV++;
         }
     }
-
-    ~VisitedList() { delete[] mass; }
 };
 ///////////////////////////////////////////////////////////
 //
