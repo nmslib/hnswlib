@@ -8,6 +8,7 @@
 #include <atomic>
 #include <stdlib.h>
 #include <assert.h>
+#include <limits>
 
 namespace py = pybind11;
 using namespace pybind11::literals;  // needed to bring in _a literal
@@ -604,7 +605,8 @@ class Index {
         py::object input,
         size_t k = 1,
         int num_threads = -1,
-        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr,
+        bool allow_missing_values=false) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype* data_numpy_l;
@@ -634,14 +636,21 @@ class Index {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)items.data(row), k, p_idFilter);
-                    if (result.size() != k)
+                    if (result.size() != k and allow_missing_values == false)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small, try setting 'allow_missing_values = True' ");
                     for (int i = k - 1; i >= 0; i--) {
-                        auto& result_tuple = result.top();
-                        data_numpy_d[row * k + i] = result_tuple.first;
-                        data_numpy_l[row * k + i] = result_tuple.second;
-                        result.pop();
+                        if(!result.empty()){
+                            auto& result_tuple = result.top();
+                            data_numpy_d[row * k + i] = result_tuple.first;
+                            data_numpy_l[row * k + i] = result_tuple.second;
+                            result.pop();
+                        }
+                        else{
+                            assert(allow_missing_values);
+                            data_numpy_d[row * k + i] = std::numeric_limits<dist_t>::max();
+                            data_numpy_l[row * k + i] = -1;
+                        }
                     }
                 });
             } else {
@@ -654,14 +663,21 @@ class Index {
 
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
-                    if (result.size() != k)
+                    if (result.size() != k and allow_missing_values == false)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small, try setting 'allow_missing_values = True'");
                     for (int i = k - 1; i >= 0; i--) {
-                        auto& result_tuple = result.top();
-                        data_numpy_d[row * k + i] = result_tuple.first;
-                        data_numpy_l[row * k + i] = result_tuple.second;
-                        result.pop();
+                        if(!result.empty()){
+                            auto& result_tuple = result.top();
+                            data_numpy_d[row * k + i] = result_tuple.first;
+                            data_numpy_l[row * k + i] = result_tuple.second;
+                            result.pop();
+                        }
+                        else{
+                            assert(allow_missing_values);
+                            data_numpy_d[row * k + i] = std::numeric_limits<dist_t>::max();
+                            data_numpy_l[row * k + i] = -1;
+                        }
                     }
                 });
             }
@@ -918,7 +934,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("data"),
             py::arg("k") = 1,
             py::arg("num_threads") = -1,
-            py::arg("filter") = py::none())
+            py::arg("filter") = py::none(),
+            py::arg("allow_missing_values") = false)
         .def("add_items",
             &Index<float>::addItems,
             py::arg("data"),
