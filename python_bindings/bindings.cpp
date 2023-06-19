@@ -636,7 +636,7 @@ class Index {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)items.data(row), k, p_idFilter);
-                    if (result.size() != k and allow_missing_values == false)
+                    if (result.size() != k && allow_missing_values == false)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small, try setting 'allow_missing_values = True' ");
                     for (int i = k - 1; i >= 0; i--) {
@@ -663,7 +663,7 @@ class Index {
 
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
-                    if (result.size() != k and allow_missing_values == false)
+                    if (result.size() != k && allow_missing_values == false)
                         throw std::runtime_error(
                             "Cannot return the results in a contigious 2D array. Probably ef or M is too small, try setting 'allow_missing_values = True'");
                     for (int i = k - 1; i >= 0; i--) {
