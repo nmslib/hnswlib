@@ -112,7 +112,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
             if ((!isIdAllowed) || (*isIdAllowed)(label)) {
-                topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                topResults.emplace(dist, label);
             }
         }
         dist_t lastdist = topResults.empty() ? std::numeric_limits<dist_t>::max() : topResults.top().first;
@@ -121,7 +121,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             if (dist <= lastdist) {
                 labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
                 if ((!isIdAllowed) || (*isIdAllowed)(label)) {
-                    topResults.push(std::pair<dist_t, labeltype>(dist, label));
+                    topResults.emplace(dist, label);
                 }
                 if (topResults.size() > k)
                     topResults.pop();
