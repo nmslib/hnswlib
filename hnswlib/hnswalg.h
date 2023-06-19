@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <unordered_set>
 #include <list>
+#include <memory>
 
 namespace hnswlib {
 typedef unsigned int tableint;
@@ -33,7 +34,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     double mult_{0.0}, revSize_{0.0};
     int maxlevel_{0};
 
-    VisitedListPool *visited_list_pool_{nullptr};
+    std::unique_ptr<VisitedListPool> visited_list_pool_{nullptr};
 
     // Locks operations with element by label value
     mutable std::vector<std::mutex> label_op_locks_;
@@ -122,7 +123,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         cur_element_count = 0;
 
-        visited_list_pool_ = new VisitedListPool(1, max_elements);
+        visited_list_pool_ = std::unique_ptr<VisitedListPool>(new VisitedListPool(1, max_elements));
 
         // initializations for special treatment of the first node
         enterpoint_node_ = -1;
@@ -144,7 +145,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 free(linkLists_[i]);
         }
         free(linkLists_);
-        delete visited_list_pool_;
     }
 
 
@@ -573,8 +573,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (new_max_elements < cur_element_count)
             throw std::runtime_error("Cannot resize, max element is less than the current number of elements");
 
-        delete visited_list_pool_;
-        visited_list_pool_ = new VisitedListPool(1, new_max_elements);
+        visited_list_pool_.reset(new VisitedListPool(1, new_max_elements));
 
         element_levels_.resize(new_max_elements);
 
@@ -724,7 +723,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::vector<std::mutex>(max_elements).swap(link_list_locks_);
         std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
 
-        visited_list_pool_ = new VisitedListPool(1, max_elements);
+        visited_list_pool_.reset(new VisitedListPool(1, max_elements));
 
         linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
         if (linkLists_ == nullptr)
