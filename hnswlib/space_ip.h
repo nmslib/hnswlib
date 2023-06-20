@@ -158,7 +158,8 @@ InnerProductSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void
     __m512 sum512 = _mm512_set1_ps(0);
 
     size_t loop = qty16 / 4;
-    for( int i = 0; i < loop; i++) {
+    
+    while (loop--) {
         __m512 v1 = _mm512_loadu_ps(pVect1);
         __m512 v2 = _mm512_loadu_ps(pVect2);
         pVect1 += 16;
@@ -183,6 +184,14 @@ InnerProductSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void
         sum512 = _mm512_fmadd_ps(v3, v4, sum512);
         sum512 = _mm512_fmadd_ps(v5, v6, sum512);
         sum512 = _mm512_fmadd_ps(v7, v8, sum512);
+    }
+
+    while (pVect1 < pEnd1) {
+        __m512 v1 = _mm512_loadu_ps(pVect1);
+        __m512 v2 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
+        pVect2 += 16;
+        sum512 = _mm512_fmadd_ps(v1, v2, sum512);
     }
 
     float sum = _mm512_reduce_add_ps(sum512);
