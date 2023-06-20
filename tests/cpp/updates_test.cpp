@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
         for (int b = 1; b < dummy_data_multiplier; b++) {
             std::cout << "Update iteration " << b << "\n";
             char cpath[1024];
-            sprintf(cpath, "batch_dummy_%02d.bin", b);
+            snprintf(cpath, sizeof(cpath), "batch_dummy_%02d.bin", b);
             std::vector<float> dummy_batchb = load_batch<float>(path + cpath, N * d);
 
             ParallelFor(0, N, num_threads, [&](size_t i, size_t threadId) {
