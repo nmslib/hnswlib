@@ -711,7 +711,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_); // does this need to be updated?
         writeBinaryPOD(output, ef_construction_);
 
-        // Data after this point is not preallocated in the file
+        output.write(data_level0_memory_, max_elements_ * size_data_per_element_);
+        output.write(length_memory_, max_elements_ * sizeof(float));
+
+        for (size_t i = 0; i < cur_element_count; i++) {
+            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+            writeBinaryPOD(output, linkListSize);
+            if (linkListSize)
+                output.write(linkLists_[i], linkListSize);
+        }
+        output.close();
     }
 
     // Persistence functions
@@ -762,18 +771,26 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             writeBinaryPOD(output, ((float*)length_memory_)[id]);
         }
 
-        // Write the link lists for the dirty ids
-        for (const auto& id : elements_to_persist_) {
-            // Write the _linkLists
-            output.seekp(header_offset, output.beg);
-            output.seekp(max_elements_ * size_data_per_element_ + id * size_links_per_element_, output.cur);
-            // output.seekp(header_offset + max_elements_ * size_data_per_element_ + id * size_links_per_element_, output.beg);
-            unsigned int linkListSize = element_levels_[id] > 0 ? size_links_per_element_ * element_levels_[id] : 0;
-            std::cout << "Writing link list for id " << id << " of size " << linkListSize << " with levels " << element_levels_[id] << std::endl;
-            writeBinaryPOD(output, linkListSize);
-            output.write(linkLists_[id], linkListSize);
+        output.seekp(header_offset, output.beg);
+        output.seekp((max_elements_ * size_data_per_element_) + (max_elements_ * sizeof(float)), output.cur);
+        auto dirty_elements_iter = elements_to_persist_.begin();
+        // TODO: don't need to iterate over potentially all elements
+        // time this loop
+        for (size_t i = 0; i < cur_element_count && dirty_elements_iter != elements_to_persist_.end(); i++) {
+            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+            // std::cout << "Writing link list for id " << i << " of size " << linkListSize << " with levels " << element_levels_[i] << std::endl;
+            // std::cout << "Writing at stream position " << output.tellp() << std::endl;
+            if (i == *dirty_elements_iter) {
+                writeBinaryPOD(output, linkListSize);
+                if (linkListSize)
+                    output.write(linkLists_[i], linkListSize);
+                dirty_elements_iter = std::next(dirty_elements_iter);
+            } else {
+                output.seekp(sizeof(unsigned int), output.cur);
+            }
+                
         }
-
+        // TODO: sync? Theoretically we don't need to - the index can be non-perfectly durable
         output.close();
     }
 
@@ -823,12 +840,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        // TODO: the following reads don't need to be max_elements long
+        input.read(data_level0_memory_, max_elements * size_data_per_element_);
 
         length_memory_ =  (char *) malloc(max_elements * sizeof(float));
         if (length_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate length_memory_");
-        input.read(length_memory_, cur_element_count * sizeof(float));
+        input.read(length_memory_, max_elements * sizeof(float));
 
 
         // Init link lists / visited lists pool
@@ -850,7 +868,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         for (size_t i = 0; i < cur_element_count; i++) {
             label_lookup_[getExternalLabel(i)] = i;
             unsigned int linkListSize;
+            // std::cout << "Reading at stream position " << input.tellg() << std::endl;
             readBinaryPOD(input, linkListSize);
+            // std::cout << "Read link list for id " << i << " of size " << linkListSize << std::endl;
             if (linkListSize == 0) {
                 element_levels_[i] = 0;
                 linkLists_[i] = nullptr;
@@ -1468,7 +1488,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 unsigned int *data;
                 data = (unsigned int *) get_linklist(currObj, level);
                 int size = getListCount(data);
-                std::cout << "HERE3" << std::endl;
+                // std::cout << "HERE3" << std::endl;
                 metric_hops++;
                 metric_distance_computations+=size;
 

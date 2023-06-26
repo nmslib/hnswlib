@@ -10,8 +10,8 @@ namespace {
 using idx_t = hnswlib::labeltype;
 
 void testPersistentIndex() {
-    int d = 1;
-    idx_t n = 6;
+    int d = 1536;
+    idx_t n = 10000;
     idx_t nq = 10;
     size_t k = 10;
 
@@ -52,7 +52,7 @@ void testPersistentIndex() {
         std::vector<float> actual = alg_hnsw2->template getDataByLabel<float>(i);
         for (size_t j = 0; j < d; j++) {
             // print got and expected
-            std::cout << "actual: " << actual[j] << " expected: " << data[d * i + j] << std::endl;
+            // std::cout << "actual: " << actual[j] << " expected: " << data[d * i + j] << std::endl;
             // Check that abs difference is less than 1e-6
             assert(std::abs(actual[j] - data[d * i + j]) < 1e-6);
         }
@@ -61,19 +61,19 @@ void testPersistentIndex() {
     // Compare to in-memory index
     for (size_t j = 0; j < nq; ++j) {
         const void* p = query.data() + j * d;
-        // auto gd = alg_hnsw->searchKnn(p, k);
+        auto gd = alg_hnsw->searchKnn(p, k);
         // std::cout << "gd.size(): " << gd.size() << std::endl;
         auto res = alg_hnsw2->searchKnn(p, k);
         // std::cout << "res.size(): " << res.size() << std::endl;
-        // assert(gd.size() == res.size());
-        // int missed = 0;
-        // for (size_t i = 0; i < gd.size(); i++) {
-        //     std::cout << "gd.top().first: " << gd.top().first << " res.top().first: " << res.top().first << std::endl;
-        //     assert(std::abs(gd.top().first - res.top().first) < 1e-6);
-        //     assert(gd.top().second == res.top().second);
-        //     gd.pop();
-        //     res.pop();
-        // }
+        assert(gd.size() == res.size());
+        int missed = 0;
+        for (size_t i = 0; i < gd.size(); i++) {
+            // std::cout << "gd.top().first: " << gd.top().first << " res.top().first: " << res.top().first << std::endl;
+            assert(std::abs(gd.top().first - res.top().first) < 1e-6);
+            assert(gd.top().second == res.top().second);
+            gd.pop();
+            res.pop();
+        }
     }
 
     delete alg_hnsw;
