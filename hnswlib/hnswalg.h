@@ -725,6 +725,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     // Persistence functions
     void persistDirty() {
+        if (elements_to_persist_.size() == 0) {
+            return;
+        }
+
         std::ofstream output(persist_location_, std::ios::binary);
         std::streampos position;
 
@@ -754,12 +758,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Write the dirty ids
         // loop over _dirty_ids in order
+        std::cout << "Persisting " << elements_to_persist_.size() << " elements " << std::endl;
         for (const auto& id : elements_to_persist_) {
             // Write the _data_level0_memory
             output.seekp(header_offset, output.beg);
             output.seekp(id * size_data_per_element_, output.cur);
             // output.seekp(header_offset + id * size_data_per_element_, output.beg);
             output.write(data_level0_memory_ + id * size_data_per_element_, size_data_per_element_);
+
         }
 
         // Write the dirty lengths
@@ -791,6 +797,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 
         }
         // TODO: sync? Theoretically we don't need to - the index can be non-perfectly durable
+        elements_to_persist_.clear();
         output.close();
     }
 

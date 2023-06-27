@@ -10,8 +10,8 @@ namespace {
 using idx_t = hnswlib::labeltype;
 
 void testPersistentIndex() {
-    int d = 1536;
-    idx_t n = 10000;
+    int d = 1;
+    idx_t n = 3;
     idx_t nq = 10;
     size_t k = 10;
 
@@ -33,9 +33,15 @@ void testPersistentIndex() {
     hnswlib::InnerProductSpace space(d);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n, 16, 200, 100, false, false, true, "test.bin", 10);
 
+    auto startAdd = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < n; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
+        alg_hnsw->persistDirty();
     }
+    auto finishAdd = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsedAdd = finishAdd - startAdd;
+    std::cout << "all add() took " << elapsedAdd.count() << " seconds" << std::endl;
+
 
     // start a timer
     auto start = std::chrono::high_resolution_clock::now();
@@ -52,7 +58,7 @@ void testPersistentIndex() {
         std::vector<float> actual = alg_hnsw2->template getDataByLabel<float>(i);
         for (size_t j = 0; j < d; j++) {
             // print got and expected
-            // std::cout << "actual: " << actual[j] << " expected: " << data[d * i + j] << std::endl;
+            std::cout << "actual: " << actual[j] << " expected: " << data[d * i + j] << std::endl;
             // Check that abs difference is less than 1e-6
             assert(std::abs(actual[j] - data[d * i + j]) < 1e-6);
         }
