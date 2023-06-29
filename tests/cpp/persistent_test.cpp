@@ -109,7 +109,7 @@ void testResizePersistentIndex() {
     // Add a quarter of the data
     for (size_t i = 0; i < n / 4; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
-        if (i % 3 == 0)
+        if (i % 9 == 0)
             alg_hnsw->persistDirty();
     }
     alg_hnsw->persistDirty();
@@ -118,7 +118,7 @@ void testResizePersistentIndex() {
     alg_hnsw->resizeIndex(n / 2);
     for (size_t i = n / 4; i < n / 2; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
-        if (i % 10 == 0)
+        if (i % 9 == 0)
             alg_hnsw->persistDirty();
     }
     alg_hnsw->persistDirty();
@@ -137,7 +137,7 @@ void testResizePersistentIndex() {
     alg_hnsw2->resizeIndex(n);
     for (size_t i = n / 2; i < n; i++) {
         alg_hnsw2->addPoint(data.data() + d * i, i);
-        if (i % 10 == 0)
+        if (i % 9 == 0)
             alg_hnsw2->persistDirty();
     }
     alg_hnsw2->persistDirty();
