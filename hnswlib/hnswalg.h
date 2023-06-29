@@ -171,6 +171,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (persist_location_.empty()) {
                 throw std::runtime_error("persist_location_ is empty");
             }
+            // TODO: check if path exists
            initPersistentIndex();
         }
     }
@@ -692,35 +693,72 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         output.close();
     }
 
+    std::string getHeaderLocation() {
+        return persist_location_ + "/header.bin";
+    }
+
+    std::string getDataLevel0Location() {
+        return persist_location_ + "/data_level0.bin";
+    }
+
+    std::string getLengthLocation() {
+        return persist_location_ + "/length.bin";
+    }
+
+    std::string getLinkListLocation() {
+        return persist_location_ + "/link_lists.bin";
+    }
+
     void initPersistentIndex() {
-        std::ofstream output(persist_location_, std::ios::binary);
+        // A persisted index is stored as four files
+        // The latter 3 files are stored seperately so that they can each grow as the index grows 
+        // 1. The header
+        // 2. The data_level_0
+        // 3. length_memory_
+        // 4. linkLists
+        // TODO: Should header point to the other three files?
+
+        // Write header
+        std::cout << "writing header to " << getHeaderLocation() << std::endl;
+        std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
         std::streampos position;
 
-        writeBinaryPOD(output, offsetLevel0_);
-        writeBinaryPOD(output, max_elements_);
-        writeBinaryPOD(output, cur_element_count); // needs to be updated
-        writeBinaryPOD(output, size_data_per_element_);
-        writeBinaryPOD(output, label_offset_);
-        writeBinaryPOD(output, offsetData_);
-        writeBinaryPOD(output, maxlevel_); // needs to be updated
-        writeBinaryPOD(output, enterpoint_node_); // does this need to be updated?
-        writeBinaryPOD(output, maxM_);
+        // TODO: abstract out writing the header
+        writeBinaryPOD(output_header, offsetLevel0_);
+        writeBinaryPOD(output_header, max_elements_);
+        writeBinaryPOD(output_header, cur_element_count); // needs to be updated
+        writeBinaryPOD(output_header, size_data_per_element_);
+        writeBinaryPOD(output_header, label_offset_);
+        writeBinaryPOD(output_header, offsetData_);
+        writeBinaryPOD(output_header, maxlevel_); // needs to be updated
+        writeBinaryPOD(output_header, enterpoint_node_); // does this need to be updated?
+        writeBinaryPOD(output_header, maxM_);
 
-        writeBinaryPOD(output, maxM0_);
-        writeBinaryPOD(output, M_);
-        writeBinaryPOD(output, mult_); // does this need to be updated?
-        writeBinaryPOD(output, ef_construction_);
+        writeBinaryPOD(output_header, maxM0_);
+        writeBinaryPOD(output_header, M_);
+        writeBinaryPOD(output_header, mult_); // does this need to be updated?
+        writeBinaryPOD(output_header, ef_construction_);
+        output_header.close();
 
-        output.write(data_level0_memory_, max_elements_ * size_data_per_element_);
-        output.write(length_memory_, max_elements_ * sizeof(float));
+        // Write data_level0
+        std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::binary);
+        output_data_level0.write(data_level0_memory_, max_elements_ * size_data_per_element_);
+        output_data_level0.close();
 
+        // Write lengths
+        std::ofstream output_length(this->getLengthLocation(), std::ios::binary);
+        output_length.write(length_memory_, max_elements_ * sizeof(float));
+        output_length.close();
+
+        // Write linklists
+        std::ofstream output_link_list(this->getLinkListLocation(), std::ios::binary);
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            writeBinaryPOD(output, linkListSize);
+            writeBinaryPOD(output_link_list, linkListSize);
             if (linkListSize)
-                output.write(linkLists_[i], linkListSize);
+                output_link_list.write(linkLists_[i], linkListSize);
         }
-        output.close();
+        output_link_list.close();
     }
 
     // Persistence functions
@@ -729,132 +767,117 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return;
         }
 
-        std::ofstream output(persist_location_, std::ios::binary);
-        std::streampos position;
-
-        output.seekp(0, output.beg);
+        std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
 
         // Just write the header again for now
-        writeBinaryPOD(output, offsetLevel0_);
-        writeBinaryPOD(output, max_elements_);
-        writeBinaryPOD(output, cur_element_count); // needs to be updated
-        writeBinaryPOD(output, size_data_per_element_);
-        writeBinaryPOD(output, label_offset_);
-        writeBinaryPOD(output, offsetData_);
-        writeBinaryPOD(output, maxlevel_); // needs to be updated
-        writeBinaryPOD(output, enterpoint_node_); // does this need to be updated?
-        writeBinaryPOD(output, maxM_);
+        writeBinaryPOD(output_header, offsetLevel0_);
+        writeBinaryPOD(output_header, max_elements_);
+        writeBinaryPOD(output_header, cur_element_count); // needs to be updated
+        writeBinaryPOD(output_header, size_data_per_element_);
+        writeBinaryPOD(output_header, label_offset_);
+        writeBinaryPOD(output_header, offsetData_);
+        writeBinaryPOD(output_header, maxlevel_); // needs to be updated
+        writeBinaryPOD(output_header, enterpoint_node_); // does this need to be updated?
+        writeBinaryPOD(output_header, maxM_);
 
-        writeBinaryPOD(output, maxM0_);
-        writeBinaryPOD(output, M_);
-        writeBinaryPOD(output, mult_); // does this need to be updated?
-        writeBinaryPOD(output, ef_construction_);
+        writeBinaryPOD(output_header, maxM0_);
+        writeBinaryPOD(output_header, M_);
+        writeBinaryPOD(output_header, mult_); // does this need to be updated?
+        writeBinaryPOD(output_header, ef_construction_);
+        output_header.close();
 
-        // Get the offset from this point
-        std::streampos header_offset = output.tellp();
-
-
-        // ASYNC IO?
-
-        // Write the dirty ids
-        // loop over _dirty_ids in order
-        std::cout << "Persisting " << elements_to_persist_.size() << " elements " << std::endl;
+        // Note: We could benifet a lot from async IO here. Either via classic POSIX AIO or via libaio
+        // Generally, this storage scheme is a bit naive, and we could do a lot better in terms of disk access patterns
+        std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::in|std::ios::out|std::ios::binary);
         for (const auto& id : elements_to_persist_) {
             // Write the _data_level0_memory
-            output.seekp(header_offset, output.beg);
-            output.seekp(id * size_data_per_element_, output.cur);
-            // output.seekp(header_offset + id * size_data_per_element_, output.beg);
-            output.write(data_level0_memory_ + id * size_data_per_element_, size_data_per_element_);
-
+            // Each element is stored in a contiguous block of size_data_per_element_
+            // Where each element is the the size of llist, the llist, the data, and the label
+            output_data_level0.seekp(id * size_data_per_element_, output_data_level0.beg);
+            output_data_level0.write(data_level0_memory_ + id * size_data_per_element_, size_data_per_element_);
         }
+        output_data_level0.close();
 
         // Write the dirty lengths
+        std::ofstream output_length(this->getLengthLocation(), std::ios::in|std::ios::out|std::ios::binary);
         for (const auto& id : elements_to_persist_) {
             // Write the _length_memory
-            output.seekp(header_offset, output.beg);
-            output.seekp(max_elements_ * size_data_per_element_ + id * sizeof(float), output.cur);
-            // output.seekp(header_offset + max_elements_ * size_data_per_element_ + id * sizeof(float), output.beg);
-            writeBinaryPOD(output, ((float*)length_memory_)[id]);
+            output_length.seekp(id * sizeof(float), output_length.beg);
+            writeBinaryPOD(output_length, ((float*)length_memory_)[id]);
         }
+        output_length.close();
 
-        output.seekp(header_offset, output.beg);
-        output.seekp((max_elements_ * size_data_per_element_) + (max_elements_ * sizeof(float)), output.cur);
+        // Write the dirty link lists
+        std::ofstream output_link_list(this->getLinkListLocation(), std::ios::in|std::ios::out|std::ios::binary);
         auto dirty_elements_iter = elements_to_persist_.begin();
-        // TODO: don't need to iterate over potentially all elements
-        // time this loop
+        // TODO: don't need to iterate over potentially all elements, could store it or memoize
         for (size_t i = 0; i < cur_element_count && dirty_elements_iter != elements_to_persist_.end(); i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            // std::cout << "Writing link list for id " << i << " of size " << linkListSize << " with levels " << element_levels_[i] << std::endl;
-            // std::cout << "Writing at stream position " << output.tellp() << std::endl;
             if (i == *dirty_elements_iter) {
-                writeBinaryPOD(output, linkListSize);
+                writeBinaryPOD(output_link_list, linkListSize);
                 if (linkListSize)
-                    output.write(linkLists_[i], linkListSize);
+                    output_link_list.write(linkLists_[i], linkListSize);
                 dirty_elements_iter = std::next(dirty_elements_iter);
             } else {
-                output.seekp(sizeof(unsigned int), output.cur);
+                output_link_list.seekp(linkListSize + sizeof(unsigned int), output_link_list.cur);
             }
-                
         }
-        // TODO: sync? Theoretically we don't need to - the index can be non-perfectly durable
+        output_link_list.close();
+
+        // TODO: sync? Theoretically we don't need to - the index can be non-perfectly durable as the true source of durability is WAL.
         elements_to_persist_.clear();
-        output.close();
     }
 
     void loadPersistedIndex(SpaceInterface<dist_t> *s, size_t max_elements_i = 0){
-        std::ifstream input(persist_location_, std::ios::binary);
-        std::cout << "Loading persisted index from " << persist_location_ << std::endl;
+        std::ifstream input_header(this->getHeaderLocation(), std::ios::binary);
 
-        if (!input.is_open())
+        // TODO: do this for all files
+        if (!input_header.is_open())
             throw std::runtime_error("Cannot open file");
 
-        // get file size:
-        input.seekg(0, input.end);
-        std::streampos total_filesize = input.tellg();
-        input.seekg(0, input.beg);
-
         // Read the header
-
-        readBinaryPOD(input, offsetLevel0_);
-        readBinaryPOD(input, max_elements_);
-        readBinaryPOD(input, cur_element_count);
+        readBinaryPOD(input_header, offsetLevel0_);
+        readBinaryPOD(input_header, max_elements_);
+        readBinaryPOD(input_header, cur_element_count);
 
         size_t max_elements = max_elements_i;
         if (max_elements < cur_element_count)
             max_elements = max_elements_;
         max_elements_ = max_elements;
-        readBinaryPOD(input, size_data_per_element_);
-        readBinaryPOD(input, label_offset_);
-        readBinaryPOD(input, offsetData_);
-        readBinaryPOD(input, maxlevel_);
-        readBinaryPOD(input, enterpoint_node_);
+        readBinaryPOD(input_header, size_data_per_element_);
+        readBinaryPOD(input_header, label_offset_);
+        readBinaryPOD(input_header, offsetData_);
+        readBinaryPOD(input_header, maxlevel_);
+        readBinaryPOD(input_header, enterpoint_node_);
 
-        readBinaryPOD(input, maxM_);
-        readBinaryPOD(input, maxM0_);
-        readBinaryPOD(input, M_);
-        readBinaryPOD(input, mult_);
-        readBinaryPOD(input, ef_construction_);
+        readBinaryPOD(input_header, maxM_);
+        readBinaryPOD(input_header, maxM0_);
+        readBinaryPOD(input_header, M_);
+        readBinaryPOD(input_header, mult_);
+        readBinaryPOD(input_header, ef_construction_);
+        input_header.close();
 
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
 
-        auto pos = input.tellg();
 
         // Read data_level0_memory_
-        input.seekg(pos, input.beg);
-
+        std::ifstream input_data_level0(this->getDataLevel0Location(), std::ios::binary);
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
+            throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate level0");
         // TODO: the following reads don't need to be max_elements long
-        input.read(data_level0_memory_, max_elements * size_data_per_element_);
+        input_data_level0.read(data_level0_memory_, max_elements * size_data_per_element_);
+        input_data_level0.close();
 
+        // Read length_memory_
+        std::ifstream input_length(this->getLengthLocation(), std::ios::binary);
         length_memory_ =  (char *) malloc(max_elements * sizeof(float));
         if (length_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate length_memory_");
-        input.read(length_memory_, max_elements * sizeof(float));
-
+            throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate length_memory_");
+        input_length.read(length_memory_, max_elements * sizeof(float));
+        input_length.close();
 
         // Init link lists / visited lists pool
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
@@ -866,18 +889,17 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         visited_list_pool_ = new VisitedListPool(1, max_elements);
 
         // Read the linkLists
+        std::ifstream input_link_list(this->getLinkListLocation(), std::ios::binary);
         linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
         if (linkLists_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklists");
+            throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate linklists");
         element_levels_ = std::vector<int>(max_elements);
         revSize_ = 1.0 / mult_;
         ef_ = 10;
         for (size_t i = 0; i < cur_element_count; i++) {
             label_lookup_[getExternalLabel(i)] = i;
             unsigned int linkListSize;
-            // std::cout << "Reading at stream position " << input.tellg() << std::endl;
-            readBinaryPOD(input, linkListSize);
-            // std::cout << "Read link list for id " << i << " of size " << linkListSize << std::endl;
+            readBinaryPOD(input_link_list, linkListSize);
             if (linkListSize == 0) {
                 element_levels_[i] = 0;
                 linkLists_[i] = nullptr;
@@ -886,11 +908,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 linkLists_[i] = (char *) malloc(linkListSize);
                 if (linkLists_[i] == nullptr)
                     throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
-                input.read(linkLists_[i], linkListSize);
+                input_link_list.read(linkLists_[i], linkListSize);
             }
         }
 
-        input.close();
+        input_link_list.close();
         return;
     }
 
@@ -1495,7 +1517,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 unsigned int *data;
                 data = (unsigned int *) get_linklist(currObj, level);
                 int size = getListCount(data);
-                // std::cout << "HERE3" << std::endl;
                 metric_hops++;
                 metric_distance_computations+=size;
 
