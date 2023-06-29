@@ -75,6 +75,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     bool persist_on_write_ = false;
     std::string persist_location_;
+    std::mutex elements_to_persist_lock_; // lock for elements_to_persist_
     std::set<tableint> elements_to_persist_; // dirty elements to persist
     int sync_threshold_ = 100; // sync counter, we will sync every sync_threshold_ insertions
 
@@ -504,8 +505,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // mark cur_c as dirty
         // TODO: make this live somewhere else
-        // TODO: thread safety
+        std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
         elements_to_persist_.insert(cur_c);
+        lock_elements_to_persist.unlock();
 
         size_t Mcurmax = level ? maxM_ : maxM0_;
         getNeighborsByHeuristic2(top_candidates, M_);
@@ -550,7 +552,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
+            // TODO: Should we lock outside or inside the loop?
+            std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
             elements_to_persist_.insert(selectedNeighbors[idx]);
+            lock_elements_to_persist.unlock();
+
             std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
 
             linklistsizeint *ll_other;
