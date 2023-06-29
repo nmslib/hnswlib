@@ -47,4 +47,4 @@ class RandomSelfTestCase(unittest.TestCase):
 
             # After adding them, all labels should be retrievable
             returned_items = p.get_items(labels)
-            np.allclose(data, returned_items, atol=1e-6)
+            self.assertTrue(np.allclose(data, returned_items, atol=1e-6))

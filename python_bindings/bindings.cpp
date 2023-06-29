@@ -236,6 +236,9 @@ class Index {
       index_inited = true;
     }
 
+    void persistDirty() {
+        appr_alg->persistDirty();
+    }
 
     void normalize_vector(float* data, float* norm_array) {
         float norm = 0.0f;
@@ -903,6 +906,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("max_elements") = 0,
             py::arg("allow_replace_deleted") = false,
             py::arg("is_persistent_index") = false)
+        .def("persist_dirty", &Index<float>::persistDirty)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))

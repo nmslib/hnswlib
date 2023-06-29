@@ -918,6 +918,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
+        // TODO: handle deletions
+
         input_link_list.close();
         return;
     }
