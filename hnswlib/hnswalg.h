@@ -509,10 +509,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         bool isUpdate) {
 
         // mark cur_c as dirty
-        // markElementToPersist(cur_c);
-        std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
-        elements_to_persist_.insert(cur_c);
-        lock_elements_to_persist.unlock();
+        markElementToPersist(cur_c);
 
         size_t Mcurmax = level ? maxM_ : maxM0_;
         getNeighborsByHeuristic2(top_candidates, M_);
@@ -558,10 +555,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
             // Note: We may want to lock _elements_to_persist outside the loop. Should profile this to see if it matters.
-            // markElementToPersist(cur_c);
-            std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
-            elements_to_persist_.insert(cur_c);
-            lock_elements_to_persist.unlock();
+            markElementToPersist(selectedNeighbors[idx]);
 
             std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
 
@@ -731,7 +725,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // TODO: Should header point to the other three files?
 
         // Write header
-        std::cout << "writing header to " << getHeaderLocation() << std::endl;
         std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
         std::streampos position;
 
@@ -779,7 +772,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return;
         }
 
-        std::cout << "persisting " << elements_to_persist_.size() << " elements" << std::endl;
+        if (!persist_on_write_){
+            throw std::runtime_error("persistDirty called for an index that is not set to persist on write");
+        }
 
         std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
 

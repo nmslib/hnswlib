@@ -207,6 +207,64 @@ void testAddUpdatePersistentIndex() {
     }
 
 }
+
+void testDeletePersistentIndex() {
+    int d = 1536;
+    idx_t n = 100;
+    idx_t nq = 10;
+    size_t k = 10;
+
+    std::vector<float> data(n * d);
+    std::vector<float> query(nq * d);
+
+    std::mt19937 rng;
+    rng.seed(47);
+    std::uniform_real_distribution<> distrib;
+
+    for (idx_t i = 0; i < n * d; i++) {
+        data[i] = distrib(rng);
+    }
+    for (idx_t i = 0; i < nq * d; ++i) {
+        query[i] = distrib(rng);
+    }
+
+    hnswlib::InnerProductSpace space(d);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".", 10);
+
+    for (size_t i = 0; i < n; i++) {
+        alg_hnsw->addPoint(data.data() + d * i, i);
+        if (i % 10 == 0)
+            alg_hnsw->persistDirty();
+    }
+    alg_hnsw->persistDirty();
+
+    // Generate random deletes to the index
+    float delete_prob = 0.2;
+    std::set <idx_t> deleted;
+    for (idx_t i = 0; i < n; i++) {
+        if (distrib(rng) < delete_prob) {
+            alg_hnsw->markDelete(i);
+            deleted.insert(i);
+            if (i % 10 == 0)
+                alg_hnsw->persistDirty();
+        }
+    }
+    alg_hnsw->persistDirty();
+
+    // Load the index with n elements
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true, 100);
+
+    // Query for all the elements and make sure that the deleted ones are not returned by the persisted index
+    for (idx_t i = 0; i < n; i++) {
+        if (deleted.count(i) != 0){
+            std::priority_queue<std::pair<float, idx_t >> result = alg_hnsw2->searchKnn(data.data() + d * i, k);
+            for (size_t j = 0; j < k; j++) {
+                assert(result.top().second != i);
+                result.pop();
+            };
+        }
+    }
+}
 }
 
 int main() {
@@ -215,6 +273,10 @@ int main() {
     std::cout << "Test testPersistentIndex ok" << std::endl;
     testResizePersistentIndex();
     std::cout << "Test testResizePersistentIndex ok" << std::endl;
+    testAddUpdatePersistentIndex();
+    std::cout << "Test testAddUpdatePersistentIndex ok" << std::endl;
+    testDeletePersistentIndex();
+    std::cout << "Test testDeletePersistentIndex ok" << std::endl;
     return 0;
 }
 
