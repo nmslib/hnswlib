@@ -495,6 +495,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return level == 0 ? get_linklist0(internal_id) : get_linklist(internal_id, level);
     }
 
+    void markElementToPersist(tableint internal_id) {
+        std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
+        elements_to_persist_.insert(internal_id);
+    }
+
 
     tableint mutuallyConnectNewElement(
         const void *data_point,
@@ -504,7 +509,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         bool isUpdate) {
 
         // mark cur_c as dirty
-        // TODO: make this live somewhere else
+        // markElementToPersist(cur_c);
         std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
         elements_to_persist_.insert(cur_c);
         lock_elements_to_persist.unlock();
@@ -552,9 +557,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         for (size_t idx = 0; idx < selectedNeighbors.size(); idx++) {
-            // TODO: Should we lock outside or inside the loop?
+            // Note: We may want to lock _elements_to_persist outside the loop. Should profile this to see if it matters.
+            // markElementToPersist(cur_c);
             std::unique_lock <std::mutex> lock_elements_to_persist(elements_to_persist_lock_);
-            elements_to_persist_.insert(selectedNeighbors[idx]);
+            elements_to_persist_.insert(cur_c);
             lock_elements_to_persist.unlock();
 
             std::unique_lock <std::mutex> lock(link_list_locks_[selectedNeighbors[idx]]);
@@ -773,6 +779,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return;
         }
 
+        std::cout << "persisting " << elements_to_persist_.size() << " elements" << std::endl;
+
         std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
 
         // Just write the header again for now
@@ -830,7 +838,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         output_link_list.close();
 
-        // TODO: sync? Theoretically we don't need to - the index can be non-perfectly durable as the true source of durability is WAL.
+        // TODO: It would make sense to fsync here
         elements_to_persist_.clear();
     }
 
@@ -918,7 +926,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-        // TODO: handle deletions
+        for (size_t i = 0; i < cur_element_count; i++) {
+            if (isMarkedDeleted(i)) {
+                num_deleted_ += 1;
+                if (allow_replace_deleted_) deleted_elements.insert(i);
+            }
+        }
+
 
         input_link_list.close();
         return;
@@ -1086,6 +1100,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         lock_table.unlock();
 
         markDeletedInternal(internalId);
+        markElementToPersist(internalId);
     }
 
 
@@ -1128,6 +1143,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         lock_table.unlock();
 
         unmarkDeletedInternal(internalId);
+        markElementToPersist(internalId);
     }
 
 

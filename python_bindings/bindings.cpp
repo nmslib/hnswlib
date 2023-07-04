@@ -882,7 +882,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("random_seed") = 100,
             py::arg("allow_replace_deleted") = false,
             py::arg("is_persistent_index") = false,
-            py::arg("persistence_location") = "hnsw.bin")
+            py::arg("persistence_location") = "./")
         .def("knn_query",
             &Index<float>::knnQuery_return_numpy,
             py::arg("data"),

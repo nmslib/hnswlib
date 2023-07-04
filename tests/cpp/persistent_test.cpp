@@ -33,24 +33,12 @@ void testPersistentIndex() {
     hnswlib::InnerProductSpace space(d);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n, 16, 200, 100, false, false, true, ".", 10);
 
-    auto startAdd = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < n; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
-        if (i % 10 == 0)
-            alg_hnsw->persistDirty();
+        // if (i % 10 == 0)
+            // alg_hnsw->persistDirty();
     }
-    auto finishAdd = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsedAdd = finishAdd - startAdd;
-    std::cout << "all add() took " << elapsedAdd.count() << " seconds" << std::endl;
-
-
-    // start a timer
-    auto start = std::chrono::high_resolution_clock::now();
     alg_hnsw->persistDirty();
-    // stop timer and print time
-    auto finish = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = finish - start;
-    std::cout << "persistDirty() took " << elapsed.count() << " seconds" << std::endl;
 
     hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, 2 * n, false, false, true, 100);
 
@@ -59,6 +47,9 @@ void testPersistentIndex() {
         std::vector<float> actual = alg_hnsw2->template getDataByLabel<float>(i);
         for (size_t j = 0; j < d; j++) {
             // Check that abs difference is less than 1e-6
+            if (!(std::abs(actual[j] - data[d * i + j]) < 1e-6)){
+                std::cout << "actual: " << actual[j] << " expected: " << data[d * i + j] << std::endl;
+            }
             assert(std::abs(actual[j] - data[d * i + j]) < 1e-6);
         }
     }
@@ -155,6 +146,66 @@ void testResizePersistentIndex() {
     delete alg_hnsw;
     delete alg_hnsw2;
     delete alg_hnsw3;
+}
+
+
+void testAddUpdatePersistentIndex() {
+    int d = 1536;
+    idx_t n = 100;
+    idx_t nq = 10;
+    size_t k = 10;
+
+    std::vector<float> data(n * d);
+    std::vector<float> query(nq * d);
+
+    std::mt19937 rng;
+    rng.seed(47);
+    std::uniform_real_distribution<> distrib;
+
+    for (idx_t i = 0; i < n * d; i++) {
+        data[i] = distrib(rng);
+    }
+    for (idx_t i = 0; i < nq * d; ++i) {
+        query[i] = distrib(rng);
+    }
+
+    hnswlib::InnerProductSpace space(d);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".", 10);
+
+    for (size_t i = 0; i < n; i++) {
+        alg_hnsw->addPoint(data.data() + d * i, i);
+        if (i % 10 == 0)
+            alg_hnsw->persistDirty();
+    }
+    alg_hnsw->persistDirty();
+
+    // Generate random updates to the index
+    float update_prob = 0.2;
+    for (size_t i = 0; i < n; i++) {
+        if (distrib(rng) < update_prob) {
+            std::vector<float> new_data(d);
+            for (size_t j = 0; j < d; j++) {
+                new_data[j] = distrib(rng);
+            }
+            alg_hnsw->addPoint(new_data.data(), i);
+            if (i % 10 == 0)
+                alg_hnsw->persistDirty();
+        }
+    }
+    alg_hnsw->persistDirty();
+
+    // Load the index with n elements
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true, 100);
+
+    // Check that all the data is the same
+    for (size_t i = 0; i < n; i++) {
+        std::vector<float> actual = alg_hnsw2->template getDataByLabel<float>(i);
+        std::vector<float> expected = alg_hnsw->template getDataByLabel<float>(i);
+        for (size_t j = 0; j < d; j++) {
+            assert(std::abs(actual[j] - expected[j]) < 1e-6);
+        }
+    }
+
 }
 }
 
