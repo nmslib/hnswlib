@@ -78,6 +78,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::string persist_location_;
     std::mutex elements_to_persist_lock_; // lock for elements_to_persist_
     std::set<tableint> elements_to_persist_; // dirty elements to persist
+    // File handles for persistence
+    std::ofstream output_header_; // output stream for header
+    std::ofstream output_data_level0_; // output stream for data level 0
+    std::ofstream output_length_; // output stream for length
+    std::ofstream output_link_lists_; // output stream for link lists
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -183,6 +188,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         free(linkLists_);
         free(length_memory_);
         delete visited_list_pool_;
+        closePersistentIndexFileHandles();
     }
 
 
@@ -711,6 +717,36 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return persist_location_ + "/link_lists.bin";
     }
 
+    // #pragma region PersistentIndex
+    void setupPersistentIndexFileHandles() {
+        this->output_header_ = std::ofstream(this->getHeaderLocation(), std::ios::in|std::ios::out|std::ios::binary);
+        if(!this->output_header_.is_open()) {
+            std::runtime_error("Cannot open file: " + this->getHeaderLocation());
+        }
+
+        this->output_data_level0_ = std::ofstream(this->getDataLevel0Location(), std::ios::in|std::ios::out|std::ios::binary);
+        if(!this->output_data_level0_.is_open()) {
+            std::runtime_error("Cannot open file: " + this->getDataLevel0Location());
+        }
+
+        this->output_length_ = std::ofstream(this->getLengthLocation(), std::ios::in|std::ios::out|std::ios::binary);
+        if(!this->output_length_.is_open()) {
+            std::runtime_error("Cannot open file: " + this->getLengthLocation());
+        }
+
+        this->output_link_lists_ = std::ofstream(this->getLinkListLocation(), std::ios::in|std::ios::out|std::ios::binary);
+        if(!this->output_link_lists_.is_open()) {
+            std::runtime_error("Cannot open file: " + this->getLinkListLocation());
+        }
+    }
+
+    void closePersistentIndexFileHandles() {
+        this->output_header_.close();
+        this->output_data_level0_.close();
+        this->output_length_.close();
+        this->output_link_lists_.close();
+    }
+
     void initPersistentIndex() {
         // A persisted index is stored as four files
         // The latter 3 files are stored seperately so that they can each grow as the index grows 
@@ -719,38 +755,55 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // 3. length_memory_
         // 4. linkLists
 
+        if(!persist_on_write_){
+            throw std::runtime_error("initPersistentIndex called for an index that is not set to persist on write");
+        }
+
+        // Create the file handles for initial write
+        std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
+        std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::binary);
+        std::ofstream output_length(this->getLengthLocation(), std::ios::binary);
+        std::ofstream output_link_lists(this->getLinkListLocation(), std::ios::binary);
+
         // Write header
-        persistHeader();
+        persistHeader(output_header);
 
         // Write data_level0
-        std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::binary);
+        output_data_level0.seekp(0, std::ios::beg);
         output_data_level0.write(data_level0_memory_, max_elements_ * size_data_per_element_);
-        output_data_level0.close();
+        output_data_level0.flush();
 
         // Write lengths
-        std::ofstream output_length(this->getLengthLocation(), std::ios::binary);
+        output_length.seekp(0, std::ios::beg);
         output_length.write(length_memory_, max_elements_ * sizeof(float));
-        output_length.close();
+        output_length.flush();
 
         // Write linklists
-        std::ofstream output_link_list(this->getLinkListLocation(), std::ios::binary);
+        output_link_lists.seekp(0, std::ios::beg);
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            writeBinaryPOD(output_link_list, linkListSize);
+            writeBinaryPOD(output_link_lists, linkListSize);
             if (linkListSize)
-                output_link_list.write(linkLists_[i], linkListSize);
+                output_link_lists.write(linkLists_[i], linkListSize);
         }
-        output_link_list.close();
+        output_link_lists.flush();
+
+        // Close file handles
+        output_header.close();
+        output_data_level0.close();
+        output_length.close();
+        output_link_lists.close();
+
+        // Create file handles for further writing
+        setupPersistentIndexFileHandles();
     }
 
-    void persistHeader() {
+    void persistHeader(std::ofstream &output_header) {
         if (!persist_on_write_){
             throw std::runtime_error("persistHeader called for an index that is not set to persist on write");
         }
 
-        std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
-        std::streampos position;
-
+        output_header.seekp(0, std::ios::beg);
         writeBinaryPOD(output_header, PERSISTENCE_VERSION);
         writeBinaryPOD(output_header, offsetLevel0_);
         writeBinaryPOD(output_header, max_elements_);
@@ -766,7 +819,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output_header, M_);
         writeBinaryPOD(output_header, mult_); // does this need to be updated?
         writeBinaryPOD(output_header, ef_construction_);
-        output_header.close();
+
+        output_header.flush();
     }
 
     // Persistence functions
@@ -778,64 +832,63 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (!persist_on_write_){
             throw std::runtime_error("persistDirty called for an index that is not set to persist on write");
         }
-
-        persistHeader();
+        
+        persistHeader(this->output_header_);
 
         // Note: We could benifet a lot from async IO here. Either via classic POSIX AIO or via libaio
         // Generally, this storage scheme is a bit naive, and we could do a lot better in terms of disk access patterns
-        std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::in|std::ios::out|std::ios::binary);
+        this->output_data_level0_.seekp(0, std::ios::beg);
         for (const auto& id : elements_to_persist_) {
             // Write the _data_level0_memory
             // Each element is stored in a contiguous block of size_data_per_element_
             // Where each element is the the size of llist, the llist, the data, and the label
-            output_data_level0.seekp(id * size_data_per_element_, output_data_level0.beg);
-            output_data_level0.write(data_level0_memory_ + id * size_data_per_element_, size_data_per_element_);
+            this->output_data_level0_.seekp(id * size_data_per_element_, this->output_data_level0_.beg);
+            this->output_data_level0_.write(data_level0_memory_ + id * size_data_per_element_, size_data_per_element_);
         }
-        output_data_level0.close();
+        this->output_data_level0_.flush();
 
         // Write the dirty lengths
-        std::ofstream output_length(this->getLengthLocation(), std::ios::in|std::ios::out|std::ios::binary);
+        this->output_length_.seekp(0, std::ios::beg);
         for (const auto& id : elements_to_persist_) {
             // Write the _length_memory
-            output_length.seekp(id * sizeof(float), output_length.beg);
-            writeBinaryPOD(output_length, ((float*)length_memory_)[id]);
+            this->output_length_.seekp(id * sizeof(float), this->output_length_.beg);
+            writeBinaryPOD(this->output_length_, ((float*)length_memory_)[id]);
         }
-        output_length.close();
+        this->output_length_.flush();
 
         // Write the dirty link lists
-        std::ofstream output_link_list(this->getLinkListLocation(), std::ios::in|std::ios::out|std::ios::binary);
+        this->output_link_lists_.seekp(0, std::ios::beg);
         auto dirty_elements_iter = elements_to_persist_.begin();
         // TODO: don't need to iterate over potentially all elements, could store it or memoize
         for (size_t i = 0; i < cur_element_count && dirty_elements_iter != elements_to_persist_.end(); i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
             if (i == *dirty_elements_iter) {
-                writeBinaryPOD(output_link_list, linkListSize);
+                writeBinaryPOD(this->output_link_lists_, linkListSize);
                 if (linkListSize)
-                    output_link_list.write(linkLists_[i], linkListSize);
+                    this->output_link_lists_.write(linkLists_[i], linkListSize);
                 dirty_elements_iter = std::next(dirty_elements_iter);
             } else {
-                output_link_list.seekp(linkListSize + sizeof(unsigned int), output_link_list.cur);
+                this->output_link_lists_.seekp(linkListSize + sizeof(unsigned int), this->output_link_lists_.cur);
             }
         }
-        output_link_list.close();
+        this->output_link_lists_.flush();
 
-        // TODO: It would make sense to fsync here
+        // TODO: It would make sense to do a fsync (or fdatasync) here, but it's not portable
         elements_to_persist_.clear();
     }
 
     void loadPersistedIndex(SpaceInterface<dist_t> *s, size_t max_elements_i = 0){
         std::ifstream input_header(this->getHeaderLocation(), std::ios::binary);
-
-        // TODO: do this for all files
         if (!input_header.is_open())
-            throw std::runtime_error("Cannot open file");
+            throw std::runtime_error("Cannot open header file");
 
         // Read the header
         int persisted_version;
         readBinaryPOD(input_header, persisted_version);
         // For now, version is a simple equality check, we may add backwards compatibility later
         if (persisted_version != PERSISTENCE_VERSION)
-            throw std::runtime_error("Cannot open file: wrong persistence version");
+            throw std::runtime_error("Cannot read persisted index: wrong persistence version");
+        
         readBinaryPOD(input_header, offsetLevel0_);
         readBinaryPOD(input_header, max_elements_);
         readBinaryPOD(input_header, cur_element_count);
@@ -864,6 +917,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Read data_level0_memory_
         std::ifstream input_data_level0(this->getDataLevel0Location(), std::ios::binary);
+        if (!input_data_level0.is_open())
+            throw std::runtime_error("Cannot open data_level0 file");
+
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate level0");
@@ -873,6 +929,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Read length_memory_
         std::ifstream input_length(this->getLengthLocation(), std::ios::binary);
+        if (!input_length.is_open())
+            throw std::runtime_error("Cannot open length file");
+
         length_memory_ =  (char *) malloc(max_elements * sizeof(float));
         if (length_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate length_memory_");
@@ -881,8 +940,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Init link lists / visited lists pool
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
-
         size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+
         std::vector<std::mutex>(max_elements).swap(link_list_locks_);
         std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
 
@@ -890,6 +949,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Read the linkLists
         std::ifstream input_link_list(this->getLinkListLocation(), std::ios::binary);
+        if (!input_link_list.is_open())
+            throw std::runtime_error("Cannot open link list file");
+
         linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
         if (linkLists_ == nullptr)
             throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate linklists");
@@ -911,6 +973,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 input_link_list.read(linkLists_[i], linkListSize);
             }
         }
+        input_link_list.close();
 
         for (size_t i = 0; i < cur_element_count; i++) {
             if (isMarkedDeleted(i)) {
@@ -919,10 +982,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-
-        input_link_list.close();
+        setupPersistentIndexFileHandles();
         return;
     }
+    // #pragma endregion
 
     void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         std::ifstream input(location, std::ios::binary);
