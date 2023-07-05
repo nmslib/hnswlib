@@ -13,6 +13,7 @@
 namespace hnswlib {
 typedef unsigned int tableint;
 typedef unsigned int linklistsizeint;
+const int PERSISTENCE_VERSION = 1; // Used by persistent indices to check if the index on disk is compatible with the code
 
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
@@ -722,28 +723,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // 2. The data_level_0
         // 3. length_memory_
         // 4. linkLists
-        // TODO: Should header point to the other three files?
 
         // Write header
-        std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
-        std::streampos position;
-
-        // TODO: abstract out writing the header
-        writeBinaryPOD(output_header, offsetLevel0_);
-        writeBinaryPOD(output_header, max_elements_);
-        writeBinaryPOD(output_header, cur_element_count); // needs to be updated
-        writeBinaryPOD(output_header, size_data_per_element_);
-        writeBinaryPOD(output_header, label_offset_);
-        writeBinaryPOD(output_header, offsetData_);
-        writeBinaryPOD(output_header, maxlevel_); // needs to be updated
-        writeBinaryPOD(output_header, enterpoint_node_); // does this need to be updated?
-        writeBinaryPOD(output_header, maxM_);
-
-        writeBinaryPOD(output_header, maxM0_);
-        writeBinaryPOD(output_header, M_);
-        writeBinaryPOD(output_header, mult_); // does this need to be updated?
-        writeBinaryPOD(output_header, ef_construction_);
-        output_header.close();
+        persistHeader();
 
         // Write data_level0
         std::ofstream output_data_level0(this->getDataLevel0Location(), std::ios::binary);
@@ -766,19 +748,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         output_link_list.close();
     }
 
-    // Persistence functions
-    void persistDirty() {
-        if (elements_to_persist_.size() == 0) {
-            return;
-        }
-
+    void persistHeader() {
         if (!persist_on_write_){
-            throw std::runtime_error("persistDirty called for an index that is not set to persist on write");
+            throw std::runtime_error("persistHeader called for an index that is not set to persist on write");
         }
 
         std::ofstream output_header(this->getHeaderLocation(), std::ios::binary);
+        std::streampos position;
 
-        // Just write the header again for now
+        writeBinaryPOD(output_header, PERSISTENCE_VERSION);
         writeBinaryPOD(output_header, offsetLevel0_);
         writeBinaryPOD(output_header, max_elements_);
         writeBinaryPOD(output_header, cur_element_count); // needs to be updated
@@ -794,6 +772,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output_header, mult_); // does this need to be updated?
         writeBinaryPOD(output_header, ef_construction_);
         output_header.close();
+    }
+
+    // Persistence functions
+    void persistDirty() {
+        if (elements_to_persist_.size() == 0) {
+            return;
+        }
+
+        if (!persist_on_write_){
+            throw std::runtime_error("persistDirty called for an index that is not set to persist on write");
+        }
+
+        persistHeader();
 
         // Note: We could benifet a lot from async IO here. Either via classic POSIX AIO or via libaio
         // Generally, this storage scheme is a bit naive, and we could do a lot better in terms of disk access patterns
@@ -845,6 +836,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             throw std::runtime_error("Cannot open file");
 
         // Read the header
+        int persisted_version;
+        readBinaryPOD(input_header, persisted_version);
+        // For now, version is a simple equality check, we may add backwards compatibility later
+        if (persisted_version != PERSISTENCE_VERSION)
+            throw std::runtime_error("Cannot open file: wrong persistence version");
         readBinaryPOD(input_header, offsetLevel0_);
         readBinaryPOD(input_header, max_elements_);
         readBinaryPOD(input_header, cur_element_count);
