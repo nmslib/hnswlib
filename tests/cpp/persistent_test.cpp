@@ -31,16 +31,16 @@ void testPersistentIndex() {
     }
 
     hnswlib::InnerProductSpace space(d);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n, 16, 200, 100, false, false, true, ".", 10);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n, 16, 200, 100, false, false, true, ".");
 
     for (size_t i = 0; i < n; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
-        // if (i % 10 == 0)
-            // alg_hnsw->persistDirty();
+        if (i % 10 == 0)
+            alg_hnsw->persistDirty();
     }
     alg_hnsw->persistDirty();
 
-    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, 2 * n, false, false, true, 100);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, 2 * n, false, false, true);
 
     // Check that all data is the same
     for (size_t i = 0; i < n; i++) {
@@ -95,7 +95,7 @@ void testResizePersistentIndex() {
     }
 
     hnswlib::InnerProductSpace space(d);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n / 4, 16, 200, 100, false, false, true, ".", 10);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n / 4, 16, 200, 100, false, false, true, ".");
 
     // Add a quarter of the data
     for (size_t i = 0; i < n / 4; i++) {
@@ -115,7 +115,7 @@ void testResizePersistentIndex() {
     alg_hnsw->persistDirty();
 
     // Load the resized index with n / 2 elements
-    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n / 2, false, false, true, 100);    
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n / 2, false, false, true);    
     // Check that the added half of the data is the same
     for (size_t i = 0; i < n / 2; i++) {
         std::vector<float> actual = alg_hnsw2->template getDataByLabel<float>(i);
@@ -134,7 +134,7 @@ void testResizePersistentIndex() {
     alg_hnsw2->persistDirty();
     
     // Load the resized index with n elements
-    hnswlib::HierarchicalNSW<float>* alg_hnsw3 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true, 100);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw3 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true);
     // Check that all the data is the same
     for (size_t i = 0; i < n; i++) {
         std::vector<float> actual = alg_hnsw3->template getDataByLabel<float>(i);
@@ -170,7 +170,7 @@ void testAddUpdatePersistentIndex() {
     }
 
     hnswlib::InnerProductSpace space(d);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".", 10);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".");
 
     for (size_t i = 0; i < n; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
@@ -195,7 +195,7 @@ void testAddUpdatePersistentIndex() {
     alg_hnsw->persistDirty();
 
     // Load the index with n elements
-    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true, 100);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true);
 
     // Check that all the data is the same
     for (size_t i = 0; i < n; i++) {
@@ -229,7 +229,7 @@ void testDeletePersistentIndex() {
     }
 
     hnswlib::InnerProductSpace space(d);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".", 10);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, 16, 200, 100, false, false, true, ".");
 
     for (size_t i = 0; i < n; i++) {
         alg_hnsw->addPoint(data.data() + d * i, i);
@@ -252,7 +252,7 @@ void testDeletePersistentIndex() {
     alg_hnsw->persistDirty();
 
     // Load the index with n elements
-    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true, 100);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw2 = new hnswlib::HierarchicalNSW<float>(&space, ".", false, n, false, false, true);
 
     // Query for all the elements and make sure that the deleted ones are not returned by the persisted index
     for (idx_t i = 0; i < n; i++) {

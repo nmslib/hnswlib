@@ -78,7 +78,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::string persist_location_;
     std::mutex elements_to_persist_lock_; // lock for elements_to_persist_
     std::set<tableint> elements_to_persist_; // dirty elements to persist
-    int sync_threshold_ = 100; // sync counter, we will sync every sync_threshold_ insertions
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -91,13 +90,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t max_elements = 0,
         bool allow_replace_deleted = false,
         bool normalize = false,
-        bool persist_on_write = false,
-        int sync_threshold_ = 100)
+        bool persist_on_write = false)
         : allow_replace_deleted_(allow_replace_deleted), 
             normalize_(normalize),
             persist_on_write_(persist_on_write),
-            persist_location_(location),
-            sync_threshold_(sync_threshold_) {
+            persist_location_(location) {
         // Persisted indices are stored differently
         if (persist_on_write_){
             loadPersistedIndex(s, max_elements);
@@ -116,16 +113,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         bool allow_replace_deleted = false,
         bool normalize = false,
         bool persist_on_write = false,
-        const std::string &persist_location = "",
-        int sync_threshold_ = 100)
+        const std::string &persist_location = "")
         : link_list_locks_(max_elements),
             label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             element_levels_(max_elements),
             allow_replace_deleted_(allow_replace_deleted),
             normalize_(normalize),
             persist_on_write_(persist_on_write),
-            persist_location_(persist_location),
-            sync_threshold_(sync_threshold_) {
+            persist_location_(persist_location) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
