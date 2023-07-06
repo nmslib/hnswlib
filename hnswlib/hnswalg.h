@@ -173,7 +173,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (persist_location_.empty()) {
                 throw std::runtime_error("persist_location_ is empty");
             }
-            // TODO: check if path exists
            initPersistentIndex();
         }
     }
@@ -873,7 +872,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         this->output_link_lists_.flush();
 
-        // TODO: It would make sense to do a fsync (or fdatasync) here, but it's not portable
+        // Note: It would make sense to do a fsync here
         elements_to_persist_.clear();
     }
 
