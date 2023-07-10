@@ -74,4 +74,5 @@ jobs:
           ./getUnormalized_test
           ./test_updates
           ./test_updates update
+          ./persistent_test
         shell: bash

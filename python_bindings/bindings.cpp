@@ -194,12 +194,14 @@ class Index {
         size_t M,
         size_t efConstruction,
         size_t random_seed,
-        bool allow_replace_deleted) {
+        bool allow_replace_deleted,
+        bool is_persistent_index,
+        std::string persistence_location) {
         if (appr_alg) {
             throw std::runtime_error("The index is already initiated.");
         }
         cur_l = 0;
-        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted, normalize);
+        appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted, normalize, is_persistent_index, persistence_location);
         index_inited = true;
         ep_added = false;
         appr_alg->ef_ = default_ef;
@@ -224,16 +226,19 @@ class Index {
     }
 
 
-    void loadIndex(const std::string &path_to_index, size_t max_elements, bool allow_replace_deleted) {
+    void loadIndex(const std::string &path_to_index, size_t max_elements, bool allow_replace_deleted, bool is_persistent_index) {
       if (appr_alg) {
           std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
           delete appr_alg;
       }
-      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted, normalize);
+      appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, path_to_index, false, max_elements, allow_replace_deleted, normalize, is_persistent_index);
       cur_l = appr_alg->cur_element_count;
       index_inited = true;
     }
 
+    void persistDirty() {
+        appr_alg->persistDirty();
+    }
 
     void normalize_vector(float* data, float* norm_array) {
         float norm = 0.0f;
@@ -875,7 +880,9 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("M") = 16,
             py::arg("ef_construction") = 200,
             py::arg("random_seed") = 100,
-            py::arg("allow_replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false,
+            py::arg("is_persistent_index") = false,
+            py::arg("persistence_location") = "./")
         .def("knn_query",
             &Index<float>::knnQuery_return_numpy,
             py::arg("data"),
@@ -897,7 +904,9 @@ PYBIND11_PLUGIN(hnswlib) {
             &Index<float>::loadIndex,
             py::arg("path_to_index"),
             py::arg("max_elements") = 0,
-            py::arg("allow_replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false,
+            py::arg("is_persistent_index") = false)
+        .def("persist_dirty", &Index<float>::persistDirty)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
