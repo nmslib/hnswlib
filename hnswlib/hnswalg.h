@@ -139,12 +139,20 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     ~HierarchicalNSW() {
+        clear();
+    }
+
+    void clear() {
         free(data_level0_memory_);
+        data_level0_memory_ = nullptr;
         for (tableint i = 0; i < cur_element_count; i++) {
             if (element_levels_[i] > 0)
                 free(linkLists_[i]);
         }
         free(linkLists_);
+        linkLists_ = nullptr;
+        cur_element_count = 0;
+        visited_list_pool_.reset(nullptr);
     }
 
 
@@ -658,6 +666,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (!input.is_open())
             throw std::runtime_error("Cannot open file");
 
+        clear();
         // get file size:
         input.seekg(0, input.end);
         std::streampos total_filesize = input.tellg();
