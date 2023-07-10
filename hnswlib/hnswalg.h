@@ -777,16 +777,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         output_length.write(length_memory_, max_elements_ * sizeof(float));
         output_length.flush();
 
-        // Write linklists
-        output_link_lists.seekp(0, std::ios::beg);
-        for (size_t i = 0; i < cur_element_count; i++) {
-            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            writeBinaryPOD(output_link_lists, linkListSize);
-            if (linkListSize)
-                output_link_lists.write(linkLists_[i], linkListSize);
-        }
-        output_link_lists.flush();
-
         // Close file handles
         output_header.close();
         output_data_level0.close();
@@ -834,7 +824,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         
         persistHeader(this->output_header_);
 
-        // Note: We could benifet a lot from async IO here. Either via classic POSIX AIO or via libaio
+        // Note: We could benefit a lot from async IO here. Either via classic POSIX AIO or via libaio
         // Generally, this storage scheme is a bit naive, and we could do a lot better in terms of disk access patterns
         this->output_data_level0_.seekp(0, std::ios::beg);
         for (const auto& id : elements_to_persist_) {
@@ -922,7 +912,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate level0");
-        // TODO: the following reads don't need to be max_elements long
         input_data_level0.read(data_level0_memory_, max_elements * size_data_per_element_);
         input_data_level0.close();
 
@@ -937,24 +926,34 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         input_length.read(length_memory_, max_elements * sizeof(float));
         input_length.close();
 
-        // Init link lists / visited lists pool
-        size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
-        size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-
-        std::vector<std::mutex>(max_elements).swap(link_list_locks_);
-        std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
-
-        visited_list_pool_ = new VisitedListPool(1, max_elements);
-
         // Read the linkLists
         std::ifstream input_link_list(this->getLinkListLocation(), std::ios::binary);
         if (!input_link_list.is_open())
             throw std::runtime_error("Cannot open link list file");
+        loadLinkLists(input_link_list);
+        input_link_list.close();
 
-        linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
+        loadDeleted();
+
+        setupPersistentIndexFileHandles();
+        return;
+    }
+    // #pragma endregion
+
+    void loadLinkLists(std::ifstream& input_link_list) {
+        // Init link lists / visited lists pool
+        size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
+        size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+
+        std::vector<std::mutex>(max_elements_).swap(link_list_locks_);
+        std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
+
+        visited_list_pool_ = new VisitedListPool(1, max_elements_);
+
+        linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
         if (linkLists_ == nullptr)
             throw std::runtime_error("Not enough memory: loadPersistedIndex failed to allocate linklists");
-        element_levels_ = std::vector<int>(max_elements);
+        element_levels_ = std::vector<int>(max_elements_);
         revSize_ = 1.0 / mult_;
         ef_ = 10;
         for (size_t i = 0; i < cur_element_count; i++) {
@@ -972,19 +971,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 input_link_list.read(linkLists_[i], linkListSize);
             }
         }
-        input_link_list.close();
+    }
 
-        for (size_t i = 0; i < cur_element_count; i++) {
+    void loadDeleted(){
+         for (size_t i = 0; i < cur_element_count; i++) {
             if (isMarkedDeleted(i)) {
                 num_deleted_ += 1;
                 if (allow_replace_deleted_) deleted_elements.insert(i);
             }
         }
-
-        setupPersistentIndexFileHandles();
-        return;
     }
-    // #pragma endregion
 
     void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         std::ifstream input(location, std::ios::binary);
@@ -1056,43 +1052,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate length_memory_");
         input.read(length_memory_, cur_element_count * sizeof(float));
 
-        size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
-
-        size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-        std::vector<std::mutex>(max_elements).swap(link_list_locks_);
-        std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
-
-        visited_list_pool_ = new VisitedListPool(1, max_elements);
-
-        linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
-        if (linkLists_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklists");
-        element_levels_ = std::vector<int>(max_elements);
-        revSize_ = 1.0 / mult_;
-        ef_ = 10;
-        for (size_t i = 0; i < cur_element_count; i++) {
-            label_lookup_[getExternalLabel(i)] = i;
-            unsigned int linkListSize;
-            readBinaryPOD(input, linkListSize);
-            if (linkListSize == 0) {
-                element_levels_[i] = 0;
-                linkLists_[i] = nullptr;
-            } else {
-                element_levels_[i] = linkListSize / size_links_per_element_;
-                linkLists_[i] = (char *) malloc(linkListSize);
-                if (linkLists_[i] == nullptr)
-                    throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
-                input.read(linkLists_[i], linkListSize);
-            }
-        }
-
-        for (size_t i = 0; i < cur_element_count; i++) {
-            if (isMarkedDeleted(i)) {
-                num_deleted_ += 1;
-                if (allow_replace_deleted_) deleted_elements.insert(i);
-            }
-        }
-
+        loadLinkLists(input);
+        loadDeleted();
+        
         input.close();
 
         return;
