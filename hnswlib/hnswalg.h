@@ -876,7 +876,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input_header, persisted_version);
         // For now, version is a simple equality check, we may add backwards compatibility later
         if (persisted_version != PERSISTENCE_VERSION)
-            throw std::runtime_error("Cannot read persisted index: wrong persistence version");
+            throw std::runtime_error("Cannot read persisted index: wrong persistence version (expected " + std::to_string(PERSISTENCE_VERSION) + ", got " + std::to_string(persisted_version) + ")");
         
         readBinaryPOD(input_header, offsetLevel0_);
         readBinaryPOD(input_header, max_elements_);
@@ -1054,7 +1054,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         loadLinkLists(input);
         loadDeleted();
-        
+
         input.close();
 
         return;
