@@ -101,7 +101,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
-        M_ = M;
+        if ( M <= 100000 ) {
+            M_ = M;
+        } else {
+            std::cerr << "warning: M parameter exceeds 100000 which may lead to adverse effects." << std::endl;
+            std::cerr << "         Cap to 100000 will be applied for the rest of the processing." << std::endl;
+            M_ = 100000;
+        }
         maxM_ = M_;
         maxM0_ = M_ * 2;
         ef_construction_ = std::max(ef_construction, M_);
