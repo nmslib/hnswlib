@@ -862,7 +862,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     /*
     * Adds point. Updates the point if it is already in the index.
-    * If replacement of deleted elements is enabled: replaces previously deleted point if any, updating it with new point
+    * If replacement of deleted elements is enabled: replaces previously deleted point if any, updating it with new point and
+    * an exception will be thrown if a valid element with the same label already exist.
     */
     void addPoint(const void *data_point, labeltype label, bool replace_deleted = false) {
         if ((allow_replace_deleted_ == false) && (replace_deleted == true)) {
@@ -892,12 +893,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         } else {
             // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
-            setExternalLabel(internal_id_replaced, label);
-
             std::unique_lock <std::mutex> lock_table(label_lookup_lock);
+            auto search = label_lookup_.find(label);
+            if (search != label_lookup_.end() && !isMarkedDeleted(search->second)) {
+                std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);
+                deleted_elements.insert(internal_id_replaced);
+                lock_deleted_elements.unlock();
+                throw std::runtime_error("A valid element with the same label already exist");
+            }
             label_lookup_.erase(label_replaced);
             label_lookup_[label] = internal_id_replaced;
             lock_table.unlock();
+
+            setExternalLabel(internal_id_replaced, label);
 
             unmarkDeletedInternal(internal_id_replaced);
             updatePoint(data_point, internal_id_replaced, 1.0);
