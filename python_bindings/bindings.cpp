@@ -156,6 +156,7 @@ class Index {
     bool ep_added;
     bool normalize;
     int num_threads_default;
+    int file_handle_count;
     hnswlib::labeltype cur_l;
     hnswlib::HierarchicalNSW<dist_t>* appr_alg;
     hnswlib::SpaceInterface<float>* l2space;
@@ -179,6 +180,8 @@ class Index {
         num_threads_default = std::thread::hardware_concurrency();
 
         default_ef = 10;
+
+        file_handle_count = 4; // number of file handles to keep open for persistent index, hardcoded for now. Eventually we should refactor all indexing logic to live in c++ so we don't have awkward handoffs between python and c++.
     }
 
 
@@ -238,6 +241,18 @@ class Index {
 
     void persistDirty() {
         appr_alg->persistDirty();
+    }
+
+    void openFileHandles() {
+        if (!index_inited)
+            throw std::runtime_error("The index is not initiated.");
+        appr_alg->openPersistentIndex();
+    }
+
+    void closeFileHandles() {
+        if (!index_inited)
+            throw std::runtime_error("The index is not initiated.");
+        appr_alg->closePersistentIndex();
     }
 
     void normalize_vector(float* data, float* norm_array) {
@@ -907,6 +922,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("allow_replace_deleted") = false,
             py::arg("is_persistent_index") = false)
         .def("persist_dirty", &Index<float>::persistDirty)
+        .def("open_file_handles", &Index<float>::openFileHandles)
+        .def("close_file_handles ", &Index<float>::closeFileHandles)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
@@ -914,6 +931,7 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_current_count", &Index<float>::getCurrentCount)
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
+        .def_readonly("file_handle_count", &Index<float>::file_handle_count)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
         .def_property("ef",
           [](const Index<float> & index) {
