@@ -921,7 +921,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("is_persistent_index") = false)
         .def("persist_dirty", &Index<float>::persistDirty)
         .def("open_file_handles", &Index<float>::openFileHandles)
-        .def("close_file_handles ", &Index<float>::closeFileHandles)
+        .def("close_file_handles", &Index<float>::closeFileHandles)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
