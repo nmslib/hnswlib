@@ -146,6 +146,7 @@ template<typename dist_t, typename data_t = float>
 class Index {
  public:
     static const int ser_version = 1;  // serialization version
+    static const int file_handle_count = 4; // number of file handles to open for persistent index
 
     std::string space_name;
     int dim;
@@ -156,7 +157,6 @@ class Index {
     bool ep_added;
     bool normalize;
     int num_threads_default;
-    int file_handle_count;
     hnswlib::labeltype cur_l;
     hnswlib::HierarchicalNSW<dist_t>* appr_alg;
     hnswlib::SpaceInterface<float>* l2space;
@@ -180,8 +180,6 @@ class Index {
         num_threads_default = std::thread::hardware_concurrency();
 
         default_ef = 10;
-
-        file_handle_count = 4; // number of file handles to keep open for persistent index, hardcoded for now. Eventually we should refactor all indexing logic to live in c++ so we don't have awkward handoffs between python and c++.
     }
 
 
@@ -931,7 +929,6 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_current_count", &Index<float>::getCurrentCount)
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
-        .def_readonly("file_handle_count", &Index<float>::file_handle_count)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
         .def_property("ef",
           [](const Index<float> & index) {
@@ -954,7 +951,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def_property_readonly("M",  [](const Index<float> & index) {
           return index.index_inited ? index.appr_alg->M_ : 0;
         })
-
+        .def_property_readonly_static("file_handle_count", [](py::object /* self */){ return Index<float>::file_handle_count; })
+        
         .def(py::pickle(
             [](const Index<float> &ind) {  // __getstate__
                 return py::make_tuple(ind.getIndexParams()); /* Return dict (wrapped in a tuple) that fully encodes state of the Index object */
