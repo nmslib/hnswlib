@@ -83,6 +83,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::ofstream output_data_level0_; // output stream for data level 0
     std::ofstream output_length_; // output stream for length
     std::ofstream output_link_lists_; // output stream for link lists
+    bool _persist_file_handles_opened = false; // flag to check if file handles are opened
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -187,7 +188,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         free(linkLists_);
         free(length_memory_);
         delete visited_list_pool_;
-        closePersistentIndexFileHandles();
+        closePersistentIndex();
     }
 
 
@@ -746,6 +747,22 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         this->output_link_lists_.close();
     }
 
+    void openPersistentIndex() {
+        // A persisted index is stored as four files, this function opens them for reading, so that calling processes can manage the file handle
+        // utilization themselves. This function is safe to repeatedly call, it will only open the files if they are not already open.
+        if (!_persist_file_handles_opened && persist_on_write_){
+            setupPersistentIndexFileHandles();
+            _persist_file_handles_opened = true;
+        }
+    }
+
+    void closePersistentIndex() {
+        if (_persist_file_handles_opened && persist_on_write_){
+            closePersistentIndexFileHandles();
+            _persist_file_handles_opened = false;
+        }
+    }
+
     void initPersistentIndex() {
         // A persisted index is stored as four files
         // The latter 3 files are stored seperately so that they can each grow as the index grows 
@@ -784,7 +801,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         output_link_lists.close();
 
         // Create file handles for further writing
-        setupPersistentIndexFileHandles();
+        openPersistentIndex();
     }
 
     void persistHeader(std::ofstream &output_header) {
@@ -820,6 +837,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         if (!persist_on_write_){
             throw std::runtime_error("persistDirty called for an index that is not set to persist on write");
+        }
+
+        if (!_persist_file_handles_opened) {
+            throw std::runtime_error("persistDirty called for an index that has not opened its file handles");
         }
         
         persistHeader(this->output_header_);
@@ -935,7 +956,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         loadDeleted();
 
-        setupPersistentIndexFileHandles();
+        openPersistentIndex();
         return;
     }
     // #pragma endregion

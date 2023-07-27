@@ -10,7 +10,6 @@ from setuptools.command.build_ext import build_ext
 
 __version__ = '0.7.2'
 
-
 include_dirs = [
     pybind11.get_include(),
     np.get_include(),
