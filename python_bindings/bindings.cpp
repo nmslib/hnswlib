@@ -146,6 +146,7 @@ template<typename dist_t, typename data_t = float>
 class Index {
  public:
     static const int ser_version = 1;  // serialization version
+    static const int file_handle_count = 4; // number of file handles to open for persistent index
 
     std::string space_name;
     int dim;
@@ -238,6 +239,18 @@ class Index {
 
     void persistDirty() {
         appr_alg->persistDirty();
+    }
+
+    void openFileHandles() {
+        if (!index_inited)
+            throw std::runtime_error("The index is not initiated.");
+        appr_alg->openPersistentIndex();
+    }
+
+    void closeFileHandles() {
+        if (!index_inited)
+            throw std::runtime_error("The index is not initiated.");
+        appr_alg->closePersistentIndex();
     }
 
     void normalize_vector(float* data, float* norm_array) {
@@ -907,6 +920,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("allow_replace_deleted") = false,
             py::arg("is_persistent_index") = false)
         .def("persist_dirty", &Index<float>::persistDirty)
+        .def("open_file_handles", &Index<float>::openFileHandles)
+        .def("close_file_handles", &Index<float>::closeFileHandles)
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
@@ -936,7 +951,8 @@ PYBIND11_PLUGIN(hnswlib) {
         .def_property_readonly("M",  [](const Index<float> & index) {
           return index.index_inited ? index.appr_alg->M_ : 0;
         })
-
+        .def_property_readonly_static("file_handle_count", [](py::object /* self */){ return Index<float>::file_handle_count; })
+        
         .def(py::pickle(
             [](const Index<float> &ind) {  // __getstate__
                 return py::make_tuple(ind.getIndexParams()); /* Return dict (wrapped in a tuple) that fully encodes state of the Index object */
