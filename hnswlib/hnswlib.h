@@ -122,6 +122,22 @@ class BaseFilterFunctor {
     virtual ~BaseFilterFunctor() {};
 };
 
+template<typename dist_t>
+class BaseSearchStopCondition {
+ public:
+    virtual void add_point(labeltype label, const void *datapoint, dist_t dist) = 0;
+
+    virtual void remove_point(labeltype label, const void *datapoint, dist_t dist) = 0;
+
+    virtual bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t ef) = 0;
+
+    virtual bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t ef) = 0;
+
+    virtual bool remove_extra(size_t ef) = 0;
+
+    virtual ~BaseSearchStopCondition() {}
+};
+
 template <typename T>
 class pairGreater {
  public:
@@ -196,5 +212,7 @@ AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t 
 
 #include "space_l2.h"
 #include "space_ip.h"
+#include "space_mv.h"
+#include "epsilon_search.h"
 #include "bruteforce.h"
 #include "hnswalg.h"

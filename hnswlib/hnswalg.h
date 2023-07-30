@@ -307,7 +307,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     template <bool has_deletions, bool collect_metrics = false>
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-    searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, BaseFilterFunctor* isIdAllowed = nullptr) const {
+    searchBaseLayerST(
+        tableint ep_id,
+        const void *data_point,
+        size_t ef,
+        BaseFilterFunctor* isIdAllowed = nullptr,
+        BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
@@ -317,9 +322,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         dist_t lowerBound;
         if ((!has_deletions || !isMarkedDeleted(ep_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(ep_id)))) {
-            dist_t dist = fstdistfunc_(data_point, getDataByInternalId(ep_id), dist_func_param_);
+            char* ep_data = getDataByInternalId(ep_id);
+            dist_t dist = fstdistfunc_(data_point, ep_data, dist_func_param_);
             lowerBound = dist;
             top_candidates.emplace(dist, ep_id);
+            if (stop_condition) {
+                stop_condition->add_point(getExternalLabel(ep_id), ep_data, dist);
+            }
             candidate_set.emplace(-dist, ep_id);
         } else {
             lowerBound = std::numeric_limits<dist_t>::max();
@@ -330,9 +339,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         while (!candidate_set.empty()) {
             std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
+            dist_t candidate_dist = -current_node_pair.first;
 
-            if ((-current_node_pair.first) > lowerBound &&
-                (top_candidates.size() == ef || (!isIdAllowed && !has_deletions))) {
+            bool stop_search;
+            if (stop_condition) {
+                stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
+            } else {
+                stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
+            }
+            if (stop_search) {
                 break;
             }
             candidate_set.pop();
@@ -367,7 +382,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     char *currObj1 = (getDataByInternalId(candidate_id));
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
-                    if (top_candidates.size() < ef || lowerBound > dist) {
+                    bool consider_candidate;
+                    if (stop_condition) {
+                        consider_candidate = stop_condition->consider_candidate(dist, lowerBound, ef);
+                    } else {
+                        consider_candidate = top_candidates.size() < ef || lowerBound > dist;
+                    }
+
+                    if (consider_candidate) {
                         candidate_set.emplace(-dist, candidate_id);
 #ifdef USE_SSE
                         _mm_prefetch(data_level0_memory_ + candidate_set.top().second * size_data_per_element_ +
@@ -375,11 +397,29 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                                         _MM_HINT_T0);  ////////////////////////
 #endif
 
-                        if ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))
+                        if ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id)))) {
                             top_candidates.emplace(dist, candidate_id);
+                            if (stop_condition) {
+                                stop_condition->add_point(getExternalLabel(candidate_id), currObj1, dist);
+                            }
+                        }
 
-                        if (top_candidates.size() > ef)
+                        bool remove_extra = false;
+                        if (stop_condition) {
+                            remove_extra = stop_condition->remove_extra(ef);
+                        } else {
+                            remove_extra = top_candidates.size() > ef;
+                        }
+                        while (remove_extra) {
+                            tableint id = top_candidates.top().second;
                             top_candidates.pop();
+                            if (stop_condition) {
+                                stop_condition->remove_point(getExternalLabel(id), getDataByInternalId(id), dist);
+                                remove_extra = stop_condition->remove_extra(ef);
+                            } else {
+                                remove_extra = top_candidates.size() > ef;
+                            }
+                        }
 
                         if (!top_candidates.empty())
                             lowerBound = top_candidates.top().first;
@@ -394,8 +434,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     void getNeighborsByHeuristic2(
-            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
-    const size_t M) {
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
+        const size_t M) {
         if (top_candidates.size() < M) {
             return;
         }
@@ -1267,6 +1307,64 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         while (top_candidates.size() > k) {
             top_candidates.pop();
         }
+        while (top_candidates.size() > 0) {
+            std::pair<dist_t, tableint> rez = top_candidates.top();
+            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+            top_candidates.pop();
+        }
+        return result;
+    }
+
+
+    std::priority_queue<std::pair<dist_t, labeltype >>
+    searchStopCondition(
+        const void *query_data,
+        size_t ef_collection,
+        BaseFilterFunctor* isIdAllowed = nullptr,
+        BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
+        std::priority_queue<std::pair<dist_t, labeltype >> result;
+        if (cur_element_count == 0) return result;
+
+        tableint currObj = enterpoint_node_;
+        dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
+
+        for (int level = maxlevel_; level > 0; level--) {
+            bool changed = true;
+            while (changed) {
+                changed = false;
+                unsigned int *data;
+
+                data = (unsigned int *) get_linklist(currObj, level);
+                int size = getListCount(data);
+                metric_hops++;
+                metric_distance_computations+=size;
+
+                tableint *datal = (tableint *) (data + 1);
+                for (int i = 0; i < size; i++) {
+                    tableint cand = datal[i];
+                    if (cand < 0 || cand > max_elements_)
+                        throw std::runtime_error("cand error");
+                    dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+
+                    if (d < curdist) {
+                        curdist = d;
+                        currObj = cand;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+        if (num_deleted_) {
+            top_candidates = searchBaseLayerST<true, true>(
+                    currObj, query_data, ef_collection, isIdAllowed, stop_condition);
+
+        } else {
+            top_candidates = searchBaseLayerST<false, true>(
+                    currObj, query_data, ef_collection, isIdAllowed, stop_condition);
+        }
+
         while (top_candidates.size() > 0) {
             std::pair<dist_t, tableint> rez = top_candidates.top();
             result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
