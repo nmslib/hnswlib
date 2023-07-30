@@ -229,6 +229,8 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 * filtering during the search with a boolean function
 * deleting the elements and reusing the memory of the deleted elements for newly added elements
 * multithreaded usage
+* multivector search
+* epsilon search
 
 
 ### Bindings installation
