@@ -51,16 +51,15 @@ int main() {
     }
 
     // Query random vectors
+    size_t query_size = dim * sizeof(float);
     for (int i = 0; i < num_quries; i++) {
-        char* query_data = new char[data_point_size];
+        char* query_data = new char[query_size];
         for (int j = 0; j < dim; j++) {
             size_t offset = j * sizeof(float);
             char* vec_data = query_data + offset;
             float value = distrib_real(rng);
             *(float*)vec_data = value;
         }
-        docidtype query_doc_id = max_doc_id + 1;
-        space.set_doc_id(query_data, query_doc_id);
         hnswlib::MultiVectorSearchStopCondition<docidtype, dist_t> stop_condition(space, dim);
         std::priority_queue<std::pair<dist_t, hnswlib::labeltype>> result =
             alg_hnsw->searchStopCondition(query_data, ef_collection, nullptr, &stop_condition);
