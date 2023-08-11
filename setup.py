@@ -103,10 +103,10 @@ class BuildExt(build_ext):
                 opts.append('-fvisibility=hidden')
             if not os.environ.get("HNSWLIB_NO_NATIVE"):
                 # check that native flag is available
-                print('checking avalability of flag:', native_flag)
-                if not has_flag(self.compiler, native_flag):
-                    print('removing unsupported compiler flag:', native_flag)
-                    opts.remove(native_flag)
+                print('checking avalability of flag:', self.native_flag)
+                if not has_flag(self.compiler, self.native_flag):
+                    print('removing unsupported compiler flag:', self.native_flag)
+                    opts.remove(self.native_flag)
                     # for macos add apple-m1 flag if it's available
                     if sys.platform == 'darwin':
                         m1_flag = '-mcpu=apple-m1'
@@ -117,7 +117,7 @@ class BuildExt(build_ext):
                         else:
                             print(f'flag: {m1_flag} is not available')
                 else:
-                    print(f'flag: {native_flag} is available')
+                    print(f'flag: {self.native_flag} is available')
         elif ct == 'msvc':
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
 
