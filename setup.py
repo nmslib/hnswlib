@@ -73,14 +73,18 @@ def cpp_flag(compiler):
 
 class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
+    native_flag = '-march=native'
     c_opts = {
         'msvc': ['/EHsc', '/openmp', '/O2'],
-        'unix': ['-O3', '-march=native'],  # , '-w'
+        'unix': ['-O3', native_flag],  # , '-w'
     }
     link_opts = {
         'unix': [],
         'msvc': [],
     }
+
+    if os.environ.get("HNSWLIB_NO_NATIVE"):
+        c_opts['unix'].remove(native_flag)
 
     if sys.platform == 'darwin':
         c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
@@ -97,23 +101,23 @@ class BuildExt(build_ext):
             opts.append(cpp_flag(self.compiler))
             if has_flag(self.compiler, '-fvisibility=hidden'):
                 opts.append('-fvisibility=hidden')
-            # check that native flag is available
-            native_flag = '-march=native'
-            print('checking avalability of flag:', native_flag)
-            if not has_flag(self.compiler, native_flag):
-                print('removing unsupported compiler flag:', native_flag)
-                opts.remove(native_flag)
-                # for macos add apple-m1 flag if it's available
-                if sys.platform == 'darwin':
-                    m1_flag = '-mcpu=apple-m1'
-                    print('checking avalability of flag:', m1_flag)
-                    if has_flag(self.compiler, m1_flag):
-                        print('adding flag:', m1_flag)
-                        opts.append(m1_flag)
-                    else:
-                        print(f'flag: {m1_flag} is not available')
-            else:
-                print(f'flag: {native_flag} is available')
+            if not os.environ.get("HNSWLIB_NO_NATIVE"):
+                # check that native flag is available
+                print('checking avalability of flag:', native_flag)
+                if not has_flag(self.compiler, native_flag):
+                    print('removing unsupported compiler flag:', native_flag)
+                    opts.remove(native_flag)
+                    # for macos add apple-m1 flag if it's available
+                    if sys.platform == 'darwin':
+                        m1_flag = '-mcpu=apple-m1'
+                        print('checking avalability of flag:', m1_flag)
+                        if has_flag(self.compiler, m1_flag):
+                            print('adding flag:', m1_flag)
+                            opts.append(m1_flag)
+                        else:
+                            print(f'flag: {m1_flag} is not available')
+                else:
+                    print(f'flag: {native_flag} is available')
         elif ct == 'msvc':
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
 
