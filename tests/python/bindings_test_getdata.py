@@ -46,4 +46,4 @@ class RandomSelfTestCase(unittest.TestCase):
 
         # After adding them, all labels should be retrievable
         returned_items = p.get_items(labels)
-        self.assertSequenceEqual(data.tolist(), returned_items)
+        self.assertTrue((data == returned_items).all())
