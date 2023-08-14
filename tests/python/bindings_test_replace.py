@@ -94,10 +94,10 @@ class RandomSelfTestCase(unittest.TestCase):
         remaining_data = comb_data[remaining_labels_list]
 
         returned_items = hnsw_index.get_items(remaining_labels_list)
-        self.assertSequenceEqual(remaining_data.tolist(), returned_items)
+        self.assertTrue((remaining_data == returned_items).all())
 
         returned_items = hnsw_index.get_items(labels3_tr)
-        self.assertSequenceEqual(data3_tr.tolist(), returned_items)
+        self.assertTrue((data3_tr == returned_items).all())
 
         # Check index serialization
         # Delete batch 3
