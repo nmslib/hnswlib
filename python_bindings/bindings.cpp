@@ -645,7 +645,7 @@ class Index {
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
@@ -665,7 +665,7 @@ class Index {
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
