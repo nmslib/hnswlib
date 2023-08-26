@@ -13,6 +13,7 @@ class BaseMultiVectorSpace : public SpaceInterface<float> {
     virtual void set_doc_id(void *datapoint, DOCIDTYPE doc_id) = 0;
 };
 
+
 template<typename DOCIDTYPE>
 class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
     DISTFUNC<float> fstdistfunc_;
@@ -70,6 +71,7 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
 
     ~MultiVectorL2Space() {}
 };
+
 
 template<typename DOCIDTYPE>
 class MultiVectorInnerProductSpace : public SpaceInterface<float> {
@@ -139,6 +141,7 @@ class MultiVectorInnerProductSpace : public SpaceInterface<float> {
     ~MultiVectorInnerProductSpace() {}
 };
 
+
 template<typename DOCIDTYPE, typename dist_t>
 class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     size_t num_docs;
@@ -185,4 +188,40 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     ~MultiVectorSearchStopCondition() {}
 };
 
+
+template<typename dist_t>
+class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+    float epsilon;
+    size_t num_items;
+ public:
+    EpsilonSearchStopCondition(float epsilon) {
+        this->epsilon = epsilon;
+        num_items = 0;
+    }
+
+    void add_point(labeltype label, const void *datapoint, dist_t dist) {
+        num_items += 1;
+    }
+
+    void remove_point(labeltype label, const void *datapoint, dist_t dist) {
+        num_items -= 1;
+    }
+
+    bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
+        bool stop_search = (candidate_dist > epsilon) || (candidate_dist > lowerBound && num_items == ef);
+        return stop_search;
+    }
+
+    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
+        bool consider_candidate = (candidate_dist < epsilon) && (num_items < ef || lowerBound > candidate_dist);
+        return consider_candidate;
+    }
+
+    bool remove_extra(size_t ef) {
+        bool remove_extra = num_items > ef;
+        return remove_extra;
+    }
+
+    ~EpsilonSearchStopCondition() {}
+};
 }  // namespace hnswlib
