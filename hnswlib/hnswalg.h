@@ -305,7 +305,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    template <bool has_deletions, bool collect_metrics = false>
+    template <bool bare_bone_search = true, bool collect_metrics = false>
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayerST(
         tableint ep_id,
@@ -320,13 +320,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
+        bool has_deletions = num_deleted_;
         dist_t lowerBound;
-        if ((!has_deletions || !isMarkedDeleted(ep_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(ep_id)))) {
+        if (bare_bone_search || 
+            ((!has_deletions || !isMarkedDeleted(ep_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(ep_id))))) {
             char* ep_data = getDataByInternalId(ep_id);
             dist_t dist = fstdistfunc_(data_point, ep_data, dist_func_param_);
             lowerBound = dist;
             top_candidates.emplace(dist, ep_id);
-            if (stop_condition) {
+            if (!bare_bone_search && stop_condition) {
                 stop_condition->add_point(getExternalLabel(ep_id), ep_data, dist);
             }
             candidate_set.emplace(-dist, ep_id);
@@ -342,10 +344,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             dist_t candidate_dist = -current_node_pair.first;
 
             bool stop_search;
-            if (stop_condition) {
-                stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
+            if (bare_bone_search) {
+                stop_search = candidate_dist > lowerBound;
             } else {
-                stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
+                if (stop_condition) {
+                    stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
+                } else {
+                    stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
+                }
             }
             if (stop_search) {
                 break;
@@ -383,7 +389,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
                     bool consider_candidate;
-                    if (stop_condition) {
+                    if (!bare_bone_search && stop_condition) {
                         consider_candidate = stop_condition->consider_candidate(dist, lowerBound, ef);
                     } else {
                         consider_candidate = top_candidates.size() < ef || lowerBound > dist;
@@ -397,15 +403,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                                         _MM_HINT_T0);  ////////////////////////
 #endif
 
-                        if ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id)))) {
+                        if (bare_bone_search || 
+                            ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))) {
                             top_candidates.emplace(dist, candidate_id);
-                            if (stop_condition) {
+                            if (!bare_bone_search && stop_condition) {
                                 stop_condition->add_point(getExternalLabel(candidate_id), currObj1, dist);
                             }
                         }
 
                         bool remove_extra = false;
-                        if (stop_condition) {
+                        if (!bare_bone_search && stop_condition) {
                             remove_extra = stop_condition->remove_extra(ef);
                         } else {
                             remove_extra = top_candidates.size() > ef;
@@ -413,7 +420,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                         while (remove_extra) {
                             tableint id = top_candidates.top().second;
                             top_candidates.pop();
-                            if (stop_condition) {
+                            if (!bare_bone_search && stop_condition) {
                                 stop_condition->remove_point(getExternalLabel(id), getDataByInternalId(id), dist);
                                 remove_extra = stop_condition->remove_extra(ef);
                             } else {
@@ -1296,11 +1303,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-        if (num_deleted_) {
-            top_candidates = searchBaseLayerST<true, true>(
+        bool bare_bone_search = !num_deleted_ && !isIdAllowed;
+        if (bare_bone_search) {
+            top_candidates = searchBaseLayerST<true>(
                     currObj, query_data, std::max(ef_, k), isIdAllowed);
         } else {
-            top_candidates = searchBaseLayerST<false, true>(
+            top_candidates = searchBaseLayerST<false>(
                     currObj, query_data, std::max(ef_, k), isIdAllowed);
         }
 
@@ -1356,12 +1364,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-        if (num_deleted_) {
-            top_candidates = searchBaseLayerST<true, true>(
+        bool bare_bone_search = !num_deleted_ && !isIdAllowed && !stop_condition;
+        if (bare_bone_search) {
+            top_candidates = searchBaseLayerST<true>(
                     currObj, query_data, ef_collection, isIdAllowed, stop_condition);
 
         } else {
-            top_candidates = searchBaseLayerST<false, true>(
+            top_candidates = searchBaseLayerST<false>(
                     currObj, query_data, ef_collection, isIdAllowed, stop_condition);
         }
 
