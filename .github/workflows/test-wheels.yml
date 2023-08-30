@@ -1,9 +1,10 @@
 name: Build Wheels
 
 jobs:
-  on: push:
-    branches:
-      - lukev/wheels
+  on:
+    push:
+      branches:
+        - lukev/wheels
 
   build:
     runs-on: ${{matrix.os}}
