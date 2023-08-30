@@ -1,7 +1,7 @@
 name: Build Wheels
 
 jobs:
-  on: push
+  on: push:
     branches:
       - lukev/wheels
 
