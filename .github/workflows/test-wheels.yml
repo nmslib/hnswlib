@@ -19,6 +19,6 @@ jobs:
           python-version: ${{matrix.python-version}}
       - name: Build
         run: |
-          rm dist/*
+          rm -rf dist/*
           pip install build
           python -m build --wheel
