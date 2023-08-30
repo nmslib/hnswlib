@@ -10,3 +10,5 @@ var/
 .vscode/
 .vs/
 **.DS_Store
+*.egg-info/
+venv/
