@@ -21,3 +21,8 @@ jobs:
         run: |
           pip install build
           python -m build --wheel
+          - name: Publish to Test PyPI
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
