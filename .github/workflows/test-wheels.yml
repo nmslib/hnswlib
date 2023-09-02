@@ -24,7 +24,7 @@ jobs:
           CIBW_SKIP: "cp312-* pp*"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
-          CIBW_ARCHS_LINUX: "x86_64 AARCH64"
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
