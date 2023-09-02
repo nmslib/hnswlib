@@ -21,7 +21,7 @@ jobs:
         env:
           HNSWLIB_NO_NATIVE: true
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.7"
-          CIBW_SKIP: 'cp312-*"
+          CIBW_SKIP: cp312-*
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
