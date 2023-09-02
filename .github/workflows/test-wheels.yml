@@ -10,15 +10,16 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - name: Install qemu
-        if: matrix.os == 'ubuntu-latest'
-        # https://github.com/multiarch/qemu-user-static
-        run: |
-          sudo apt-get update
-          sudo apt-get install qemu binfmt-support qemu-user-static
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      # temporarily removing qemu: emulated build takes at least two hours
+      # - name: Install qemu
+      #   if: matrix.os == 'ubuntu-latest'
+      #   # https://github.com/multiarch/qemu-user-static
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install qemu binfmt-support qemu-user-static
+      #     docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
       - name: Install cibuildwheel
@@ -31,7 +32,8 @@ jobs:
           CIBW_SKIP: "cp312-* pp*"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
-          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_LINUX: "x86_64"
+          # CIBW_ARCHS_LINUX: "x86_64 aarch64"
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
