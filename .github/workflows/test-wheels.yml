@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel
+        run: python -m pip install cibuildwheel==2.15.0
       - name: Build wheels
         run: python -m cibuildwheel --output-dir dist
         env:
