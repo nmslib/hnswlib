@@ -16,6 +16,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         # https://github.com/multiarch/qemu-user-static
         run: |
+          sudo apt-get update
           sudo apt-get install qemu binfmt-support qemu-user-static
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - uses: actions/checkout@v3
