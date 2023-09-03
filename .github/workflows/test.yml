@@ -1,6 +1,11 @@
 name: Test
 
-on: [push, pull_request, workflow_call]
+on:
+  worfklow_call:
+  push:
+    branch: master
+  pull_request:
+    branch: master
 
 jobs:
   test_python:
