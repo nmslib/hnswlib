@@ -1,7 +1,7 @@
 name: Test
 
 on:
-  worfklow_call:
+  workflow_call:
   push:
     branch: master
   pull_request:
