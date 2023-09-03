@@ -1,24 +1,25 @@
-name: Build Wheels
+name: Release
 
 on:
   push:
-    branches:
-      - lukev/wheels
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]*'
 
 jobs:
+
+  tests:
+    uses: ./.github/workflows/build.yml
+
   build:
+    needs: [tests]
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - name: Install qemu
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
         if: matrix.os == 'ubuntu-latest'
-        # https://github.com/multiarch/qemu-user-static
-        run: |
-          sudo apt-get update
-          sudo apt-get install qemu binfmt-support qemu-user-static
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
@@ -33,7 +34,6 @@ jobs:
           CIBW_SKIP: "cp312-* pp* *musllinux*"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
-          # CIBW_ARCHS_LINUX: "x86_64"
           CIBW_ARCHS_LINUX: "x86_64 aarch64"
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -63,3 +63,7 @@ jobs:
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
+    # - name: Publish to PyPI
+    #   uses: pypa/gh-action-pypi-publish@release/v1
+    #   with:
+    #     password: ${{ secrets.PYPI_API_TOKEN }}
