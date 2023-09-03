@@ -30,7 +30,7 @@ jobs:
         env:
           HNSWLIB_NO_NATIVE: true
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.7"
-          CIBW_SKIP: "cp312-* pp*"
+          CIBW_SKIP: "cp312-* pp* *musllinux*"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
           # CIBW_ARCHS_LINUX: "x86_64"
