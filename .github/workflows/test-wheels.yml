@@ -50,7 +50,9 @@ jobs:
       with:
         python-version: "3.10"
     - name: Build sdist
-      run: make dist
+      run: |
+        python -m pip install .
+        make dist
     - name: Download wheels
       uses: actions/download-artifact@v2
       with:
