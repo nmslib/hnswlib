@@ -1,6 +1,13 @@
-name: HNSW CI
+name: Test
 
-on: [push, pull_request]
+on:
+  workflow_call:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   test_python:
