@@ -8,7 +8,7 @@ import setuptools
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = '0.7.3.alpha7'
+__version__ = '0.7.3.alpha8'
 
 include_dirs = [
     pybind11.get_include(),
