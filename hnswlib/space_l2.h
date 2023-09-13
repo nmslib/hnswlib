@@ -3,15 +3,15 @@
 
 namespace hnswlib {
 
-static float
+static int
 L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
+    uint8_t *pVect1 = (uint8_t *) pVect1v;
+    uint8_t *pVect2 = (uint8_t *) pVect2v;
     size_t qty = *((size_t *) qty_ptr);
 
-    float res = 0;
+    int res = 0;
     for (size_t i = 0; i < qty; i++) {
-        float t = *pVect1 - *pVect2;
+        int t = *pVect1 - *pVect2;
         pVect1++;
         pVect2++;
         res += t * t;
@@ -251,7 +251,7 @@ class L2Space : public SpaceInterface<float> {
 
     ~L2Space() {}
 };
-
+Í
 static int
 L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
     size_t qty = *((size_t *) qty_ptr);
@@ -322,3 +322,4 @@ class L2SpaceI : public SpaceInterface<int> {
     ~L2SpaceI() {}
 };
 }  // namespace hnswlib
+
