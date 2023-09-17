@@ -1,5 +1,7 @@
 #pragma once
 
+// This allows others to provide their own error stream.
+// See RcppHNSW for a use case.
 #ifndef HNSWLIB_ERR_OVERRIDE
   #define HNSWERR std::cerr
 #else
