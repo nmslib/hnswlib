@@ -105,8 +105,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if ( M <= 10000 ) {
             M_ = M;
         } else {
-            std::cerr << "warning: M parameter exceeds 10000 which may lead to adverse effects." << std::endl;
-            std::cerr << "         Cap to 10000 will be applied for the rest of the processing." << std::endl;
+            HNSWERR << "warning: M parameter exceeds 10000 which may lead to adverse effects." << std::endl;
+            HNSWERR << "         Cap to 10000 will be applied for the rest of the processing." << std::endl;
             M_ = 10000;
         }
         maxM_ = M_;
