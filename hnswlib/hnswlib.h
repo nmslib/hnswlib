@@ -1,4 +1,13 @@
 #pragma once
+
+// https://github.com/nmslib/hnswlib/pull/508
+// This allows others to provide their own error stream (e.g. RcppHNSW)
+#ifndef HNSWLIB_ERR_OVERRIDE
+  #define HNSWERR std::cerr
+#else
+  #define HNSWERR HNSWLIB_ERR_OVERRIDE
+#endif
+
 #ifndef NO_MANUAL_VECTORIZATION
 #if (defined(__SSE__) || _M_IX86_FP > 0 || defined(_M_AMD64) || defined(_M_X64))
 #define USE_SSE
