@@ -792,7 +792,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t dim = *((size_t *) dist_func_param_);
         std::vector<data_t> data;
         data_t* data_ptr = (data_t*) data_ptrv;
-        for (int i = 0; i < dim; i++) {
+        for (size_t i = 0; i < dim; i++) {
             data.push_back(*data_ptr);
             data_ptr += 1;
         }
