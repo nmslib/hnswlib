@@ -160,7 +160,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
             num_docs += 1;
         }
         doc_counter[doc_id] += 1;
-            }
+    }
 
     void remove_point(labeltype label, const void *datapoint, dist_t dist) {
         DOCIDTYPE doc_id = space.get_doc_id(datapoint);
