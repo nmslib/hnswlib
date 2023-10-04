@@ -1379,6 +1379,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
             top_candidates.pop();
         }
+
+        if (stop_condition) {
+            stop_condition->filter_results(result);
+        }
+
         return result;
     }
 

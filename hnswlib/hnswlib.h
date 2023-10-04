@@ -135,6 +135,8 @@ class BaseSearchStopCondition {
 
     virtual bool remove_extra(size_t ef) = 0;
 
+    virtual void filter_results(std::priority_queue<std::pair<dist_t, labeltype >>&) = 0;
+
     virtual ~BaseSearchStopCondition() {}
 };
 

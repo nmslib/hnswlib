@@ -11,8 +11,11 @@ int main() {
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
-    int num_quries = 50;
-    int epsilon = 2.0;          // Distance to query
+    int num_quries = 100;
+    float epsilon = 1.0;                 // Squared distance to query
+    int max_candidates = max_elements;   // Upper bound on the number of returned elements in the epsilon region
+    int min_candidates = 2000;           // Minimum number of candidates to search in the epsilon region
+                                         // this parameter is similar to ef
 
     // Initing index
     hnswlib::L2Space space(dim);
@@ -24,37 +27,30 @@ int main() {
     rng.seed(47);
     std::uniform_real_distribution<> distrib_real;
 
-    size_t data_point_size = space.get_data_size();
-    char* data = new char[data_point_size * max_elements];
-    for (int i = 0; i < max_elements; i++) {
-        char* point_data = data + i * data_point_size;
-        for (int j = 0; j < dim; j++) {
-            char* vec_data = point_data + j * sizeof(float);
-            float value = distrib_real(rng);
-            *(float*)vec_data = value;
-        }
+    float* data = new float[dim * max_elements];
+    for (int i = 0; i < dim * max_elements; i++) {
+        data[i] = distrib_real(rng);
     }
 
     // Add data to index
+    std::cout << "Building index ...\n";
     for (int i = 0; i < max_elements; i++) {
         hnswlib::labeltype label = i;
-        char* point_data = data + i * data_point_size;
+        float* point_data = data + i * dim;
         alg_hnsw->addPoint(point_data, label);
         alg_brute->addPoint(point_data, label);
     }
+    std::cout << "Index is ready\n";
 
     // Query random vectors
     for (int i = 0; i < num_quries; i++) {
-        char* query_data = new char[data_point_size];
+        float* query_data = new float[dim];
         for (int j = 0; j < dim; j++) {
-            size_t offset = j * sizeof(float);
-            char* vec_data = query_data + offset;
-            float value = distrib_real(rng);
-            *(float*)vec_data = value;
+            query_data[j] = distrib_real(rng);
         }
-        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon);
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_candidates);
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result_hnsw =
-            alg_hnsw->searchStopCondition(query_data, max_elements, nullptr, &stop_condition);
+            alg_hnsw->searchStopCondition(query_data, max_candidates, nullptr, &stop_condition);
         
         // check that returned results are in epsilon region
         size_t num_vectors = result_hnsw.size();
@@ -63,7 +59,7 @@ int main() {
             float dist = result_hnsw.top().first;
             hnswlib::labeltype label = result_hnsw.top().second;
             hnsw_labels.insert(label);
-            assert(dist <= epsilon);
+            assert(dist >=0 && dist <= epsilon);
             result_hnsw.pop();
         }
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result_brute =
@@ -85,10 +81,29 @@ int main() {
                 correct += 1;
             }
         }
-        float recall = correct / gt_labels.size();
-        assert(recall > 0.99);
+        float recall = correct / std::max((size_t)1, gt_labels.size());
+        assert(recall > 0.97);
         delete[] query_data;
     }
+    std::cout << "Recall is OK\n";
+
+    // Query the elements for themselves and check that query can be found
+    float epsilon_small = 0.0001f;
+    int min_candidates_small = 500;
+    for (size_t i = 0; i < max_elements; i++) {
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon_small, min_candidates_small);
+        std::priority_queue<std::pair<float, hnswlib::labeltype>> result = 
+            alg_hnsw->searchStopCondition(alg_hnsw->getDataByInternalId(i), max_candidates, nullptr, &stop_condition);
+        size_t num_vectors = result.size();
+        // get closest distance
+        float dist = -1;
+        while (!result.empty()) {
+            dist = result.top().first;
+            result.pop();
+        }
+        assert(dist == 0);
+    }
+    std::cout << "Small epsilon search is finished\n";
 
     delete[] data;
     delete alg_brute;

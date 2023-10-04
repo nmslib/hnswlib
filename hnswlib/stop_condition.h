@@ -160,7 +160,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
             num_docs += 1;
         }
         doc_counter[doc_id] += 1;
-    }
+            }
 
     void remove_point(labeltype label, const void *datapoint, dist_t dist) {
         DOCIDTYPE doc_id = space.get_doc_id(datapoint);
@@ -185,6 +185,8 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         return remove_extra;
     }
 
+    void filter_results(std::priority_queue<std::pair<dist_t, labeltype >>&) {}
+
     ~MultiVectorSearchStopCondition() {}
 };
 
@@ -192,10 +194,12 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
 template<typename dist_t>
 class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     float epsilon;
+    size_t min_candidates;
     size_t num_items;
  public:
-    EpsilonSearchStopCondition(float epsilon) {
+    EpsilonSearchStopCondition(float epsilon, size_t min_candidates) {
         this->epsilon = epsilon;
+        this->min_candidates = min_candidates;
         num_items = 0;
     }
 
@@ -207,19 +211,37 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         num_items -= 1;
     }
 
-    bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
-        bool stop_search = (candidate_dist > epsilon) || (candidate_dist > lowerBound && num_items == ef);
-        return stop_search;
+    bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
+        if (candidate_dist > lowerBound && num_items == max_candidates) {
+            // new candidate can't improve found results
+            return true;
+        }
+        if (candidate_dist > epsilon && num_items == max_candidates) {
+            // new candidate is out of epsilon region
+            return true;
+        }
+        if (candidate_dist > epsilon && num_items >= min_candidates) {
+            // new candidate is out of epsilon region and
+            // minimum number of candidates is checked
+            return true;
+        }
+        return false;
     }
 
-    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
-        bool consider_candidate = (candidate_dist < epsilon) && (num_items < ef || lowerBound > candidate_dist);
+    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
+        bool consider_candidate = num_items < max_candidates || lowerBound > candidate_dist;
         return consider_candidate;
     }
 
-    bool remove_extra(size_t ef) {
-        bool remove_extra = num_items > ef;
+    bool remove_extra(size_t max_candidates) {
+        bool remove_extra = num_items > max_candidates;
         return remove_extra;
+    }
+
+    void filter_results(std::priority_queue<std::pair<dist_t, labeltype >> &candidates) {
+        while (!candidates.empty() && candidates.top().first > epsilon) {
+            candidates.pop();
+        }
     }
 
     ~EpsilonSearchStopCondition() {}
