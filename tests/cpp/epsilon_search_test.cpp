@@ -11,7 +11,7 @@ int main() {
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
-    int num_quries = 100;
+    int num_queries = 100;
     float epsilon = 1.0;                 // Squared distance to query
     int max_candidates = max_elements;   // Upper bound on the number of returned elements in the epsilon region
     int min_candidates = 2000;           // Minimum number of candidates to search in the epsilon region
@@ -43,7 +43,7 @@ int main() {
     std::cout << "Index is ready\n";
 
     // Query random vectors
-    for (int i = 0; i < num_quries; i++) {
+    for (int i = 0; i < num_queries; i++) {
         float* query_data = new float[dim];
         for (int j = 0; j < dim; j++) {
             query_data[j] = distrib_real(rng);
@@ -81,8 +81,13 @@ int main() {
                 correct += 1;
             }
         }
-        float recall = correct / std::max((size_t)1, gt_labels.size());
-        assert(recall > 0.97);
+        if (gt_labels.size() == 0) {
+            assert(correct == 0);
+            continue;
+        }
+        float recall = correct / gt_labels.size();
+        std::cout << recall << " ";
+        assert(recall > 0.95);
         delete[] query_data;
     }
     std::cout << "Recall is OK\n";

@@ -343,17 +343,17 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
             dist_t candidate_dist = -current_node_pair.first;
 
-            bool stop_search;
+            bool flag_stop_search;
             if (bare_bone_search) {
-                stop_search = candidate_dist > lowerBound;
+                flag_stop_search = candidate_dist > lowerBound;
             } else {
                 if (stop_condition) {
-                    stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
+                    flag_stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
                 } else {
-                    stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
+                    flag_stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
                 }
             }
-            if (stop_search) {
+            if (flag_stop_search) {
                 break;
             }
             candidate_set.pop();

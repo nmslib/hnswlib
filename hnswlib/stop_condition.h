@@ -195,32 +195,29 @@ template<typename dist_t>
 class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     float epsilon;
     size_t min_candidates;
-    size_t num_items;
+    size_t num_return_items;
  public:
     EpsilonSearchStopCondition(float epsilon, size_t min_candidates) {
         this->epsilon = epsilon;
         this->min_candidates = min_candidates;
-        num_items = 0;
+        num_return_items = 0;
     }
 
     void add_point(labeltype label, const void *datapoint, dist_t dist) {
-        num_items += 1;
+        num_return_items += 1;
     }
 
     void remove_point(labeltype label, const void *datapoint, dist_t dist) {
-        num_items -= 1;
+        num_return_items -= 1;
     }
 
     bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
-        if (candidate_dist > lowerBound && num_items == max_candidates) {
+        assert(max_candidates >= min_candidates);
+        if (candidate_dist > lowerBound && num_return_items == max_candidates) {
             // new candidate can't improve found results
             return true;
         }
-        if (candidate_dist > epsilon && num_items == max_candidates) {
-            // new candidate is out of epsilon region
-            return true;
-        }
-        if (candidate_dist > epsilon && num_items >= min_candidates) {
+        if (candidate_dist > epsilon && num_return_items >= min_candidates) {
             // new candidate is out of epsilon region and
             // minimum number of candidates is checked
             return true;
@@ -229,12 +226,12 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     }
 
     bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
-        bool consider_candidate = num_items < max_candidates || lowerBound > candidate_dist;
+        bool consider_candidate = num_return_items < max_candidates || lowerBound > candidate_dist;
         return consider_candidate;
     }
 
     bool remove_extra(size_t max_candidates) {
-        bool remove_extra = num_items > max_candidates;
+        bool remove_extra = num_return_items > max_candidates;
         return remove_extra;
     }
 
