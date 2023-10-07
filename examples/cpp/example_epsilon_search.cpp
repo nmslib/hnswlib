@@ -53,7 +53,8 @@ int main() {
         }
         std::cout << "Query #" << i << "\n";
         hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_candidates);
-        std::priority_queue<std::pair<float, hnswlib::labeltype>> result = alg_hnsw->searchStopCondition(query_data, max_elements, nullptr, &stop_condition);
+        std::vector<std::pair<float, hnswlib::labeltype>> result = 
+            alg_hnsw->searchStopConditionClosest(query_data, max_elements, nullptr, &stop_condition);
         size_t num_vectors = result.size();
         std::cout << "Found " << num_vectors << " vectors\n";
         delete[] query_data;

@@ -147,6 +147,7 @@ template<typename DOCIDTYPE, typename dist_t>
 class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     size_t num_docs;
     std::unordered_map<DOCIDTYPE, size_t> doc_counter;
+    std::priority_queue<std::pair<dist_t, DOCIDTYPE>> search_results;
     BaseMultiVectorSpace<DOCIDTYPE>& space;
 
  public:
@@ -160,6 +161,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         if (doc_counter[doc_id] == 0) {
             num_docs += 1;
         }
+        search_results.emplace(dist, doc_id);
         doc_counter[doc_id] += 1;
     }
 
@@ -169,24 +171,38 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         if (doc_counter[doc_id] == 0) {
             num_docs -= 1;
         }
+        search_results.pop();
     }
 
-    bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
-        bool stop_search = candidate_dist > lowerBound && num_docs == ef;
+    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_num_docs) {
+        bool stop_search = candidate_dist > lowerBound && num_docs == max_num_docs;
         return stop_search;
     }
 
-    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t ef) {
-        bool consider_candidate = num_docs < ef || lowerBound > candidate_dist;
+    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t max_num_docs) {
+        bool consider_candidate = num_docs < max_num_docs || lowerBound > candidate_dist;
         return consider_candidate;
     }
 
-    bool remove_extra(size_t ef) {
-        bool remove_extra = num_docs > ef;
+    bool remove_extra(size_t max_num_docs) {
+        bool remove_extra = num_docs > max_num_docs;
         return remove_extra;
     }
 
-    void filter_results(std::priority_queue<std::pair<dist_t, labeltype >>&) {}
+    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates, size_t max_num_docs) {
+        while (num_docs > max_num_docs) {
+            dist_t dist_cand = candidates.back().first;
+            dist_t dist_res = search_results.top().first;
+            assert(dist_cand == dist_res);
+            DOCIDTYPE doc_id = search_results.top().second;
+            doc_counter[doc_id] -= 1;
+            if (doc_counter[doc_id] == 0) {
+                num_docs -= 1;
+            }
+            search_results.pop();
+            candidates.pop_back();
+        }
+    }
 
     ~MultiVectorSearchStopCondition() {}
 };
@@ -212,7 +228,7 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         num_return_items -= 1;
     }
 
-    bool stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
+    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
         assert(max_candidates >= min_candidates);
         if (candidate_dist > lowerBound && num_return_items == max_candidates) {
             // new candidate can't improve found results
@@ -236,9 +252,12 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         return remove_extra;
     }
 
-    void filter_results(std::priority_queue<std::pair<dist_t, labeltype >> &candidates) {
-        while (!candidates.empty() && candidates.top().first > epsilon) {
-            candidates.pop();
+    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates, size_t max_candidates) {
+        while (!candidates.empty() && candidates.back().first > epsilon) {
+            candidates.pop_back();
+        }
+        while (candidates.size() > max_candidates) {
+            candidates.pop_back();
         }
     }
 

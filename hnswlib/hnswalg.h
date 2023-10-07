@@ -348,7 +348,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 flag_stop_search = candidate_dist > lowerBound;
             } else {
                 if (stop_condition) {
-                    flag_stop_search = stop_condition->stop_search(candidate_dist, lowerBound, ef);
+                    flag_stop_search = stop_condition->should_stop_search(candidate_dist, lowerBound, ef);
                 } else {
                     flag_stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
                 }
@@ -1324,13 +1324,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    std::priority_queue<std::pair<dist_t, labeltype >>
-    searchStopCondition(
+    std::vector<std::pair<dist_t, labeltype >>
+    searchStopConditionClosest(
         const void *query_data,
         size_t ef_collection,
         BaseFilterFunctor* isIdAllowed = nullptr,
         BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
-        std::priority_queue<std::pair<dist_t, labeltype >> result;
+        std::vector<std::pair<dist_t, labeltype >> result;
         if (cur_element_count == 0) return result;
 
         tableint currObj = enterpoint_node_;
@@ -1367,21 +1367,22 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         bool bare_bone_search = !num_deleted_ && !isIdAllowed && !stop_condition;
         if (bare_bone_search) {
             top_candidates = searchBaseLayerST<true>(
-                    currObj, query_data, ef_collection, isIdAllowed, stop_condition);
+                    currObj, query_data, std::max(ef_, ef_collection), isIdAllowed, stop_condition);
 
         } else {
             top_candidates = searchBaseLayerST<false>(
-                    currObj, query_data, ef_collection, isIdAllowed, stop_condition);
+                    currObj, query_data, std::max(ef_, ef_collection), isIdAllowed, stop_condition);
         }
 
-        while (top_candidates.size() > 0) {
-            std::pair<dist_t, tableint> rez = top_candidates.top();
-            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+        size_t sz = top_candidates.size();
+        result.resize(sz);
+        while (!top_candidates.empty()) {
+            result[--sz] = top_candidates.top();
             top_candidates.pop();
         }
 
         if (stop_condition) {
-            stop_condition->filter_results(result);
+            stop_condition->filter_results(result, ef_collection);
         }
 
         return result;

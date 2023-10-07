@@ -49,18 +49,17 @@ int main() {
             query_data[j] = distrib_real(rng);
         }
         hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_candidates);
-        std::priority_queue<std::pair<float, hnswlib::labeltype>> result_hnsw =
-            alg_hnsw->searchStopCondition(query_data, max_candidates, nullptr, &stop_condition);
+        std::vector<std::pair<float, hnswlib::labeltype>> result_hnsw =
+            alg_hnsw->searchStopConditionClosest(query_data, max_candidates, nullptr, &stop_condition);
         
         // check that returned results are in epsilon region
         size_t num_vectors = result_hnsw.size();
         std::unordered_set<hnswlib::labeltype> hnsw_labels;
-        while (!result_hnsw.empty()) {
-            float dist = result_hnsw.top().first;
-            hnswlib::labeltype label = result_hnsw.top().second;
+        for (auto pair: result_hnsw) {
+            float dist = pair.first;
+            hnswlib::labeltype label = pair.second;
             hnsw_labels.insert(label);
             assert(dist >=0 && dist <= epsilon);
-            result_hnsw.pop();
         }
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result_brute =
             alg_brute->searchKnn(query_data, max_elements);
@@ -86,7 +85,6 @@ int main() {
             continue;
         }
         float recall = correct / gt_labels.size();
-        std::cout << recall << " ";
         assert(recall > 0.95);
         delete[] query_data;
     }
@@ -97,14 +95,13 @@ int main() {
     int min_candidates_small = 500;
     for (size_t i = 0; i < max_elements; i++) {
         hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon_small, min_candidates_small);
-        std::priority_queue<std::pair<float, hnswlib::labeltype>> result = 
-            alg_hnsw->searchStopCondition(alg_hnsw->getDataByInternalId(i), max_candidates, nullptr, &stop_condition);
+        std::vector<std::pair<float, hnswlib::labeltype>> result = 
+            alg_hnsw->searchStopConditionClosest(alg_hnsw->getDataByInternalId(i), max_candidates, nullptr, &stop_condition);
         size_t num_vectors = result.size();
         // get closest distance
         float dist = -1;
-        while (!result.empty()) {
-            dist = result.top().first;
-            result.pop();
+        if (!result.empty()) {
+            dist = result[0].first;
         }
         assert(dist == 0);
     }

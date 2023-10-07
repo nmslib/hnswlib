@@ -12,13 +12,19 @@ int main() {
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
     int num_quries = 100;
-    int ef_collection = 20;     // Number of documents to search
+    int ef_collection = 10;     // Number of documents to search
+    int ef = 15;                // Number of candidate documents during search
+                                // Controlls the recall: higher ef leads to better accuracy, but slower search
     docidtype min_doc_id = 0;
     docidtype max_doc_id = 49;
 
     // Initing index
     hnswlib::MultiVectorL2Space<docidtype> space(dim);
+    hnswlib::BruteforceSearch<dist_t>* alg_brute = new hnswlib::BruteforceSearch<dist_t>(&space, max_elements);
     hnswlib::HierarchicalNSW<dist_t>* alg_hnsw = new hnswlib::HierarchicalNSW<dist_t>(&space, max_elements, M, ef_construction);
+    // Controlling the recall by setting ef:
+    // higher ef leads to better accuracy, but slower search
+    alg_hnsw->setEf(ef);
 
     // Generate random data
     std::mt19937 rng;
@@ -47,10 +53,13 @@ int main() {
         hnswlib::labeltype label = i;
         char* point_data = data + i * data_point_size;
         alg_hnsw->addPoint(point_data, label);
+        alg_brute->addPoint(point_data, label);
         label_docid_lookup[label] = space.get_doc_id(point_data);
     }
 
-    // Query random vectors
+    // Query random vectors and check overall recall
+    float correct = 0;
+    float total_num_elements = 0;
     size_t query_size = dim * sizeof(float);
     for (int i = 0; i < num_quries; i++) {
         char* query_data = new char[query_size];
@@ -61,35 +70,56 @@ int main() {
             *(float*)vec_data = value;
         }
         hnswlib::MultiVectorSearchStopCondition<docidtype, dist_t> stop_condition(space, dim);
-        std::priority_queue<std::pair<dist_t, hnswlib::labeltype>> result =
-            alg_hnsw->searchStopCondition(query_data, ef_collection, nullptr, &stop_condition);
+        std::vector<std::pair<dist_t, hnswlib::labeltype>> hnsw_results =
+            alg_hnsw->searchStopConditionClosest(query_data, ef_collection, nullptr, &stop_condition);
 
         // check number of found documents
-        std::unordered_map<docidtype, size_t> doc_counter;
-        while (!result.empty()) {
-            hnswlib::labeltype label = result.top().second;
-            result.pop();
+        std::unordered_set<docidtype> hnsw_docs;
+        std::unordered_set<hnswlib::labeltype> hnsw_labels;
+        for (auto pair: hnsw_results) {
+            hnswlib::labeltype label = pair.second;
+            hnsw_labels.emplace(label);
             docidtype doc_id = label_docid_lookup[label];
-            doc_counter[doc_id] += 1;
+            hnsw_docs.emplace(doc_id);
         }
-        assert(doc_counter.size() == ef_collection);
+        assert(hnsw_docs.size() == ef_collection);
+
+        // Check overall recall
+        std::vector<std::pair<dist_t, hnswlib::labeltype>> gt_results = 
+            alg_brute->searchKnnCloserFirst(query_data, max_elements);
+        std::unordered_set<docidtype> gt_docs;
+        for (int i = 0; i < gt_results.size(); i++) {
+            if (gt_docs.size() == ef_collection) {
+                break;
+            }
+            hnswlib::labeltype gt_label = gt_results[i].second;
+            if (hnsw_labels.find(gt_label) != hnsw_labels.end()) {
+                correct += 1;
+            }
+            docidtype gt_doc_id = label_docid_lookup[gt_label];
+            gt_docs.emplace(gt_doc_id);
+            total_num_elements += 1;
+        }
         delete[] query_data;
     }
+    float recall = correct / total_num_elements;
+    std::cout << "random elements search recall : " << recall << "\n";
+    assert(recall > 0.95);
 
     // Query the elements for themselves and measure recall
-    float correct = 0;
+    correct = 0;
     for (int i = 0; i < max_elements; i++) {
         hnswlib::MultiVectorSearchStopCondition<docidtype, dist_t> stop_condition(space, dim);
-        std::priority_queue<std::pair<float, hnswlib::labeltype>> result =
-            alg_hnsw->searchStopCondition(data + i * data_point_size, max_doc_id / 2, nullptr, &stop_condition);
-        hnswlib::labeltype label;
-        while (!result.empty()) {
-            label = result.top().second;
-            result.pop();
+        std::vector<std::pair<float, hnswlib::labeltype>> result =
+            alg_hnsw->searchStopConditionClosest(data + i * data_point_size, ef_collection, nullptr, &stop_condition);
+        hnswlib::labeltype label = -1;
+        if (!result.empty()) {
+            label = result[0].second;
         }
         if (label == i) correct++;
     }
-    float recall = correct / max_elements;
+    recall = correct / max_elements;
+    std::cout << "same elements search recall : " << recall << "\n";
     assert(recall > 0.99);
 
     delete[] data;
