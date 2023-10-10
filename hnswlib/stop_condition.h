@@ -145,21 +145,28 @@ class MultiVectorInnerProductSpace : public SpaceInterface<float> {
 
 template<typename DOCIDTYPE, typename dist_t>
 class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
-    size_t num_docs;
+    size_t curr_num_docs;
+    size_t num_docs_to_search;
+    size_t ef_collection;
     std::unordered_map<DOCIDTYPE, size_t> doc_counter;
     std::priority_queue<std::pair<dist_t, DOCIDTYPE>> search_results;
     BaseMultiVectorSpace<DOCIDTYPE>& space;
 
  public:
-    MultiVectorSearchStopCondition(BaseMultiVectorSpace<DOCIDTYPE>& space, size_t dim)
+    MultiVectorSearchStopCondition(
+        BaseMultiVectorSpace<DOCIDTYPE>& space,
+        size_t num_docs_to_search,
+        size_t ef_collection = 10)
         : space(space) {
-            num_docs = 0;
+            curr_num_docs = 0;
+            this->num_docs_to_search = num_docs_to_search;
+            this->ef_collection = std::max(ef_collection, num_docs_to_search);
         }
 
     void add_point(labeltype label, const void *datapoint, dist_t dist) {
         DOCIDTYPE doc_id = space.get_doc_id(datapoint);
         if (doc_counter[doc_id] == 0) {
-            num_docs += 1;
+            curr_num_docs += 1;
         }
         search_results.emplace(dist, doc_id);
         doc_counter[doc_id] += 1;
@@ -169,35 +176,35 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         DOCIDTYPE doc_id = space.get_doc_id(datapoint);
         doc_counter[doc_id] -= 1;
         if (doc_counter[doc_id] == 0) {
-            num_docs -= 1;
+            curr_num_docs -= 1;
         }
         search_results.pop();
     }
 
-    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_num_docs) {
-        bool stop_search = candidate_dist > lowerBound && num_docs == max_num_docs;
+    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound) {
+        bool stop_search = candidate_dist > lowerBound && curr_num_docs == ef_collection;
         return stop_search;
     }
 
-    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t max_num_docs) {
-        bool consider_candidate = num_docs < max_num_docs || lowerBound > candidate_dist;
+    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound) {
+        bool consider_candidate = curr_num_docs < ef_collection || lowerBound > candidate_dist;
         return consider_candidate;
     }
 
-    bool remove_extra(size_t max_num_docs) {
-        bool remove_extra = num_docs > max_num_docs;
+    bool remove_extra() {
+        bool remove_extra = curr_num_docs > ef_collection;
         return remove_extra;
     }
 
-    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates, size_t max_num_docs) {
-        while (num_docs > max_num_docs) {
+    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) {
+        while (curr_num_docs > num_docs_to_search) {
             dist_t dist_cand = candidates.back().first;
             dist_t dist_res = search_results.top().first;
             assert(dist_cand == dist_res);
             DOCIDTYPE doc_id = search_results.top().second;
             doc_counter[doc_id] -= 1;
             if (doc_counter[doc_id] == 0) {
-                num_docs -= 1;
+                curr_num_docs -= 1;
             }
             search_results.pop();
             candidates.pop_back();
@@ -211,30 +218,32 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
 template<typename dist_t>
 class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     float epsilon;
-    size_t min_candidates;
-    size_t num_return_items;
+    size_t min_num_candidates;
+    size_t max_num_candidates;
+    size_t curr_num_items;
  public:
-    EpsilonSearchStopCondition(float epsilon, size_t min_candidates) {
+    EpsilonSearchStopCondition(float epsilon, size_t min_num_candidates, size_t max_num_candidates) {
+        assert(min_num_candidates <= max_num_candidates);
         this->epsilon = epsilon;
-        this->min_candidates = min_candidates;
-        num_return_items = 0;
+        this->min_num_candidates = min_num_candidates;
+        this->max_num_candidates = max_num_candidates;
+        curr_num_items = 0;
     }
 
     void add_point(labeltype label, const void *datapoint, dist_t dist) {
-        num_return_items += 1;
+        curr_num_items += 1;
     }
 
     void remove_point(labeltype label, const void *datapoint, dist_t dist) {
-        num_return_items -= 1;
+        curr_num_items -= 1;
     }
 
-    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
-        assert(max_candidates >= min_candidates);
-        if (candidate_dist > lowerBound && num_return_items == max_candidates) {
+    bool should_stop_search(dist_t candidate_dist, dist_t lowerBound) {
+        if (candidate_dist > lowerBound && curr_num_items == max_num_candidates) {
             // new candidate can't improve found results
             return true;
         }
-        if (candidate_dist > epsilon && num_return_items >= min_candidates) {
+        if (candidate_dist > epsilon && curr_num_items >= min_num_candidates) {
             // new candidate is out of epsilon region and
             // minimum number of candidates is checked
             return true;
@@ -242,21 +251,21 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         return false;
     }
 
-    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t max_candidates) {
-        bool consider_candidate = num_return_items < max_candidates || lowerBound > candidate_dist;
+    bool consider_candidate(dist_t candidate_dist, dist_t lowerBound) {
+        bool consider_candidate = curr_num_items < max_num_candidates || lowerBound > candidate_dist;
         return consider_candidate;
     }
 
-    bool remove_extra(size_t max_candidates) {
-        bool remove_extra = num_return_items > max_candidates;
+    bool remove_extra() {
+        bool remove_extra = curr_num_items > max_num_candidates;
         return remove_extra;
     }
 
-    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates, size_t max_candidates) {
+    void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) {
         while (!candidates.empty() && candidates.back().first > epsilon) {
             candidates.pop_back();
         }
-        while (candidates.size() > max_candidates) {
+        while (candidates.size() > max_num_candidates) {
             candidates.pop_back();
         }
     }

@@ -4,13 +4,13 @@ typedef unsigned int docidtype;
 typedef float dist_t;
 
 int main() {
-    int dim = 16;               // Dimension of the elements
-    int max_elements = 10000;   // Maximum number of elements, should be known beforehand
-    int M = 16;                 // Tightly connected with internal dimensionality of the data
-                                // strongly affects the memory consumption
-    int ef_construction = 200;  // Controls index search speed/build speed tradeoff
-    int min_candidates = 100;   // Minimum number of candidates to search in the epsilon region
-                                // this parameter is similar to ef
+    int dim = 16;                  // Dimension of the elements
+    int max_elements = 10000;      // Maximum number of elements, should be known beforehand
+    int M = 16;                    // Tightly connected with internal dimensionality of the data
+                                   // strongly affects the memory consumption
+    int ef_construction = 200;     // Controls index search speed/build speed tradeoff
+    int min_num_candidates = 100;  // Minimum number of candidates to search in the epsilon region
+                                   // this parameter is similar to ef
 
     int num_quries = 5;
     float epsilon = 2.0;         // Squared distance to query
@@ -52,9 +52,9 @@ int main() {
             *(float*)vec_data = value;
         }
         std::cout << "Query #" << i << "\n";
-        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_candidates);
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_num_candidates, max_elements);
         std::vector<std::pair<float, hnswlib::labeltype>> result = 
-            alg_hnsw->searchStopConditionClosest(query_data, max_elements, nullptr, &stop_condition);
+            alg_hnsw->searchStopConditionClosest(query_data, stop_condition);
         size_t num_vectors = result.size();
         std::cout << "Found " << num_vectors << " vectors\n";
         delete[] query_data;

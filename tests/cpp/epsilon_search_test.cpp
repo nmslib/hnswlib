@@ -12,10 +12,10 @@ int main() {
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
     int num_queries = 100;
-    float epsilon = 1.0;                 // Squared distance to query
-    int max_candidates = max_elements;   // Upper bound on the number of returned elements in the epsilon region
-    int min_candidates = 2000;           // Minimum number of candidates to search in the epsilon region
-                                         // this parameter is similar to ef
+    float epsilon = 1.0;                     // Squared distance to query
+    int max_num_candidates = max_elements;   // Upper bound on the number of returned elements in the epsilon region
+    int min_num_candidates = 2000;           // Minimum number of candidates to search in the epsilon region
+                                             // this parameter is similar to ef
 
     // Initing index
     hnswlib::L2Space space(dim);
@@ -48,9 +48,9 @@ int main() {
         for (int j = 0; j < dim; j++) {
             query_data[j] = distrib_real(rng);
         }
-        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_candidates);
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_num_candidates, max_num_candidates);
         std::vector<std::pair<float, hnswlib::labeltype>> result_hnsw =
-            alg_hnsw->searchStopConditionClosest(query_data, max_candidates, nullptr, &stop_condition);
+            alg_hnsw->searchStopConditionClosest(query_data, stop_condition);
         
         // check that returned results are in epsilon region
         size_t num_vectors = result_hnsw.size();
@@ -94,9 +94,9 @@ int main() {
     float epsilon_small = 0.0001f;
     int min_candidates_small = 500;
     for (size_t i = 0; i < max_elements; i++) {
-        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon_small, min_candidates_small);
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon_small, min_candidates_small, max_num_candidates);
         std::vector<std::pair<float, hnswlib::labeltype>> result = 
-            alg_hnsw->searchStopConditionClosest(alg_hnsw->getDataByInternalId(i), max_candidates, nullptr, &stop_condition);
+            alg_hnsw->searchStopConditionClosest(alg_hnsw->getDataByInternalId(i), stop_condition);
         size_t num_vectors = result.size();
         // get closest distance
         float dist = -1;
@@ -105,7 +105,7 @@ int main() {
         }
         assert(dist == 0);
     }
-    std::cout << "Small epsilon search is finished\n";
+    std::cout << "Small epsilon search is OK\n";
 
     delete[] data;
     delete alg_brute;

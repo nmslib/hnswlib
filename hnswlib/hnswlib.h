@@ -129,13 +129,13 @@ class BaseSearchStopCondition {
 
     virtual void remove_point(labeltype label, const void *datapoint, dist_t dist) = 0;
 
-    virtual bool should_stop_search(dist_t candidate_dist, dist_t lowerBound, size_t ef) = 0;
+    virtual bool should_stop_search(dist_t candidate_dist, dist_t lowerBound) = 0;
 
-    virtual bool consider_candidate(dist_t candidate_dist, dist_t lowerBound, size_t ef) = 0;
+    virtual bool consider_candidate(dist_t candidate_dist, dist_t lowerBound) = 0;
 
-    virtual bool remove_extra(size_t ef) = 0;
+    virtual bool remove_extra() = 0;
 
-    virtual void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates, size_t ef) = 0;
+    virtual void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) = 0;
 
     virtual ~BaseSearchStopCondition() {}
 };
