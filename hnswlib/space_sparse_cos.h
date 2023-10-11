@@ -1,0 +1,78 @@
+#pragma once
+#include "hnswlib.h"
+
+namespace hnswlib {
+    // struct for sparse vector
+    // TODO: is it really the best idea to make SparseVector hold a pointer
+    struct SparseVector {
+        size_t num_entries;
+        // entries is array of SparseVectorEntry of size num_entries sorted by id
+        SparseVectorEntry* entries;
+    };
+    struct SparseVectorEntry {
+        unsigned int id;
+        float val;
+    };
+
+    static float SparseNorm(SparseVector *sVect) {
+        float res = 0;
+        SparseVectorEntry *entries = sVect->entries;
+        for (size_t i = 0; i < sVect->num_entries; i++) {
+            res += entries->val * entries->val;
+            entries++;
+        }
+        return float;
+    }
+
+    // d = 1.0 - sum(Ai*Bi) / sqrt(sum(Ai*Ai) * sum(Bi*Bi))
+    static float SparseCos(const void *sVect1v, const void *sVect2v, const void *) {
+        // third argument unused
+        SparseVector *sVect1 = (SparseVector *) sVect1v;
+        SparseVector *sVect2 = (SparseVector *) sVect2v;
+        float res = 0;
+
+        // to compute sum(Ai * Bi), intersect!
+        size_t c1 = 0;
+        size_t c2 = 0;
+        SparseVectorEntry *e1 = sVect1->entries;
+        SparseVectorEntry *e2 = sVect2->entries;
+        while (c1 < sVect1->num_entries && c2 < sVect2->num_entries) {
+            if (e1->id == e2->id) {
+                res += e1->val * e2->val;
+            } else if (e1->id < e2->id) {
+                // e1 smaller, inc to catch up to e2
+                e1++;
+            } else {
+                // e2 smaller, inc e2
+                e2++;
+            }
+        }
+        return 1.0 - res / (SparseNorm(sVect1) * SparseNorm(sVect2));
+    }
+
+    class SparseCosSpace : public SpaceInterface<float> {
+        DISTFUNC<float> fstdistfunc_;
+        size_t data_size_;
+
+        public:
+        SparseCosSpace() {
+            fstdistfunc_ = SparseCos;
+            data_size_ = sizeof(SparseVector);
+        }
+
+        size_t get_data_size() {
+            return data_size_;
+        }
+
+        DISTFUNC<float> get_dist_func() {
+            return fstdistfunc_;
+        }
+
+        void *get_dist_func_param() {
+            // TODO: the dist func param is unused - should i just return 0???
+            return 0;
+        }
+
+        ~SparseCosSpace() {}
+    };
+}
