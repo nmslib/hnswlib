@@ -1,5 +1,6 @@
 #pragma once
 #include "hnswlib.h"
+#include <cmath>
 
 namespace hnswlib {
     // struct for sparse vector
@@ -21,7 +22,7 @@ namespace hnswlib {
             res += entries->val * entries->val;
             entries++;
         }
-        return float;
+        return std::sqrt(res);
     }
 
     // d = 1.0 - sum(Ai*Bi) / sqrt(sum(Ai*Ai) * sum(Bi*Bi))
