@@ -20,6 +20,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(example_search examples/cpp/example_search.cpp)
     target_link_libraries(example_search hnswlib)
 
+    add_executable(example_search_sparse examples/cpp/example_search_sparse.cpp)
+    target_link_libraries(example_search_sparse hnswlib)
+
     add_executable(example_filter examples/cpp/example_filter.cpp)
     target_link_libraries(example_filter hnswlib)
 

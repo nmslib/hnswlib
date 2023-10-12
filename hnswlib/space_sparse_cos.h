@@ -4,15 +4,14 @@
 
 namespace hnswlib {
     // struct for sparse vector
-    // TODO: is it really the best idea to make SparseVector hold a pointer
+    struct SparseVectorEntry {
+        unsigned int id;
+        float val;
+    };
     struct SparseVector {
         size_t num_entries;
         // entries is array of SparseVectorEntry of size num_entries sorted by id
         SparseVectorEntry* entries;
-    };
-    struct SparseVectorEntry {
-        unsigned int id;
-        float val;
     };
 
     static float SparseNorm(SparseVector *sVect) {
@@ -58,7 +57,10 @@ namespace hnswlib {
         public:
         SparseCosSpace() {
             fstdistfunc_ = SparseCos;
-            data_size_ = sizeof(SparseVector);
+            // data_size_ is for the use of `addPoint` to know how large the
+            //     the data structure representing a single point is 
+            //     for the sake of copying
+            data_size_ = sizeof(SparseVectorEntry);
         }
 
         size_t get_data_size() {
@@ -70,8 +72,8 @@ namespace hnswlib {
         }
 
         void *get_dist_func_param() {
-            // TODO: the dist func param is unused - should i just return 0???
-            return 0;
+            // UNUSED
+            return NULL;
         }
 
         ~SparseCosSpace() {}
