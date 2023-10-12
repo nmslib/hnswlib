@@ -19,7 +19,6 @@ namespace hnswlib {
         SparseVectorEntry *entries = sVect->entries;
         for (size_t i = 0; i < sVect->num_entries; i++) {
             res += entries[i].val * entries[i].val;
-            entries++;
         }
         return std::sqrt(res);
     }
@@ -29,7 +28,12 @@ namespace hnswlib {
         // third argument unused
         SparseVector *sVect1 = (SparseVector *) sVect1v;
         SparseVector *sVect2 = (SparseVector *) sVect2v;
-        float res = 0;
+        float numer = 0;
+        float denom = SparseNorm(sVect1) * SparseNorm(sVect2);
+
+        if (denom == 0) {
+            return 0;
+        }
 
         // to compute sum(Ai * Bi), intersect!
         size_t c1 = 0;
@@ -38,7 +42,7 @@ namespace hnswlib {
         SparseVectorEntry *e2 = sVect2->entries;
         while (c1 < sVect1->num_entries && c2 < sVect2->num_entries) {
             if (e1->index == e2->index) {
-                res += e1->val * e2->val;
+                numer += e1->val * e2->val;
             } else if (e1->index < e2->index) {
                 // e1 smaller, inc to catch up to e2
                 e1++;
@@ -47,7 +51,9 @@ namespace hnswlib {
                 e2++;
             }
         }
-        return 1.0 - res / (SparseNorm(sVect1) * SparseNorm(sVect2));
+        float d = 1.0 - numer / denom;
+        std::cout << d << "\n";
+        return d;
     }
 
     class SparseCosSpace : public SpaceInterface<float> {

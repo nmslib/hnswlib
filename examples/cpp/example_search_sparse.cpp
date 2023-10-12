@@ -2,9 +2,9 @@
 
 
 int main() {
-    int dim = 16;               // Dimension of the elements
-    int max_elements = 10000;   // Maximum number of elements, should be known beforehand
-    int M = 16;                 // Tightly connected with internal dimensionality of the data
+    int dim = 4;               // Dimension of the elements
+    int max_elements = 10;   // Maximum number of elements, should be known beforehand
+    int M = 4;                 // Tightly connected with internal dimensionality of the data
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
@@ -23,21 +23,22 @@ int main() {
         float* temp_array = new float[dim];
         for (int j = 0; j < dim; j++) {
             if (distrib_real(rng) < 0.1) {
-                temp_array[j] = distrib_real(rng);
+                float obj = distrib_real(rng);
+                if (obj == 0) continue;
+                temp_array[j] = obj;
                 size++;
             }
         }
 
-        hnswlib::SparseVectorEntry* vector_array = new hnswlib::SparseVectorEntry[size];
+        vectors[i].entries = new hnswlib::SparseVectorEntry[size];
         size_t spv_count = 0;
         for (unsigned int j = 0; j < dim; j++) {
             if (temp_array[j] != 0) {
-                vector_array[spv_count] = {j, temp_array[j]};
+                vectors[i].entries[spv_count] = {j, temp_array[j]};
                 spv_count++;
             }
         }
-        vectors[i].num_entries = size;
-        vectors[i].entries = vector_array;
+        vectors[i].num_entries = spv_count;
 
         delete[] temp_array;
     }
