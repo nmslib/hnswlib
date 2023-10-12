@@ -5,12 +5,12 @@
 namespace hnswlib {
     // struct for sparse vector
     struct SparseVectorEntry {
-        unsigned int id;
+        unsigned int index;
         float val;
     };
     struct SparseVector {
         size_t num_entries;
-        // entries is array of SparseVectorEntry of size num_entries sorted by id
+        // entries is array of SparseVectorEntry of size num_entries sorted by index
         SparseVectorEntry* entries;
     };
 
@@ -18,7 +18,7 @@ namespace hnswlib {
         float res = 0;
         SparseVectorEntry *entries = sVect->entries;
         for (size_t i = 0; i < sVect->num_entries; i++) {
-            res += entries->val * entries->val;
+            res += entries[i].val * entries[i].val;
             entries++;
         }
         return std::sqrt(res);
@@ -37,9 +37,9 @@ namespace hnswlib {
         SparseVectorEntry *e1 = sVect1->entries;
         SparseVectorEntry *e2 = sVect2->entries;
         while (c1 < sVect1->num_entries && c2 < sVect2->num_entries) {
-            if (e1->id == e2->id) {
+            if (e1->index == e2->index) {
                 res += e1->val * e2->val;
-            } else if (e1->id < e2->id) {
+            } else if (e1->index < e2->index) {
                 // e1 smaller, inc to catch up to e2
                 e1++;
             } else {
