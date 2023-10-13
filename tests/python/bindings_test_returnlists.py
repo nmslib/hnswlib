@@ -41,7 +41,7 @@ class RandomSelfTestCase(unittest.TestCase):
         hnsw_index.add_items(data)
         bf_index.add_items(data)
 
-        # filter_function = lambda id: id%2 == 0
+        # filter_function designed to return different number of elements for each query
         filter_function = lambda index: index > (num_elements-2)  if random.random() < 0.5 else index > (num_elements-1)
         labels, distances = hnsw_index.knn_query_return_lists(data, k=1, num_threads=1, filter=filter_function)
 
