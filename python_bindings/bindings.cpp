@@ -950,7 +950,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("k") = 1,
             py::arg("num_threads") = -1,
             py::arg("filter") = py::none())
-        .def("knn_query_lists",
+        .def("knn_query_return_lists",
             &Index<float>::knnQuery_return_lists,
             py::arg("data"),
             py::arg("k") = 1,
