@@ -43,16 +43,21 @@ namespace hnswlib {
         while (c1 < sVect1->num_entries && c2 < sVect2->num_entries) {
             if (e1->index == e2->index) {
                 numer += e1->val * e2->val;
-            } else if (e1->index < e2->index) {
+            } 
+
+            // Note: if the indices were equal, we need to increment both
+            if (e1->index <= e2->index) {
                 // e1 smaller, inc to catch up to e2
                 e1++;
-            } else {
+                c1++;
+            }
+            if (e1->index >= e2->index) {
                 // e2 smaller, inc e2
                 e2++;
+                c2++;
             }
         }
         float d = 1.0 - numer / denom;
-        std::cout << d << "\n";
         return d;
     }
 
@@ -66,7 +71,7 @@ namespace hnswlib {
             // data_size_ is for the use of `addPoint` to know how large the
             //     the data structure representing a single point is 
             //     for the sake of copying
-            data_size_ = sizeof(SparseVectorEntry);
+            data_size_ = sizeof(SparseVector);
         }
 
         size_t get_data_size() {

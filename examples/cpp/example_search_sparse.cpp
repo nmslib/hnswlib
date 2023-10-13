@@ -1,12 +1,17 @@
 #include "../../hnswlib/hnswlib.h"
 
+// NOTE: the recall won't be 1 for sparse vectors because of the nature of sparse vectors (mostly zeros). In order to verify that the 
+//       sparse cosine space is working as expected, change `nonzero_prob` to 1.1. If recall is not 1 with this setting, then you'll know
+//       something is wrong.
 
 int main() {
-    int dim = 4;               // Dimension of the elements
-    int max_elements = 10;   // Maximum number of elements, should be known beforehand
-    int M = 4;                 // Tightly connected with internal dimensionality of the data
+    int dim = 1024;               // Dimension of the elements
+    int max_elements = 100;   // Maximum number of elements, should be known beforehand
+    int M = 1024;                 // Tightly connected with internal dimensionality of the data
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
+
+    float nonzero_prob = 0.1;
 
     // Initing index
     hnswlib::SparseCosSpace space{};
@@ -22,7 +27,7 @@ int main() {
         size_t size = 0;
         float* temp_array = new float[dim];
         for (int j = 0; j < dim; j++) {
-            if (distrib_real(rng) < 0.1) {
+            if (distrib_real(rng) < nonzero_prob) {
                 float obj = distrib_real(rng);
                 if (obj == 0) continue;
                 temp_array[j] = obj;
