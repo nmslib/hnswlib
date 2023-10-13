@@ -62,6 +62,7 @@ jobs:
             cp ./Release/* ./
           fi
           ./example_search
+          ./example_search_sparse.cpp
           ./example_filter
           ./example_replace_deleted
           ./example_mt_search
