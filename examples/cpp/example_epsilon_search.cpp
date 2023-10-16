@@ -12,8 +12,8 @@ int main() {
     int min_num_candidates = 100;  // Minimum number of candidates to search in the epsilon region
                                    // this parameter is similar to ef
 
-    int num_quries = 5;
-    float epsilon = 2.0;         // Squared distance to query
+    int num_queries = 5;
+    float epsilon2 = 2.0;          // Squared distance to query
 
     // Initing index
     hnswlib::L2Space space(dim);
@@ -43,7 +43,7 @@ int main() {
     }
 
     // Query random vectors
-    for (int i = 0; i < num_quries; i++) {
+    for (int i = 0; i < num_queries; i++) {
         char* query_data = new char[data_point_size];
         for (int j = 0; j < dim; j++) {
             size_t offset = j * sizeof(float);
@@ -52,7 +52,7 @@ int main() {
             *(float*)vec_data = value;
         }
         std::cout << "Query #" << i << "\n";
-        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon, min_num_candidates, max_elements);
+        hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon2, min_num_candidates, max_elements);
         std::vector<std::pair<float, hnswlib::labeltype>> result = 
             alg_hnsw->searchStopConditionClosest(query_data, stop_condition);
         size_t num_vectors = result.size();

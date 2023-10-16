@@ -125,15 +125,15 @@ class BaseFilterFunctor {
 template<typename dist_t>
 class BaseSearchStopCondition {
  public:
-    virtual void add_point(labeltype label, const void *datapoint, dist_t dist) = 0;
+    virtual void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) = 0;
 
-    virtual void remove_point(labeltype label, const void *datapoint, dist_t dist) = 0;
+    virtual void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) = 0;
 
     virtual bool should_stop_search(dist_t candidate_dist, dist_t lowerBound) = 0;
 
-    virtual bool consider_candidate(dist_t candidate_dist, dist_t lowerBound) = 0;
+    virtual bool should_consider_candidate(dist_t candidate_dist, dist_t lowerBound) = 0;
 
-    virtual bool remove_extra() = 0;
+    virtual bool should_remove_extra() = 0;
 
     virtual void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) = 0;
 

@@ -10,7 +10,7 @@ int main() {
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
 
-    int num_quries = 5;
+    int num_queries = 5;
     int num_docs = 5;           // Number of documents to search
     int ef_collection = 6;      // Number of candidate documents during the search
                                 // Controlls the recall: higher ef leads to better accuracy, but slower search
@@ -53,7 +53,7 @@ int main() {
 
     // Query random vectors
     size_t query_size = dim * sizeof(float);
-    for (int i = 0; i < num_quries; i++) {
+    for (int i = 0; i < num_queries; i++) {
         char* query_data = new char[query_size];
         for (int j = 0; j < dim; j++) {
             size_t offset = j * sizeof(float);

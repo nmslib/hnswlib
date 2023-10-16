@@ -329,7 +329,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             lowerBound = dist;
             top_candidates.emplace(dist, ep_id);
             if (!bare_bone_search && stop_condition) {
-                stop_condition->add_point(getExternalLabel(ep_id), ep_data, dist);
+                stop_condition->add_point_to_result(getExternalLabel(ep_id), ep_data, dist);
             }
             candidate_set.emplace(-dist, ep_id);
         } else {
@@ -388,14 +388,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     char *currObj1 = (getDataByInternalId(candidate_id));
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
-                    bool consider_candidate;
+                    bool flag_consider_candidate;
                     if (!bare_bone_search && stop_condition) {
-                        consider_candidate = stop_condition->consider_candidate(dist, lowerBound);
+                        flag_consider_candidate = stop_condition->should_consider_candidate(dist, lowerBound);
                     } else {
-                        consider_candidate = top_candidates.size() < ef || lowerBound > dist;
+                        flag_consider_candidate = top_candidates.size() < ef || lowerBound > dist;
                     }
 
-                    if (consider_candidate) {
+                    if (flag_consider_candidate) {
                         candidate_set.emplace(-dist, candidate_id);
 #ifdef USE_SSE
                         _mm_prefetch(data_level0_memory_ + candidate_set.top().second * size_data_per_element_ +
@@ -407,24 +407,24 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                             ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))) {
                             top_candidates.emplace(dist, candidate_id);
                             if (!bare_bone_search && stop_condition) {
-                                stop_condition->add_point(getExternalLabel(candidate_id), currObj1, dist);
+                                stop_condition->add_point_to_result(getExternalLabel(candidate_id), currObj1, dist);
                             }
                         }
 
-                        bool remove_extra = false;
+                        bool flag_remove_extra = false;
                         if (!bare_bone_search && stop_condition) {
-                            remove_extra = stop_condition->remove_extra();
+                            flag_remove_extra = stop_condition->should_remove_extra();
                         } else {
-                            remove_extra = top_candidates.size() > ef;
+                            flag_remove_extra = top_candidates.size() > ef;
                         }
-                        while (remove_extra) {
+                        while (flag_remove_extra) {
                             tableint id = top_candidates.top().second;
                             top_candidates.pop();
                             if (!bare_bone_search && stop_condition) {
-                                stop_condition->remove_point(getExternalLabel(id), getDataByInternalId(id), dist);
-                                remove_extra = stop_condition->remove_extra();
+                                stop_condition->remove_point_from_result(getExternalLabel(id), getDataByInternalId(id), dist);
+                                flag_remove_extra = stop_condition->should_remove_extra();
                             } else {
-                                remove_extra = top_candidates.size() > ef;
+                                flag_remove_extra = top_candidates.size() > ef;
                             }
                         }
 
