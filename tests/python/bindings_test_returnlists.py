@@ -42,8 +42,8 @@ class RandomSelfTestCase(unittest.TestCase):
         bf_index.add_items(data)
 
         # filter_function designed to return different number of elements for each query
-        filter_function = lambda index: index > (num_elements-2)  if random.random() < 0.5 else index > (num_elements-1)
-        labels, distances = hnsw_index.knn_query_return_lists(data, k=1, num_threads=1, filter=filter_function)
+        filter_function = lambda index: index > (num_elements-3)  if random.random() < 0.5 else index >= (num_elements-1)
+        labels, distances = hnsw_index.knn_query_return_lists(data, k=2, num_threads=1, filter=filter_function)
 
         # Assert the return type for both labels and distances is a list
         self.assertTrue(isinstance(labels, list))
