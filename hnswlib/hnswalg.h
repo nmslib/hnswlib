@@ -615,7 +615,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
-        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        s->save_data_to_output(output, data_level0_memory_, cur_element_count);
+        // TODO: for sparse vectors, this needs to copy the actual elements of the sparse vector. this currently only copies the pointers to the 
+        // sparse vector element array.
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
@@ -690,7 +692,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        s->read_data_to_memory(input, data_level0_memory_, cur_element_count);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 

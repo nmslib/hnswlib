@@ -152,6 +152,10 @@ class SpaceInterface {
 
     virtual void *get_dist_func_param() = 0;
 
+    virtual void save_data_to_output(std::ofstream output, void* memory_block, size_t cur_element_count) = 0;
+
+    virtual void read_data_to_memory(std::ifstream input, char* memory_block, size_t cur_element_count) = 0;
+
     virtual ~SpaceInterface() {}
 };
 
