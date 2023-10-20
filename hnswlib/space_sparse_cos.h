@@ -87,30 +87,26 @@ class SparseCosSpace : public SpaceInterface<float> {
         return NULL;
     }
 
-    void save_data_to_output(std::ofstream& output, char* memory_block, size_t element_count) {
+    void save_data_point_to_output(std::ofstream& output, char* memory_block) {
         /*
             Block format:
             num_entries (size_t)
             entries SparseVectorEntry[num_entries]
         */
 
-        for (size_t i = 0; i < element_count; i++) {
-            SparseVector* sparse_vector = (SparseVector*)(memory_block + i * sizeof(SparseVector));
-            writeBinaryPOD(output, sparse_vector->num_entries);
-            output.write((char*)sparse_vector->entries, sparse_vector->num_entries * sizeof(SparseVectorEntry));
-        }
+        SparseVector* sparse_vector = (SparseVector*)memory_block;
+        writeBinaryPOD(output, sparse_vector->num_entries);
+        output.write((char*)(sparse_vector->entries), sparse_vector->num_entries * sizeof(SparseVectorEntry));
     }
 
-    void read_data_to_memory(std::ifstream& input, char* memory_block, size_t element_count) {
-        for (size_t i = 0; i < element_count; i++) {
-            SparseVector* sparse_vector = (SparseVector*)(memory_block + i * sizeof(SparseVector));
-            readBinaryPOD(input, sparse_vector->num_entries);
-            sparse_vector->entries = new SparseVectorEntry[sparse_vector->num_entries];
-            input.read((char*)sparse_vector->entries, sparse_vector->num_entries * sizeof(SparseVectorEntry));
-        }
+    void read_data_point_to_memory(std::ifstream& input, char* memory_block) {
+        SparseVector* sparse_vector = (SparseVector*)memory_block;
+        readBinaryPOD(input, sparse_vector->num_entries);
+        sparse_vector->entries = new SparseVectorEntry[sparse_vector->num_entries];
+        input.read((char*)sparse_vector->entries, sparse_vector->num_entries * sizeof(SparseVectorEntry));
     }
 
-    void copy_data_to_location(char* location, const void* data_point, bool need_cleanup) {
+    void copy_data_point_to_location(char* location, const void* data_point, bool need_cleanup) {
         SparseVector* target_vector = (SparseVector*) location;
         SparseVector* source_vector = (SparseVector*) data_point;
 
@@ -124,11 +120,9 @@ class SparseCosSpace : public SpaceInterface<float> {
         memcpy(target_vector->entries, source_vector->entries, source_vector->num_entries * sizeof(SparseVectorEntry));
     }
 
-    void prep_data_memory_block_for_freeing(char* memory_block, size_t element_count) {
-        for (size_t i = 0; i < element_count; i++) {
-            SparseVector* sparse_vector = (SparseVector*)(memory_block + i * sizeof(SparseVector));
-            delete[] sparse_vector->entries;
-        }
+    void prep_data_point_for_freeing(char* memory_block) {
+        SparseVector* sparse_vector = (SparseVector*) memory_block;
+        delete[] sparse_vector->entries;
     }
 
     ~SparseCosSpace() {}

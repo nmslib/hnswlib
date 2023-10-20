@@ -6,7 +6,7 @@
 
 int main() {
     int dim = 1024;               // Dimension of the elements
-    int max_elements = 100;   // Maximum number of elements, should be known beforehand
+    int max_elements = 10;   // Maximum number of elements, should be known beforehand
     int M = 1024;                 // Tightly connected with internal dimensionality of the data
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
@@ -20,12 +20,13 @@ int main() {
     // Generate random data
     // Generate number with 10% probability
     std::mt19937 rng;
-    rng.seed(47);
+    rng.seed(74);
     std::uniform_real_distribution<> distrib_real;
     hnswlib::SparseVector* vectors = new hnswlib::SparseVector[max_elements];
+    float* temp_array = new float[dim];
     for (int i = 0; i < max_elements; i++) {
+        memset(temp_array, 0, dim * sizeof(float));
         size_t size = 0;
-        float* temp_array = new float[dim];
         for (int j = 0; j < dim; j++) {
             if (distrib_real(rng) < nonzero_prob) {
                 float obj = distrib_real(rng);
@@ -44,9 +45,9 @@ int main() {
             }
         }
         vectors[i].num_entries = spv_count;
-
-        delete[] temp_array;
     }
+
+    delete[] temp_array;
 
     // Add data to index
     for (int i = 0; i < max_elements; i++) {

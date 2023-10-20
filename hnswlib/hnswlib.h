@@ -153,15 +153,14 @@ class SpaceInterface {
 
     virtual void *get_dist_func_param() = 0;
 
-    virtual void save_data_to_output(std::ofstream& output, char* memory_block, size_t element_count) = 0;
+    virtual void save_data_point_to_output(std::ofstream& output, char* memory_block) = 0;
 
-    virtual void read_data_to_memory(std::ifstream& input, char* memory_block, size_t element_count) = 0;
+    virtual void read_data_point_to_memory(std::ifstream& input, char* memory_block) = 0;
 
-    virtual void copy_data_to_location(char* location, const void* data_point, bool need_cleanup) = 0;
+    virtual void copy_data_point_to_location(char* location, const void* data_point, bool need_cleanup) = 0;
 
-    void prep_data_memory_block_for_freeing(char* memory_block, size_t element_count) {
+    void prep_data_point_for_freeing(char* memory_block) {
         (void)(memory_block);
-        (void)(element_count);
     }
 
     virtual ~SpaceInterface() {}

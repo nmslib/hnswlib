@@ -143,7 +143,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     ~HierarchicalNSW() {
-        s_->prep_data_memory_block_for_freeing(data_level0_memory_, cur_element_count);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            s_->prep_data_point_for_freeing(data_level0_memory_ + i * size_data_per_element_ + offsetData_);
+        }
         free(data_level0_memory_);
         for (tableint i = 0; i < cur_element_count; i++) {
             if (element_levels_[i] > 0)
@@ -621,9 +623,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
-        s_->save_data_to_output(output, data_level0_memory_, cur_element_count);
-        // TODO: for sparse vectors, this needs to copy the actual elements of the sparse vector. this currently only copies the pointers to the 
-        // sparse vector element array.
+        // s_->save_data_to_output(output, data_level0_memory_, cur_element_count);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            char* data_block_ptr = data_level0_memory_ + i * size_data_per_element_;
+            output.write(data_block_ptr, offsetData_);
+            s_->save_data_point_to_output(output, data_block_ptr + offsetData_);
+            output.write(data_block_ptr + label_offset_, sizeof(labeltype));
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
@@ -699,7 +705,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        s_->read_data_to_memory(input, data_level0_memory_, cur_element_count);
+        // s_->read_data_to_memory(input, data_level0_memory_, cur_element_count);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            char* data_block_ptr = data_level0_memory_ + i * size_data_per_element_;
+            input.read(data_block_ptr, offsetData_);
+            s_->read_data_point_to_memory(input, data_block_ptr + offsetData_);
+            input.read(data_block_ptr + label_offset_, sizeof(labeltype));
+        }
+
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -916,7 +929,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     void updatePoint(const void *dataPoint, tableint internalId, float updateNeighborProbability) {
         // update the feature vector associated with existing point with new vector
-        s_->copy_data_to_location(getDataByInternalId(internalId), dataPoint, true);
+        s_->copy_data_point_to_location(getDataByInternalId(internalId), dataPoint, true);
 
         int maxLevelCopy = maxlevel_;
         tableint entryPointCopy = enterpoint_node_;
@@ -1123,7 +1136,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Initialisation of the data and label
         memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
-        s_->copy_data_to_location(getDataByInternalId(cur_c), data_point, false);
+        s_->copy_data_point_to_location(getDataByInternalId(cur_c), data_point, false);
 
 
         if (curlevel) {
