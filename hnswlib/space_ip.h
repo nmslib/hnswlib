@@ -369,12 +369,17 @@ class InnerProductSpace : public SpaceInterface<float> {
         return &dim_;
     }
 
-    void save_data_to_output(std::ofstream output, void* memory_block, size_t cur_element_count) {
-        output.write(memory_block, cur_element_count * get_data_size());
+    void save_data_to_output(std::ofstream& output, char* memory_block, size_t element_count) {
+        output.write(memory_block, element_count * get_data_size());
     }
 
-    void read_data_to_memory(std::ifstream input, char* memory_block, size_t cur_element_count) {
-        input.read(memory_block, cur_element_count * get_data_size());
+    void read_data_to_memory(std::ifstream& input, char* memory_block, size_t element_count) {
+        input.read(memory_block, element_count * get_data_size());
+    }
+
+    void copy_data_to_location(char* location, const void* data_point, bool need_cleanup) {
+        (void)(need_cleanup);
+        memcpy(location, data_point, get_data_size());
     }
 
 ~InnerProductSpace() {}

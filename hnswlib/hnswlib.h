@@ -1,4 +1,5 @@
 #pragma once
+#include <fstream>
 #ifndef NO_MANUAL_VECTORIZATION
 #if (defined(__SSE__) || _M_IX86_FP > 0 || defined(_M_AMD64) || defined(_M_X64))
 #define USE_SSE
@@ -152,9 +153,16 @@ class SpaceInterface {
 
     virtual void *get_dist_func_param() = 0;
 
-    virtual void save_data_to_output(std::ofstream output, void* memory_block, size_t cur_element_count) = 0;
+    virtual void save_data_to_output(std::ofstream& output, char* memory_block, size_t element_count) = 0;
 
-    virtual void read_data_to_memory(std::ifstream input, char* memory_block, size_t cur_element_count) = 0;
+    virtual void read_data_to_memory(std::ifstream& input, char* memory_block, size_t element_count) = 0;
+
+    virtual void copy_data_to_location(char* location, const void* data_point, bool need_cleanup) = 0;
+
+    void prep_data_memory_block_for_freeing(char* memory_block, size_t element_count) {
+        (void)(memory_block);
+        (void)(element_count);
+    }
 
     virtual ~SpaceInterface() {}
 };
