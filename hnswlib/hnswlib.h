@@ -153,6 +153,8 @@ class SpaceInterface {
 
     virtual void *get_dist_func_param() = 0;
 
+    virtual size_t get_size_of_data_point(const void* datapoint) = 0;
+
     virtual void save_data_point_to_output(std::ofstream& output, char* memory_block) = 0;
 
     virtual void read_data_point_to_memory(std::ifstream& input, char* memory_block) = 0;

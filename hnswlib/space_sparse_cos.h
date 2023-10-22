@@ -87,6 +87,11 @@ class SparseCosSpace : public SpaceInterface<float> {
         return NULL;
     }
 
+    size_t get_size_of_data_point(const void* datapoint) {
+        SparseVector* sparse_vector = (SparseVector*)datapoint;
+        return sizeof(size_t) + sparse_vector->num_entries * sizeof(SparseVectorEntry);
+    }
+
     void save_data_point_to_output(std::ofstream& output, char* memory_block) {
         /*
             Block format:

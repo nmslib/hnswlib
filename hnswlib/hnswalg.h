@@ -24,6 +24,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t max_elements_{0};
     mutable std::atomic<size_t> cur_element_count{0};  // current number of elements
     size_t size_data_per_element_{0};
+    mutable std::atomic<size_t> cur_data_size{0}; // cumulative size of data, used for checking index writing and reading
     size_t size_links_per_element_{0};
     mutable std::atomic<size_t> num_deleted_{0};  // number of deleted elements
     size_t M_{0};
@@ -612,6 +613,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
         writeBinaryPOD(output, size_data_per_element_);
+        writeBinaryPOD(output, cur_data_size);
         writeBinaryPOD(output, label_offset_);
         writeBinaryPOD(output, offsetData_);
         writeBinaryPOD(output, maxlevel_);
@@ -661,6 +663,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             max_elements = max_elements_;
         max_elements_ = max_elements;
         readBinaryPOD(input, size_data_per_element_);
+        readBinaryPOD(input, cur_data_size);
         readBinaryPOD(input, label_offset_);
         readBinaryPOD(input, offsetData_);
         readBinaryPOD(input, maxlevel_);
@@ -680,7 +683,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         auto pos = input.tellg();
 
         /// Optional - check if index is ok:
-        input.seekg(cur_element_count * size_data_per_element_, input.cur);
+        input.seekg(cur_data_size, input.cur);
+        // input.seekg(cur_element_count * size_data_per_element_, input.cur);
         for (size_t i = 0; i < cur_element_count; i++) {
             if (input.tellg() < 0 || input.tellg() >= total_filesize) {
                 throw std::runtime_error("Index seems to be corrupted or unsupported");
@@ -1115,6 +1119,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
             cur_c = cur_element_count;
             cur_element_count++;
+            // also increment data size
+            // copying the calculation of size_data_per_element_
+            cur_data_size += size_links_level0_ + s_->get_size_of_data_point(data_point) + sizeof(labeltype);
             label_lookup_[label] = cur_c;
         }
 
