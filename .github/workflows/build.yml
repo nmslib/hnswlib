@@ -73,4 +73,5 @@ jobs:
           ./multiThread_replace_test
           ./test_updates
           ./test_updates update
+          ./repair_test
         shell: bash
