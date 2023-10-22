@@ -46,7 +46,7 @@ bool is_indegree_ok(hnswlib::HierarchicalNSW<float>* alg_hnsw) {
 int main() {
     int dim = 4;                // Dimension of the elements
     int n = 100;                // Maximum number of elements, should be known beforehand
-    int M = 8;                 // Tightly connected with internal dimensionality of the data
+    int M = 8;                  // Tightly connected with internal dimensionality of the data
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
     int num_test_iter = 50;
