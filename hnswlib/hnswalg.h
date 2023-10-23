@@ -682,9 +682,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         auto pos = input.tellg();
 
-        /// Optional - check if index is ok:
+        /// Check if index is ok:
         input.seekg(cur_data_size, input.cur);
-        // input.seekg(cur_element_count * size_data_per_element_, input.cur);
         for (size_t i = 0; i < cur_element_count; i++) {
             if (input.tellg() < 0 || input.tellg() >= total_filesize) {
                 throw std::runtime_error("Index seems to be corrupted or unsupported");
@@ -702,7 +701,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             throw std::runtime_error("Index seems to be corrupted or unsupported");
 
         input.clear();
-        /// Optional check end
+        /// Index check end
 
         input.seekg(pos, input.beg);
 

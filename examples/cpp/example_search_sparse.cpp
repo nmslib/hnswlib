@@ -1,9 +1,5 @@
 #include "../../hnswlib/hnswlib.h"
 
-// NOTE: the recall won't be 1 for sparse vectors because of the nature of sparse vectors (mostly zeros). In order to verify that the 
-//       sparse cosine space is working as expected, change `nonzero_prob` to 1.1. If recall is not 1 with this setting, then you'll know
-//       something is wrong.
-
 int main() {
     int dim = 1024;               // Dimension of the elements
     int max_elements = 10;   // Maximum number of elements, should be known beforehand
