@@ -249,6 +249,23 @@ class L2Space : public SpaceInterface<float> {
         return &dim_;
     }
 
+    size_t get_size_of_data_point(const void*) {
+        return data_size_;
+    }
+
+    void save_data_point_to_output(std::ofstream& output, char* memory_block) {
+        output.write(memory_block, get_data_size());
+    }
+
+    void read_data_point_to_memory(std::ifstream& input, char* memory_block) {
+        input.read(memory_block, get_data_size());
+    }
+
+    void copy_data_point_to_location(char* location, const void* data_point, bool need_cleanup) {
+        (void)(need_cleanup);
+        memcpy(location, data_point, get_data_size());
+    }
+
     ~L2Space() {}
 };
 
@@ -317,6 +334,23 @@ class L2SpaceI : public SpaceInterface<int> {
 
     void *get_dist_func_param() {
         return &dim_;
+    }
+
+    size_t get_size_of_data_point(const void*) {
+        return data_size_;
+    }
+
+    void save_data_point_to_output(std::ofstream& output, char* memory_block) {
+        output.write(memory_block, get_data_size());
+    }
+
+    void read_data_point_to_memory(std::ifstream& input, char* memory_block) {
+        input.read(memory_block, get_data_size());
+    }
+
+    void copy_data_point_to_location(char* location, const void* data_point, bool need_cleanup) {
+        (void)(need_cleanup);
+        memcpy(location, data_point, get_data_size());
     }
 
     ~L2SpaceI() {}

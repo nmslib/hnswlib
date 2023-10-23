@@ -1,9 +1,5 @@
 #include "../../hnswlib/hnswlib.h"
 
-// NOTE: the recall won't be 1 for sparse vectors because of the nature of sparse vectors (mostly zeros). In order to verify that the 
-//       sparse cosine space is working as expected, change `nonzero_prob` to 1.1. If recall is not 1 with this setting, then you'll know
-//       something is wrong.
-
 int main() {
     int dim = 1024;               // Dimension of the elements
     int max_elements = 100;   // Maximum number of elements, should be known beforehand
@@ -23,9 +19,10 @@ int main() {
     rng.seed(47);
     std::uniform_real_distribution<> distrib_real;
     hnswlib::SparseVector* vectors = new hnswlib::SparseVector[max_elements];
+    float* temp_array = new float[dim];
     for (int i = 0; i < max_elements; i++) {
+        memset(temp_array, 0, dim * sizeof(float));
         size_t size = 0;
-        float* temp_array = new float[dim];
         for (int j = 0; j < dim; j++) {
             if (distrib_real(rng) < nonzero_prob) {
                 float obj = distrib_real(rng);
@@ -44,9 +41,9 @@ int main() {
             }
         }
         vectors[i].num_entries = spv_count;
-
-        delete[] temp_array;
     }
+
+    delete[] temp_array;
 
     // Add data to index
     for (int i = 0; i < max_elements; i++) {

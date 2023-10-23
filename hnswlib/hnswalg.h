@@ -19,9 +19,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     static const tableint MAX_LABEL_OPERATION_LOCKS = 65536;
     static const unsigned char DELETE_MARK = 0x01;
 
+    SpaceInterface<dist_t>* s_{nullptr};
+
     size_t max_elements_{0};
     mutable std::atomic<size_t> cur_element_count{0};  // current number of elements
     size_t size_data_per_element_{0};
+    mutable std::atomic<size_t> cur_data_size{0}; // cumulative size of data, used for checking index writing and reading
     size_t size_links_per_element_{0};
     mutable std::atomic<size_t> num_deleted_{0};  // number of deleted elements
     size_t M_{0};
@@ -70,7 +73,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
 
-    HierarchicalNSW(SpaceInterface<dist_t> *s) {
+    HierarchicalNSW(SpaceInterface<dist_t> *s)
+        : s_(s) {
     }
 
 
@@ -80,7 +84,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         bool nmslib = false,
         size_t max_elements = 0,
         bool allow_replace_deleted = false)
-        : allow_replace_deleted_(allow_replace_deleted) {
+        : allow_replace_deleted_(allow_replace_deleted),
+            s_(s) {
         loadIndex(location, s, max_elements);
     }
 
@@ -95,7 +100,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         : link_list_locks_(max_elements),
             label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             element_levels_(max_elements),
-            allow_replace_deleted_(allow_replace_deleted) {
+            allow_replace_deleted_(allow_replace_deleted),
+            s_(s) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -138,6 +144,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     ~HierarchicalNSW() {
+        for (size_t i = 0; i < cur_element_count; i++) {
+            s_->prep_data_point_for_freeing(data_level0_memory_ + i * size_data_per_element_ + offsetData_);
+        }
         free(data_level0_memory_);
         for (tableint i = 0; i < cur_element_count; i++) {
             if (element_levels_[i] > 0)
@@ -604,6 +613,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
         writeBinaryPOD(output, size_data_per_element_);
+        writeBinaryPOD(output, cur_data_size);
         writeBinaryPOD(output, label_offset_);
         writeBinaryPOD(output, offsetData_);
         writeBinaryPOD(output, maxlevel_);
@@ -615,7 +625,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
-        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        // s_->save_data_to_output(output, data_level0_memory_, cur_element_count);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            char* data_block_ptr = data_level0_memory_ + i * size_data_per_element_;
+            output.write(data_block_ptr, offsetData_);
+            s_->save_data_point_to_output(output, data_block_ptr + offsetData_);
+            output.write(data_block_ptr + label_offset_, sizeof(labeltype));
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
@@ -647,6 +663,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             max_elements = max_elements_;
         max_elements_ = max_elements;
         readBinaryPOD(input, size_data_per_element_);
+        readBinaryPOD(input, cur_data_size);
         readBinaryPOD(input, label_offset_);
         readBinaryPOD(input, offsetData_);
         readBinaryPOD(input, maxlevel_);
@@ -658,14 +675,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input, mult_);
         readBinaryPOD(input, ef_construction_);
 
+        s_ = s;
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
 
         auto pos = input.tellg();
 
-        /// Optional - check if index is ok:
-        input.seekg(cur_element_count * size_data_per_element_, input.cur);
+        /// Check if index is ok:
+        input.seekg(cur_data_size, input.cur);
         for (size_t i = 0; i < cur_element_count; i++) {
             if (input.tellg() < 0 || input.tellg() >= total_filesize) {
                 throw std::runtime_error("Index seems to be corrupted or unsupported");
@@ -683,14 +701,21 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             throw std::runtime_error("Index seems to be corrupted or unsupported");
 
         input.clear();
-        /// Optional check end
+        /// Index check end
 
         input.seekg(pos, input.beg);
 
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
         if (data_level0_memory_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        // s_->read_data_to_memory(input, data_level0_memory_, cur_element_count);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            char* data_block_ptr = data_level0_memory_ + i * size_data_per_element_;
+            input.read(data_block_ptr, offsetData_);
+            s_->read_data_point_to_memory(input, data_block_ptr + offsetData_);
+            input.read(data_block_ptr + label_offset_, sizeof(labeltype));
+        }
+
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -907,7 +932,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     void updatePoint(const void *dataPoint, tableint internalId, float updateNeighborProbability) {
         // update the feature vector associated with existing point with new vector
-        memcpy(getDataByInternalId(internalId), dataPoint, data_size_);
+        s_->copy_data_point_to_location(getDataByInternalId(internalId), dataPoint, true);
 
         int maxLevelCopy = maxlevel_;
         tableint entryPointCopy = enterpoint_node_;
@@ -1093,6 +1118,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
             cur_c = cur_element_count;
             cur_element_count++;
+            // also increment data size
+            // copying the calculation of size_data_per_element_
+            cur_data_size += size_links_level0_ + s_->get_size_of_data_point(data_point) + sizeof(labeltype);
             label_lookup_[label] = cur_c;
         }
 
@@ -1114,7 +1142,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Initialisation of the data and label
         memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
-        memcpy(getDataByInternalId(cur_c), data_point, data_size_);
+        s_->copy_data_point_to_location(getDataByInternalId(cur_c), data_point, false);
+
 
         if (curlevel) {
             linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
