@@ -13,6 +13,136 @@ namespace hnswlib {
 typedef unsigned int tableint;
 typedef unsigned int linklistsizeint;
 
+class DataLevel0Memory {
+ public:
+     DataLevel0Memory(size_t size_data_per_element)
+         : size_data_per_element_(size_data_per_element) {
+
+       assert(size_data_per_element_ > 0);
+       if (size_data_per_element_ >= MIN_MEMORY_BLOCK_SIZE) {
+           element_count_per_block_ = 1;
+       } else {
+           element_count_per_block_ = (MIN_MEMORY_BLOCK_SIZE  + (size_data_per_element_ - 1)) / size_data_per_element_;
+       }
+     }
+
+   ~DataLevel0Memory() {
+       for (size_t i = 0; i < memory_blocks_.size(); i++) {
+           assert(memory_blocks_[i] != nullptr);
+           free(memory_blocks_[i]);
+           memory_blocks_[i] = nullptr;
+       }
+       std::vector<char*>().swap(memory_blocks_);
+   }
+
+   size_t Capacity() {
+       return capacity_;
+   }
+
+   size_t ElementCountPerBlock() {
+       return element_count_per_block_;
+   }
+
+   void Malloc(size_t max_elements) {
+       assert(memory_blocks_.empty());
+       if (max_elements < element_count_per_block_) {
+           AppendNonstandardBlock(max_elements);
+       } else {
+           size_t added_blocks = max_elements / element_count_per_block_;
+           AppendStandardBlocks(added_blocks);
+
+           size_t last_block_elements = max_elements % element_count_per_block_;
+           if (last_block_elements != 0) {
+               AppendNonstandardBlock(last_block_elements);
+           }
+       }
+       capacity_ = max_elements;
+   }
+
+   void Realloc(size_t max_elements) {
+       if (max_elements <= capacity_) {
+           throw std::runtime_error("Cannot realloc, max element is less than the current capacity");
+       }
+
+       size_t full_block_count = max_elements / element_count_per_block_;
+       if (capacity_ % element_count_per_block_ != 0) {
+           if (full_block_count < memory_blocks_.size()) {
+               ReallocLastBlocks(max_elements % element_count_per_block_);
+               capacity_ = max_elements;
+               return;
+           } else {
+               ReallocLastBlocks(element_count_per_block_);
+           }
+       }
+
+       size_t added_blocks = full_block_count - memory_blocks_.size();
+       AppendStandardBlocks(added_blocks);
+
+       size_t last_block_elements = max_elements % element_count_per_block_;
+       if (last_block_elements != 0) {
+           AppendNonstandardBlock(last_block_elements);
+       }
+       capacity_ = max_elements;
+       return;
+   }
+
+   char* GetElementPtr(tableint internal_id) {
+       assert(internal_id < capacity_);
+       size_t index = internal_id / element_count_per_block_;
+       size_t elements_offset_in_block = internal_id % element_count_per_block_;
+       assert(index < memory_blocks_.size());
+       return memory_blocks_[index] + elements_offset_in_block * size_data_per_element_;
+   }
+
+   char* GetMemoryBlockPtr(size_t index) {
+       assert(index < memory_blocks_.size());
+       return memory_blocks_[index];
+   }
+
+ private:
+   DataLevel0Memory(const DataLevel0Memory&) = delete;
+   DataLevel0Memory& operator=(const DataLevel0Memory&) = delete;
+
+   void AppendStandardBlocks(size_t count) {
+       for (size_t i = 0; i < count; i++) {
+         char* ptr = (char *) malloc(element_count_per_block_ * size_data_per_element_);
+         if (ptr == nullptr) {
+             throw std::runtime_error("Not enough memory");
+         } else {
+             memory_blocks_.emplace_back(ptr);
+         }
+       }
+   }
+
+   void AppendNonstandardBlock(size_t elements) {
+       char* ptr = (char *) malloc(elements * size_data_per_element_);
+       if (ptr == nullptr) {
+           throw std::runtime_error("Not enough memory");
+       } else {
+           memory_blocks_.emplace_back(ptr);
+       }
+   }
+
+   void ReallocLastBlocks(size_t elements) {
+       assert(!memory_blocks_.empty());
+       assert(capacity_ % element_count_per_block_ < elements && elements <= element_count_per_block_);
+       size_t last_block_index = memory_blocks_.size() - 1;
+       char* ptr = (char *) realloc(memory_blocks_[last_block_index], elements * size_data_per_element_);
+       if (ptr == nullptr) {
+           throw std::runtime_error("Not enough memory");
+       } else {
+           memory_blocks_[last_block_index] = ptr;
+       }
+   }
+
+   size_t capacity_{0};
+   size_t size_data_per_element_{0};
+   size_t element_count_per_block_{0};
+   std::vector<char*> memory_blocks_;
+
+   static const size_t MIN_MEMORY_BLOCK_SIZE = 128 * 1024 * 1024;
+};
+
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
  public:
@@ -46,7 +176,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t size_links_level0_{0};
     size_t offsetData_{0}, offsetLevel0_{0}, label_offset_{ 0 };
 
-    char *data_level0_memory_{nullptr};
+    DataLevel0Memory *data_level0_memory_{nullptr};
     char **linkLists_{nullptr};
     std::vector<int> element_levels_;  // keeps level of each element
 
@@ -116,9 +246,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         label_offset_ = size_links_level0_ + data_size_;
         offsetLevel0_ = 0;
 
-        data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-        if (data_level0_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory");
+        data_level0_memory_ = new DataLevel0Memory(size_data_per_element_);
+        data_level0_memory_->Malloc(max_elements_);
 
         cur_element_count = 0;
 
@@ -138,7 +267,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     ~HierarchicalNSW() {
-        free(data_level0_memory_);
+        delete data_level0_memory_;
         for (tableint i = 0; i < cur_element_count; i++) {
             if (element_levels_[i] > 0)
                 free(linkLists_[i]);
@@ -170,23 +299,23 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     inline labeltype getExternalLabel(tableint internal_id) const {
         labeltype return_label;
-        memcpy(&return_label, (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), sizeof(labeltype));
+        memcpy(&return_label, (data_level0_memory_->GetElementPtr(internal_id) + label_offset_), sizeof(labeltype));
         return return_label;
     }
 
 
     inline void setExternalLabel(tableint internal_id, labeltype label) const {
-        memcpy((data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), &label, sizeof(labeltype));
+        memcpy((data_level0_memory_->GetElementPtr(internal_id) + label_offset_), &label, sizeof(labeltype));
     }
 
 
     inline labeltype *getExternalLabeLp(tableint internal_id) const {
-        return (labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_);
+        return (labeltype *) (data_level0_memory_->GetElementPtr(internal_id) + label_offset_);
     }
 
 
     inline char *getDataByInternalId(tableint internal_id) const {
-        return (data_level0_memory_ + internal_id * size_data_per_element_ + offsetData_);
+        return (data_level0_memory_->GetElementPtr(internal_id) + offsetData_);
     }
 
 
@@ -335,7 +464,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 #ifdef USE_SSE
             _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
             _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
-            _mm_prefetch(data_level0_memory_ + (*(data + 1)) * size_data_per_element_ + offsetData_, _MM_HINT_T0);
+            _mm_prefetch(data_level0_memory_->GetElementPtr(*(data + 1)) + offsetData_, _MM_HINT_T0);
             _mm_prefetch((char *) (data + 2), _MM_HINT_T0);
 #endif
 
@@ -344,7 +473,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
                 _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
+                _mm_prefetch(data_level0_memory_->GetElementPtr(*(data + j + 1)) + offsetData_,
                                 _MM_HINT_T0);  ////////////
 #endif
                 if (!(visited_array[candidate_id] == visited_array_tag)) {
@@ -356,7 +485,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     if (top_candidates.size() < ef || lowerBound > dist) {
                         candidate_set.emplace(-dist, candidate_id);
 #ifdef USE_SSE
-                        _mm_prefetch(data_level0_memory_ + candidate_set.top().second * size_data_per_element_ +
+                        _mm_prefetch(data_level0_memory_->GetElementPtr(candidate_set.top().second) +
                                         offsetLevel0_,  ///////////
                                         _MM_HINT_T0);  ////////////////////////
 #endif
@@ -423,12 +552,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     linklistsizeint *get_linklist0(tableint internal_id) const {
-        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
+        return (linklistsizeint *) (data_level0_memory_->GetElementPtr(internal_id) + offsetLevel0_);
     }
 
 
-    linklistsizeint *get_linklist0(tableint internal_id, char *data_level0_memory_) const {
-        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
+    linklistsizeint *get_linklist0(tableint internal_id, DataLevel0Memory *data_level0_memory_) const {
+        return (linklistsizeint *) (data_level0_memory_->GetElementPtr(internal_id) + offsetLevel0_);
     }
 
 
@@ -581,10 +710,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::vector<std::mutex>(new_max_elements).swap(link_list_locks_);
 
         // Reallocate base layer
-        char * data_level0_memory_new = (char *) realloc(data_level0_memory_, new_max_elements * size_data_per_element_);
-        if (data_level0_memory_new == nullptr)
-            throw std::runtime_error("Not enough memory: resizeIndex failed to allocate base layer");
-        data_level0_memory_ = data_level0_memory_new;
+        data_level0_memory_->Realloc(new_max_elements);
 
         // Reallocate all other layers
         char ** linkLists_new = (char **) realloc(linkLists_, sizeof(void *) * new_max_elements);
@@ -615,7 +741,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
-        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        size_t block_index = 0;
+        size_t left_element = cur_element_count;
+        assert(max_elements_ == data_level0_memory_->Capacity());
+        while (left_element > 0) {
+          size_t write_element_count = std::min(left_element, data_level0_memory_->ElementCountPerBlock());
+          output.write(data_level0_memory_->GetMemoryBlockPtr(block_index), write_element_count * size_data_per_element_);
+          left_element -= write_element_count;
+          block_index++;
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
@@ -687,10 +821,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         input.seekg(pos, input.beg);
 
-        data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
-        if (data_level0_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        size_t block_index = 0;
+        size_t left_element = cur_element_count;
+        data_level0_memory_ = new DataLevel0Memory(size_data_per_element_);
+        data_level0_memory_->Malloc(max_elements);
+        while (left_element > 0) {
+          size_t read_element_count = std::min(left_element, data_level0_memory_->ElementCountPerBlock());
+          input.read(data_level0_memory_->GetMemoryBlockPtr(block_index), read_element_count * size_data_per_element_);
+          left_element -= read_element_count;
+          block_index++;
+        }
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -1110,7 +1250,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         tableint currObj = enterpoint_node_;
         tableint enterpoint_copy = enterpoint_node_;
 
-        memset(data_level0_memory_ + cur_c * size_data_per_element_ + offsetLevel0_, 0, size_data_per_element_);
+        memset(data_level0_memory_->GetElementPtr(cur_c) + offsetLevel0_, 0, size_data_per_element_);
 
         // Initialisation of the data and label
         memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
