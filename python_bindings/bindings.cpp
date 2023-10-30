@@ -874,6 +874,9 @@ class BFIndex {
             ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
                     (void*)items.data(row), k, p_idFilter);
+                if (result.size() != k)
+                    throw std::runtime_error(
+                        "Cannot return the results in a contiguous 2D array. There are not enough elements.");
                 for (int i = k - 1; i >= 0; i--) {
                     auto& result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
