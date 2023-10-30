@@ -321,10 +321,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
 
-        bool has_deletions = num_deleted_;
         dist_t lowerBound;
         if (bare_bone_search || 
-            ((!has_deletions || !isMarkedDeleted(ep_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(ep_id))))) {
+            (!isMarkedDeleted(ep_id) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(ep_id))))) {
             char* ep_data = getDataByInternalId(ep_id);
             dist_t dist = fstdistfunc_(data_point, ep_data, dist_func_param_);
             lowerBound = dist;
@@ -351,7 +350,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 if (stop_condition) {
                     flag_stop_search = stop_condition->should_stop_search(candidate_dist, lowerBound);
                 } else {
-                    flag_stop_search = candidate_dist > lowerBound && (top_candidates.size() == ef || (!isIdAllowed && !has_deletions));
+                    flag_stop_search = candidate_dist > lowerBound && top_candidates.size() == ef;
                 }
             }
             if (flag_stop_search) {
@@ -405,7 +404,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 #endif
 
                         if (bare_bone_search || 
-                            ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))) {
+                            (!isMarkedDeleted(candidate_id) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))) {
                             top_candidates.emplace(dist, candidate_id);
                             if (!bare_bone_search && stop_condition) {
                                 stop_condition->add_point_to_result(getExternalLabel(candidate_id), currObj1, dist);
