@@ -305,6 +305,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
+    // bare_bone_search means there is no check for deletions and stop condition is ignored in return of extra performance
     template <bool bare_bone_search = true, bool collect_metrics = false>
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayerST(
