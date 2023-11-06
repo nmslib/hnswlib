@@ -183,3 +183,7 @@ Multithreaded examples:
 * Creating index, inserting elements, searching [example_mt_search.cpp](example_mt_search.cpp)
 * Filtering during the search with a boolean function [example_mt_filter.cpp](example_mt_filter.cpp)
 * Reusing the memory of the deleted elements when new elements are being added [example_mt_replace_deleted.cpp](example_mt_replace_deleted.cpp)
+
+More examples:
+* Multivector search [example_multivector_search.cpp](example_multivector_search.cpp)
+* Epsilon search [example_epsilon_search.cpp](example_epsilon_search.cpp)
