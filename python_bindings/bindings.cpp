@@ -304,7 +304,11 @@ class Index {
     }
 
 
-    std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
+    py::object getData(py::object ids_ = py::none(), std::string return_type = "numpy") {
+        std::vector<std::string> return_types{"numpy", "list"};
+        if (std::find(std::begin(return_types), std::end(return_types), return_type) == std::end(return_types)) {
+            throw std::invalid_argument("return_type should be \"numpy\" or \"list\"");
+        }
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
@@ -325,7 +329,12 @@ class Index {
         for (auto id : ids) {
             data.push_back(appr_alg->template getDataByLabel<data_t>(id));
         }
-        return data;
+        if (return_type == "list") {
+            return py::cast(data);
+        }
+        if (return_type == "numpy") {
+            return py::array_t< data_t, py::array::c_style | py::array::forcecast >(py::cast(data));
+        }
     }
 
 
@@ -636,7 +645,7 @@ class Index {
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
@@ -656,7 +665,7 @@ class Index {
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
@@ -925,7 +934,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("ids") = py::none(),
             py::arg("num_threads") = -1,
             py::arg("replace_deleted") = false)
-        .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
+        .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))

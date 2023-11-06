@@ -67,6 +67,8 @@ jobs:
           ./example_mt_search
           ./example_mt_filter
           ./example_mt_replace_deleted
+          ./example_multivector_search
+          ./example_epsilon_search
           ./searchKnnCloserFirst_test
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test
@@ -74,4 +76,6 @@ jobs:
           ./test_updates
           ./test_updates update
           ./repair_test
+          ./multivector_search_test
+          ./epsilon_search_test
         shell: bash

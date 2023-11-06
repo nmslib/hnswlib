@@ -10,3 +10,4 @@ var/
 .vscode/
 .vs/
 **.DS_Store
+*.pyc

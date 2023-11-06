@@ -1,4 +1,13 @@
 #pragma once
+
+// https://github.com/nmslib/hnswlib/pull/508
+// This allows others to provide their own error stream (e.g. RcppHNSW)
+#ifndef HNSWLIB_ERR_OVERRIDE
+  #define HNSWERR std::cerr
+#else
+  #define HNSWERR HNSWLIB_ERR_OVERRIDE
+#endif
+
 #ifndef NO_MANUAL_VECTORIZATION
 #if (defined(__SSE__) || _M_IX86_FP > 0 || defined(_M_AMD64) || defined(_M_X64))
 #define USE_SSE
@@ -122,6 +131,24 @@ class BaseFilterFunctor {
     virtual ~BaseFilterFunctor() {};
 };
 
+template<typename dist_t>
+class BaseSearchStopCondition {
+ public:
+    virtual void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) = 0;
+
+    virtual void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) = 0;
+
+    virtual bool should_stop_search(dist_t candidate_dist, dist_t lowerBound) = 0;
+
+    virtual bool should_consider_candidate(dist_t candidate_dist, dist_t lowerBound) = 0;
+
+    virtual bool should_remove_extra() = 0;
+
+    virtual void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) = 0;
+
+    virtual ~BaseSearchStopCondition() {}
+};
+
 template <typename T>
 class pairGreater {
  public:
@@ -196,5 +223,6 @@ AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t 
 
 #include "space_l2.h"
 #include "space_ip.h"
+#include "stop_condition.h"
 #include "bruteforce.h"
 #include "hnswalg.h"

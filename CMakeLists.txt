@@ -57,6 +57,12 @@ if(HNSWLIB_EXAMPLES)
     add_executable(example_search examples/cpp/example_search.cpp)
     target_link_libraries(example_search hnswlib)
 
+    add_executable(example_epsilon_search examples/cpp/example_epsilon_search.cpp)
+    target_link_libraries(example_epsilon_search hnswlib)
+
+    add_executable(example_multivector_search examples/cpp/example_multivector_search.cpp)
+    target_link_libraries(example_multivector_search hnswlib)
+
     add_executable(example_filter examples/cpp/example_filter.cpp)
     target_link_libraries(example_filter hnswlib)
 
@@ -73,6 +79,12 @@ if(HNSWLIB_EXAMPLES)
     target_link_libraries(example_mt_replace_deleted hnswlib)
 
     # tests
+    add_executable(multivector_search_test tests/cpp/multivector_search_test.cpp)
+    target_link_libraries(multivector_search_test hnswlib)
+
+    add_executable(epsilon_search_test tests/cpp/epsilon_search_test.cpp)
+    target_link_libraries(epsilon_search_test hnswlib)
+
     add_executable(test_updates tests/cpp/updates_test.cpp)
     target_link_libraries(test_updates hnswlib)
 
