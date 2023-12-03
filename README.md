@@ -3,6 +3,15 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **NEWS:**
 
+**version 0.8.0** 
+
+* Multi-vector document search and epsilon search (for now, only in C++)
+* By default, there is no statistic aggregation, which speeds up the multi-threaded search (it does not seem like people are using it anyway: [Issue #495](https://github.com/nmslib/hnswlib/issues/495)). 
+* Various bugfixes and improvements
+* `get_items` now have `return_type` parameter, which can be either 'numpy' or 'list'
+
+Full list of changes: https://github.com/nmslib/hnswlib/pull/523
+
 **version 0.7.0** 
 
 * Added support to filtering (#402, #430) by [@kishorenc](https://github.com/kishorenc)
