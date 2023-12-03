@@ -45,5 +45,11 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertRaises(ValueError, lambda: p.get_items(labels[0]))
 
         # After adding them, all labels should be retrievable
-        returned_items = p.get_items(labels)
-        self.assertSequenceEqual(data.tolist(), returned_items)
+        returned_items_np = p.get_items(labels)
+        self.assertTrue((data == returned_items_np).all())
+
+        # check returned type of get_items
+        self.assertTrue(isinstance(returned_items_np, np.ndarray))
+        returned_items_list = p.get_items(labels, return_type="list")
+        self.assertTrue(isinstance(returned_items_list, list))
+        self.assertTrue(isinstance(returned_items_list[0], list))

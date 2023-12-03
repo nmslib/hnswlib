@@ -157,19 +157,44 @@ InnerProductSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void
 
     __m512 sum512 = _mm512_set1_ps(0);
 
-    while (pVect1 < pEnd1) {
-        //_mm_prefetch((char*)(pVect2 + 16), _MM_HINT_T0);
-
+    size_t loop = qty16 / 4;
+    
+    while (loop--) {
         __m512 v1 = _mm512_loadu_ps(pVect1);
-        pVect1 += 16;
         __m512 v2 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
         pVect2 += 16;
-        sum512 = _mm512_add_ps(sum512, _mm512_mul_ps(v1, v2));
+
+        __m512 v3 = _mm512_loadu_ps(pVect1);
+        __m512 v4 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
+        pVect2 += 16;
+
+        __m512 v5 = _mm512_loadu_ps(pVect1);
+        __m512 v6 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
+        pVect2 += 16;
+
+        __m512 v7 = _mm512_loadu_ps(pVect1);
+        __m512 v8 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
+        pVect2 += 16;
+
+        sum512 = _mm512_fmadd_ps(v1, v2, sum512);
+        sum512 = _mm512_fmadd_ps(v3, v4, sum512);
+        sum512 = _mm512_fmadd_ps(v5, v6, sum512);
+        sum512 = _mm512_fmadd_ps(v7, v8, sum512);
     }
 
-    _mm512_store_ps(TmpRes, sum512);
-    float sum = TmpRes[0] + TmpRes[1] + TmpRes[2] + TmpRes[3] + TmpRes[4] + TmpRes[5] + TmpRes[6] + TmpRes[7] + TmpRes[8] + TmpRes[9] + TmpRes[10] + TmpRes[11] + TmpRes[12] + TmpRes[13] + TmpRes[14] + TmpRes[15];
+    while (pVect1 < pEnd1) {
+        __m512 v1 = _mm512_loadu_ps(pVect1);
+        __m512 v2 = _mm512_loadu_ps(pVect2);
+        pVect1 += 16;
+        pVect2 += 16;
+        sum512 = _mm512_fmadd_ps(v1, v2, sum512);
+    }
 
+    float sum = _mm512_reduce_add_ps(sum512);
     return sum;
 }
 

@@ -218,6 +218,9 @@ class Index {
         this->num_threads_default = num_threads;
     }
 
+    size_t indexFileSize() const {
+        return appr_alg->indexFileSize();
+    }
 
     void saveIndex(const std::string &path_to_index) {
         appr_alg->saveIndex(path_to_index);
@@ -301,7 +304,11 @@ class Index {
     }
 
 
-    std::vector<std::vector<data_t>> getDataReturnList(py::object ids_ = py::none()) {
+    py::object getData(py::object ids_ = py::none(), std::string return_type = "numpy") {
+        std::vector<std::string> return_types{"numpy", "list"};
+        if (std::find(std::begin(return_types), std::end(return_types), return_type) == std::end(return_types)) {
+            throw std::invalid_argument("return_type should be \"numpy\" or \"list\"");
+        }
         std::vector<size_t> ids;
         if (!ids_.is_none()) {
             py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
@@ -322,7 +329,12 @@ class Index {
         for (auto id : ids) {
             data.push_back(appr_alg->template getDataByLabel<data_t>(id));
         }
-        return data;
+        if (return_type == "list") {
+            return py::cast(data);
+        }
+        if (return_type == "numpy") {
+            return py::array_t< data_t, py::array::c_style | py::array::forcecast >(py::cast(data));
+        }
     }
 
 
@@ -633,7 +645,7 @@ class Index {
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
@@ -653,7 +665,7 @@ class Index {
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
                         throw std::runtime_error(
-                            "Cannot return the results in a contigious 2D array. Probably ef or M is too small");
+                            "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
                         data_numpy_d[row * k + i] = result_tuple.first;
@@ -719,6 +731,7 @@ class BFIndex {
     int dim;
     bool index_inited;
     bool normalize;
+    int num_threads_default;
 
     hnswlib::labeltype cur_l;
     hnswlib::BruteforceSearch<dist_t>* alg;
@@ -739,6 +752,8 @@ class BFIndex {
         }
         alg = NULL;
         index_inited = false;
+
+        num_threads_default = std::thread::hardware_concurrency();
     }
 
 
@@ -746,6 +761,21 @@ class BFIndex {
         delete space;
         if (alg)
             delete alg;
+    }
+
+
+    size_t getMaxElements() const {
+        return alg->maxelements_;
+    }
+
+
+    size_t getCurrentCount() const {
+        return alg->cur_element_count;
+    }
+
+
+    void set_num_threads(int num_threads) {
+        this->num_threads_default = num_threads;
     }
 
 
@@ -820,15 +850,19 @@ class BFIndex {
     py::object knnQuery_return_numpy(
         py::object input,
         size_t k = 1,
+        int num_threads = -1,
         const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         hnswlib::labeltype *data_numpy_l;
         dist_t *data_numpy_d;
         size_t rows, features;
+
+        if (num_threads <= 0)
+            num_threads = num_threads_default;
+
         {
             py::gil_scoped_release l;
-
             get_input_array_shapes(buffer, &rows, &features);
 
             data_numpy_l = new hnswlib::labeltype[rows * k];
@@ -837,16 +871,16 @@ class BFIndex {
             CustomFilterFunctor idFilter(filter);
             CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
 
-            for (size_t row = 0; row < rows; row++) {
+            ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
                 std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
-                        (void *) items.data(row), k, p_idFilter);
+                    (void*)items.data(row), k, p_idFilter);
                 for (int i = k - 1; i >= 0; i--) {
-                    auto &result_tuple = result.top();
+                    auto& result_tuple = result.top();
                     data_numpy_d[row * k + i] = result_tuple.first;
                     data_numpy_l[row * k + i] = result_tuple.second;
                     result.pop();
                 }
-            }
+            });
         }
 
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
@@ -900,10 +934,11 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("ids") = py::none(),
             py::arg("num_threads") = -1,
             py::arg("replace_deleted") = false)
-        .def("get_items", &Index<float, float>::getDataReturnList, py::arg("ids") = py::none())
+        .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
+        .def("index_file_size", &Index<float>::indexFileSize)
         .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index",
             &Index<float>::loadIndex,
@@ -957,13 +992,22 @@ PYBIND11_PLUGIN(hnswlib) {
         py::class_<BFIndex<float>>(m, "BFIndex")
         .def(py::init<const std::string &, const int>(), py::arg("space"), py::arg("dim"))
         .def("init_index", &BFIndex<float>::init_new_index, py::arg("max_elements"))
-        .def("knn_query", &BFIndex<float>::knnQuery_return_numpy, py::arg("data"), py::arg("k") = 1, py::arg("filter") = py::none())
+        .def("knn_query",
+            &BFIndex<float>::knnQuery_return_numpy,
+            py::arg("data"),
+            py::arg("k") = 1,
+            py::arg("num_threads") = -1,
+            py::arg("filter") = py::none())
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
         .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
+        .def("set_num_threads", &BFIndex<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &BFIndex<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements") = 0)
         .def("__repr__", [](const BFIndex<float> &a) {
             return "<hnswlib.BFIndex(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
-        });
+        })
+        .def("get_max_elements", &BFIndex<float>::getMaxElements)
+        .def("get_current_count", &BFIndex<float>::getCurrentCount)
+        .def_readwrite("num_threads", &BFIndex<float>::num_threads_default);
         return m.ptr();
 }

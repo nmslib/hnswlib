@@ -9,16 +9,18 @@ speedtest_src_path = os.path.join("tests", "python", "speedtest.py")
 speedtest_copy_path = os.path.join("tests", "python", "speedtest2.py")
 shutil.copyfile(speedtest_src_path, speedtest_copy_path) # the file has to be outside of git
 
-commits = list(Repository('.', from_tag="v0.6.2").traverse_commits())
+commits = list(Repository('.', from_tag="v0.7.0").traverse_commits())
 print("Found commits:")
 for idx, commit in enumerate(commits):
     name = commit.msg.replace('\n', ' ').replace('\r', ' ')
     print(idx, commit.hash, name)
 
 for commit in commits:
-    name = commit.msg.replace('\n', ' ').replace('\r', ' ').replace(",", ";")
+    commit_time = commit.author_date.strftime("%Y-%m-%d %H:%M:%S") 
+    author_name = commit.author.name
+    name = "auth:"+author_name+"_"+commit_time+"_msg:"+commit.msg.replace('\n', ' ').replace('\r', ' ').replace(",", ";")
     print("\nProcessing", commit.hash, name)
-
+    
     if os.path.exists("build"):
         shutil.rmtree("build")
     os.system(f"git checkout {commit.hash}")
@@ -43,10 +45,11 @@ for commit in commits:
         print("build failed!!!!")
         continue
 
-    # os.system(f'python {speedtest_copy_path} -n "{hash[:4]}_{name}" -d 32 -t 1')
+
     os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 16 -t 1')
     os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 16 -t 64')
-    # os.system(f'python {speedtest_copy_path} -n "{name}" -d 64 -t 1')
-    # os.system(f'python {speedtest_copy_path} -n "{name}" -d 128 -t 1')
-    # os.system(f'python {speedtest_copy_path} -n "{name}" -d 4 -t 24')
-    # os.system(f'python {speedtest_copy_path} -n "{name}" -d 128 -t 24')
+    os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 4 -t 1')
+    os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 4 -t 64')
+    os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 128 -t 1')
+    os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 128 -t 64')
+

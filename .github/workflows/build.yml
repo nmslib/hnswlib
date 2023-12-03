@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
     steps:
       - uses: actions/checkout@v3
@@ -28,7 +28,7 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -40,10 +40,10 @@ jobs:
           mkdir build
           cd build
           cmake ..
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            make
-          elif [ "$RUNNER_OS" == "Windows" ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
             cmake --build ./ --config Release
+          else
+            make
           fi
         shell: bash
 
@@ -67,10 +67,14 @@ jobs:
           ./example_mt_search
           ./example_mt_filter
           ./example_mt_replace_deleted
+          ./example_multivector_search
+          ./example_epsilon_search
           ./searchKnnCloserFirst_test
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test
           ./multiThread_replace_test
           ./test_updates
           ./test_updates update
+          ./multivector_search_test
+          ./epsilon_search_test
         shell: bash
