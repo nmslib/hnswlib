@@ -871,16 +871,39 @@ class BFIndex {
             CustomFilterFunctor idFilter(filter);
             CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
 
-            ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
-                std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
-                    (void*)items.data(row), k, p_idFilter);
-                for (int i = k - 1; i >= 0; i--) {
-                    auto& result_tuple = result.top();
-                    data_numpy_d[row * k + i] = result_tuple.first;
-                    data_numpy_l[row * k + i] = result_tuple.second;
-                    result.pop();
-                }
-            });
+            if (!normalize) {
+                ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
+                        (void*)items.data(row), k, p_idFilter);
+                    if (result.size() != k)
+                        throw std::runtime_error(
+                            "Cannot return the results in a contiguous 2D array. There are not enough elements.");
+                    for (int i = k - 1; i >= 0; i--) {
+                        auto& result_tuple = result.top();
+                        data_numpy_d[row * k + i] = result_tuple.first;
+                        data_numpy_l[row * k + i] = result_tuple.second;
+                        result.pop();
+                    }
+                });
+            } else {
+                std::vector<float> norm_array(num_threads * features);
+                ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                    size_t start_idx = threadId * dim;
+                    normalize_vector((float*)items.data(row), norm_array.data() + start_idx);
+
+                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
+                        (void*)(norm_array.data() + start_idx), k, p_idFilter);
+                    if (result.size() != k)
+                        throw std::runtime_error(
+                            "Cannot return the results in a contiguous 2D array. There are not enough elements.");
+                    for (int i = k - 1; i >= 0; i--) {
+                        auto& result_tuple = result.top();
+                        data_numpy_d[row * k + i] = result_tuple.first;
+                        data_numpy_l[row * k + i] = result_tuple.second;
+                        result.pop();
+                    }
+                });
+            }
         }
 
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
