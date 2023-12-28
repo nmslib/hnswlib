@@ -696,6 +696,62 @@ class Index {
                 free_when_done_d));
     }
 
+    py::object knnQuery_return_lists(
+        py::object input,
+        size_t k = 1,
+        int num_threads = -1,
+        const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
+        
+        py::array_t <dist_t, py::array::c_style | py::array::forcecast> items(input);
+        auto buffer = items.request();
+        size_t rows, features;
+
+        if (num_threads <= 0)
+            num_threads = num_threads_default;
+
+        get_input_array_shapes(buffer, &rows, &features);
+
+        if (rows <= num_threads * 4) {
+            num_threads = 1;
+        }
+
+        std::vector<std::vector<hnswlib::labeltype>> data_lists_l(rows);
+        std::vector<std::vector<dist_t>> data_lists_d(rows);
+
+        CustomFilterFunctor idFilter(filter);
+        CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
+
+        auto process_row = [&](size_t row) {
+            std::priority_queue<std::pair<dist_t, hnswlib::labeltype>> result = 
+                appr_alg->searchKnn((void*)items.data(row), k, p_idFilter);
+            size_t result_size = result.size();
+            data_lists_l[row].resize(result_size);
+            data_lists_d[row].resize(result_size);
+            for (int i = result_size - 1; i >= 0; i--) {
+                auto& result_tuple = result.top();
+                data_lists_d[row][i] = result_tuple.first;
+                data_lists_l[row][i] = result_tuple.second;
+                result.pop();
+            }
+        };
+
+        if (normalize == false) {
+            ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                process_row(row);
+            });
+        } else {
+            std::vector<float> norm_array(num_threads * features);
+            ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                float* data = (float*)items.data(row);
+                size_t start_idx = threadId * dim;
+                normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
+                process_row(row);
+            });
+        }
+
+        return py::make_tuple(data_lists_l, data_lists_d);
+    }
+
 
     void markDeleted(size_t label) {
         appr_alg->markDelete(label);
@@ -947,6 +1003,12 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("allow_replace_deleted") = false)
         .def("knn_query",
             &Index<float>::knnQuery_return_numpy,
+            py::arg("data"),
+            py::arg("k") = 1,
+            py::arg("num_threads") = -1,
+            py::arg("filter") = py::none())
+        .def("knn_query_return_lists",
+            &Index<float>::knnQuery_return_lists,
             py::arg("data"),
             py::arg("k") = 1,
             py::arg("num_threads") = -1,
