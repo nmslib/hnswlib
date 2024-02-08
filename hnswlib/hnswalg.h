@@ -222,6 +222,36 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return num_deleted_;
     }
 
+    std::unordered_map<int, size_t> getNodeDegree(size_t label) const {
+        std::unordered_map<int, size_t> degreePerLevel;
+        auto search = label_lookup_.find(label);
+        if (search == label_lookup_.end()) {
+            throw std::runtime_error("Label not found");
+        }
+        tableint internalId = search->second;
+        if (internalId < 0 || internalId >= cur_element_count) {
+            throw std::invalid_argument("Node ID does not exist.");
+        }
+
+        else if (isMarkedDeleted(internalId)){
+            throw std::invalid_argument("This node ID has been previosly deleted!");
+        }
+        else{
+            // Degree at level 0
+            linklistsizeint* ll_0 = get_linklist0(internalId);
+            size_t degreeLevel0 = getListCount(ll_0);
+            degreePerLevel[0] = degreeLevel0;
+            // Check higher levels
+            int node_level = element_levels_[internalId];
+            for (int level = 1; level <= node_level; ++level) {
+                linklistsizeint* ll = get_linklist(internalId, level);
+                size_t degree = getListCount(ll);
+                degreePerLevel[level] = degree;
+            }
+        }
+        return degreePerLevel;
+    }
+
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
