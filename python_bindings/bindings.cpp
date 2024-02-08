@@ -720,6 +720,10 @@ class Index {
     size_t getCurrentCount() const {
         return appr_alg->cur_element_count;
     }
+    
+    int getMaxLayer() const {
+        return appr_alg->maxlevel_;
+    }
 };
 
 template<typename dist_t, typename data_t = float>
@@ -911,6 +915,7 @@ PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
         py::class_<Index<float>>(m, "Index")
+        .def("get_max_layer", &Index<float>::getMaxLayer)
         .def(py::init(&Index<float>::createFromParams), py::arg("params"))
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
         .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
