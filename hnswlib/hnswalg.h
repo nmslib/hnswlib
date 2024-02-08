@@ -252,6 +252,48 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return degreePerLevel;
     }
 
+ float getAverageDegreeAtLayer(int targetLevel) const {
+
+        if (targetLevel < 0 || targetLevel > maxlevel_){
+            throw std::invalid_argument("Layer not found!");
+        }
+
+        if (targetLevel == 0) {
+            return getAverageDegreeAtLayer0();
+        }
+        size_t totalDegree = 0;
+        size_t nodesAtLevelCount = 0;
+    
+        for (size_t node_id = 0; node_id < cur_element_count; ++node_id) {
+            if (element_levels_[node_id] == targetLevel) {
+            nodesAtLevelCount++;
+            linklistsizeint* ll = get_linklist(node_id, targetLevel);
+            size_t degree = getListCount(ll);
+            totalDegree += degree;
+            }
+        }
+
+    if (nodesAtLevelCount == 0) return 0.0; // Avoid division by zero
+        return static_cast<float>(totalDegree) / nodesAtLevelCount;
+    }
+
+    // --------------------- //
+    float getAverageDegreeAtLayer0() const {
+    size_t totalDegree = 0;
+    size_t nodesAtLevelCount = 0;
+    
+    for (size_t node_id = 0; node_id < cur_element_count; ++node_id) {
+        if (element_levels_[node_id] == 0) {
+            nodesAtLevelCount++;
+            linklistsizeint* ll = get_linklist0(node_id);
+            size_t degree = getListCount(ll);
+            totalDegree += degree;
+        }
+    }
+    if (nodesAtLevelCount == 0) return 0.0; // Avoid division by zero
+    return static_cast<float>(totalDegree) / nodesAtLevelCount;
+    }
+
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
