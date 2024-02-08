@@ -925,6 +925,11 @@ PYBIND11_PLUGIN(hnswlib) {
             return result;
             }, py::arg("label"), "Retrieves the degree of a node in all levels where it exists.")
         
+        .def("get_average_degree_at_layer", [](const Index<float> &index, int layer) {
+            float averageDegree = index.appr_alg->getAverageDegreeAtLayer(layer); // Call the getAverageDegreeAtLayer method from the C++ class
+            return averageDegree;
+            }, py::arg("layer"), "Calculates the average node degree at the specified layer.")
+            
         .def(py::init(&Index<float>::createFromParams), py::arg("params"))
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
         .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
