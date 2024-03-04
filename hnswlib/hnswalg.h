@@ -981,7 +981,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             setExternalLabel(internal_id_replaced, label);
 
             std::unique_lock <std::mutex> lock_table(label_lookup_lock);
-            label_lookup_.erase(label_replaced);
+            // check if the label is already in the index
+            if (label_lookup_.find(label) != label_lookup_.end() && !isMarkedDeleted(label_lookup_[label])) {
+                markDeletedInternal(label_lookup_[label]);
+            }
+            auto label_replaced_lookup = label_lookup_.find(label_replaced);
+            if(label_replaced_lookup != label_lookup_.end() && label_replaced_lookup->second == internal_id_replaced) {
+                label_lookup_.erase(label_replaced);
+            }
             label_lookup_[label] = internal_id_replaced;
             lock_table.unlock();
 

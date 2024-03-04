@@ -73,6 +73,7 @@ jobs:
           ./searchKnnWithFilter_test
           ./multiThreadLoad_test
           ./multiThread_replace_test
+          ./replaceSameLabel_test
           ./test_updates
           ./test_updates update
           ./multivector_search_test
