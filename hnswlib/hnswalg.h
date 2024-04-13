@@ -85,6 +85,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         loadIndex(location, s, max_elements);
     }
 
+    template<class stream_t>
+    HierarchicalNSW(
+        stream_t &stream,
+        SpaceInterface<dist_t> *s,
+        bool nmslib = false,
+        size_t max_elements = 0,
+        bool allow_replace_deleted = false)
+        : allow_replace_deleted_(allow_replace_deleted) {
+        loadIndexFromStream(stream, s, max_elements);
+    }
 
     HierarchicalNSW(
         SpaceInterface<dist_t> *s,
@@ -684,7 +694,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     void saveIndex(const std::string &location) {
         std::ofstream output(location, std::ios::binary);
-
+        saveIndexToStream(output);
+    }
+    
+    template<typename stream_t>
+    void saveIndexToStream(stream_t &output) {
         writeBinaryPOD(output, offsetLevel0_);
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
@@ -711,17 +725,20 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         output.close();
     }
 
-
     void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         std::ifstream input(location, std::ios::binary);
 
         if (!input.is_open())
             throw std::runtime_error("Cannot open file");
+        loadIndexFromStream(input, s, max_elements_i);
+    }
 
+    template<typename stream_t>
+    void loadIndexFromStream(stream_t &input, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         clear();
         // get file size:
         input.seekg(0, input.end);
-        std::streampos total_filesize = input.tellg();
+        auto total_filesize = input.tellg();
         input.seekg(0, input.beg);
 
         readBinaryPOD(input, offsetLevel0_);
