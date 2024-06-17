@@ -25,8 +25,8 @@ Full list of changes: https://github.com/nmslib/hnswlib/pull/523
 ### Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11
 2) Interfaces for C++, Python, external support for Java and R (https://github.com/jlmelville/rcpphnsw).
-3) Has full support for incremental index construction and updating the elements. Has support for element deletions 
-(by marking them in index). Index is picklable.
+3) Has full support for incremental index construction and updating the elements (thanks to the contribution by Apoorv Sharma). Has support for element deletions 
+(by marking them in index, later can be replaced with other elements). Python index is picklable.
 4) Can work with custom user defined distances (C++).
 5) Significantly less memory footprint and faster build time compared to current nmslib's implementation.
 
