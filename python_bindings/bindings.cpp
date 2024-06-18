@@ -720,6 +720,10 @@ class Index {
     size_t getCurrentCount() const {
         return appr_alg->cur_element_count;
     }
+    
+    int getMaxLayer() const {
+        return appr_alg->maxlevel_;
+    }
 };
 
 template<typename dist_t, typename data_t = float>
@@ -911,6 +915,21 @@ PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
 
         py::class_<Index<float>>(m, "Index")
+        .def("get_max_layer", &Index<float>::getMaxLayer)
+        .def("get_node_degree", [](const Index<float> &index, hnswlib::labeltype label) {
+            auto degrees = index.appr_alg->getNodeDegree(label); // Call the getNodeDegree method from the C++ class
+            py::dict result; // Create a Python dictionary to hold the results
+            for (const auto &degree : degrees) { // Convert the C++ unordered_map to a Python dictionary
+                result[py::cast(degree.first)] = py::cast(degree.second);
+            }
+            return result;
+            }, py::arg("label"), "Retrieves the degree of a node in all levels where it exists.")
+        
+        .def("get_average_degree_at_layer", [](const Index<float> &index, int layer) {
+            float averageDegree = index.appr_alg->getAverageDegreeAtLayer(layer); // Call the getAverageDegreeAtLayer method from the C++ class
+            return averageDegree;
+            }, py::arg("layer"), "Calculates the average node degree at the specified layer.")
+            
         .def(py::init(&Index<float>::createFromParams), py::arg("params"))
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
         .def(py::init(&Index<float>::createFromIndex), py::arg("index"))
