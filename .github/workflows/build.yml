@@ -4,11 +4,14 @@ on: [push, pull_request]
 
 jobs:
   test_python:
-    runs-on: ${{matrix.os}}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10"]
+        exclude:
+          - os: macos-latest
+            python-version: "3.7"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -25,7 +28,7 @@ jobs:
           python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
   
   test_cpp:
-    runs-on: ${{matrix.os}}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
