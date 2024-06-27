@@ -8,7 +8,7 @@ import setuptools
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = '0.7.4'
+__version__ = "0.7.5"
 
 include_dirs = [
     pybind11.get_include(),
@@ -16,13 +16,13 @@ include_dirs = [
 ]
 
 # compatibility when run in python_bindings
-bindings_dir = 'python_bindings'
+bindings_dir = "python_bindings"
 if bindings_dir in os.path.basename(os.getcwd()):
-    source_files = ['./bindings.cpp']
-    include_dirs.extend(['../hnswlib/'])
+    source_files = ["./bindings.cpp"]
+    include_dirs.extend(["../hnswlib/"])
 else:
-    source_files = ['./python_bindings/bindings.cpp']
-    include_dirs.extend(['./hnswlib/'])
+    source_files = ["./python_bindings/bindings.cpp"]
+    include_dirs.extend(["./hnswlib/"])
 
 
 libraries = []
@@ -31,11 +31,11 @@ extra_objects = []
 
 ext_modules = [
     Extension(
-        'hnswlib',
+        "hnswlib",
         source_files,
         include_dirs=include_dirs,
         libraries=libraries,
-        language='c++',
+        language="c++",
         extra_objects=extra_objects,
     ),
 ]
@@ -48,8 +48,9 @@ def has_flag(compiler, flagname):
     the specified compiler.
     """
     import tempfile
-    with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
-        f.write('int main (int argc, char **argv) { return 0; }')
+
+    with tempfile.NamedTemporaryFile("w", suffix=".cpp") as f:
+        f.write("int main (int argc, char **argv) { return 0; }")
         try:
             compiler.compile([f.name], extra_postargs=[flagname])
         except setuptools.distutils.errors.CompileError:
@@ -58,51 +59,55 @@ def has_flag(compiler, flagname):
 
 
 def cpp_flag(compiler):
-    """Return the -std=c++[11/14] compiler flag.
-    The c++14 is prefered over c++11 (when it is available).
+    """Return the -std=c++[11/14/17] compiler flag.
+    The c++14 is prefered over c++17 (when it is available).
     """
-    if has_flag(compiler, '-std=c++14'):
-        return '-std=c++14'
-    elif has_flag(compiler, '-std=c++11'):
-        return '-std=c++11'
+    if has_flag(compiler, "-std=c++17"):
+        return "-std=c++17"
+    if has_flag(compiler, "-std=c++14"):
+        return "-std=c++14"
+    elif has_flag(compiler, "-std=c++11"):
+        return "-std=c++11"
     else:
-        raise RuntimeError('Unsupported compiler -- at least C++11 support '
-                           'is needed!')
+        raise RuntimeError(
+            "Unsupported compiler -- at least C++11 support " "is needed!"
+        )
 
 
 class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
+
     c_opts = {
-        'msvc': ['/EHsc', '/openmp', '/O2'],
+        "msvc": ["/EHsc", "/openmp", "/O2"],
         #'unix': ['-O3', '-march=native'],  # , '-w'
-        'unix': ['-O3'],  # , '-w'
+        "unix": ["-O3"],  # , '-w'
     }
     if not os.environ.get("HNSWLIB_NO_NATIVE"):
-        c_opts['unix'].append('-march=native')
+        c_opts["unix"].append("-march=native")
 
     link_opts = {
-        'unix': [],
-        'msvc': [],
+        "unix": [],
+        "msvc": [],
     }
 
-    if sys.platform == 'darwin':
-        if platform.machine() == 'arm64':
-            c_opts['unix'].remove('-march=native')
-        c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
-        link_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
+    if sys.platform == "darwin":
+        if platform.machine() == "arm64":
+            c_opts["unix"].remove("-march=native")
+        c_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
+        link_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
     else:
-        c_opts['unix'].append("-fopenmp")
-        link_opts['unix'].extend(['-fopenmp', '-pthread'])
+        c_opts["unix"].append("-fopenmp")
+        link_opts["unix"].extend(["-fopenmp", "-pthread"])
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
-        if ct == 'unix':
+        if ct == "unix":
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
-            if has_flag(self.compiler, '-fvisibility=hidden'):
-                opts.append('-fvisibility=hidden')
-        elif ct == 'msvc':
+            if has_flag(self.compiler, "-fvisibility=hidden"):
+                opts.append("-fvisibility=hidden")
+        elif ct == "msvc":
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
 
         for ext in self.extensions:
@@ -113,14 +118,14 @@ class BuildExt(build_ext):
 
 
 setup(
-    name='chroma-hnswlib',
+    name="chroma-hnswlib",
     version=__version__,
-    description='Chromas fork of hnswlib',
-    author='Yury Malkov and the original hnswlib authors + Chroma',
-    url='https://github.com/chroma-core/hnswlib',
+    description="Chromas fork of hnswlib",
+    author="Yury Malkov and the original hnswlib authors + Chroma",
+    url="https://github.com/chroma-core/hnswlib",
     long_description="""hnsw""",
     ext_modules=ext_modules,
-    install_requires=['numpy'],
-    cmdclass={'build_ext': BuildExt},
+    install_requires=["numpy"],
+    cmdclass={"build_ext": BuildExt},
     zip_safe=False,
 )

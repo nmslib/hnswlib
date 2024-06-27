@@ -148,7 +148,7 @@ test_vs_recall(
 
     bool test_passed = false;
     for (size_t ef : efs) {
-        appr_alg.setEf(ef);
+        appr_alg.setEfSearchDefault(ef);
 
         appr_alg.metric_hops = 0;
         appr_alg.metric_distance_computations = 0;

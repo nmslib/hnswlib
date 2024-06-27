@@ -23,7 +23,7 @@ p.init_index(max_elements = num_elements, ef_construction = 200, M = 16)
 p.add_items(data, ids)
 
 # Controlling the recall by setting ef:
-p.set_ef(50) # ef should always be > k
+p.set_ef_search_default(50) # ef should always be > k
 
 # Query dataset, k - number of the closest elements (returns 2 numpy arrays)
 labels, distances = p.knn_query(data, k = 1)
@@ -72,7 +72,7 @@ p.init_index(max_elements=num_elements//2, ef_construction=100, M=16)
 
 # Controlling the recall by setting ef:
 # higher ef leads to better accuracy, but slower search
-p.set_ef(10)
+p.set_ef_search_default(10)
 
 # Set number of threads used during batch search/construction
 # By default using all available cores
@@ -133,7 +133,7 @@ hnsw_index.init_index(max_elements=num_elements, ef_construction=100, M=16)
 
 # Controlling the recall by setting ef:
 # higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
+hnsw_index.set_ef_search_default(10)
 
 # Set number of threads used during batch search/construction
 # By default using all available cores
@@ -185,7 +185,7 @@ hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, 
 
 # Controlling the recall by setting ef:
 # higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
+hnsw_index.set_ef_search_default(10)
 
 # Set number of threads used during batch search/construction
 # By default using all available cores

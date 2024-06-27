@@ -10,8 +10,8 @@ import hnswlib
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
         """
-            Tests if replace of deleted elements works correctly
-            Tests serialization of the index with replaced elements
+        Tests if replace of deleted elements works correctly
+        Tests serialization of the index with replaced elements
         """
         dim = 16
         num_elements = 5000
@@ -43,10 +43,15 @@ class RandomSelfTestCase(unittest.TestCase):
         data4 = np.float32(np.random.random((num_elements, dim)))
 
         # Declaring index
-        hnsw_index = hnswlib.Index(space='l2', dim=dim)
-        hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+        hnsw_index = hnswlib.Index(space="l2", dim=dim)
+        hnsw_index.init_index(
+            max_elements=max_num_elements,
+            ef_construction=200,
+            M=16,
+            allow_replace_deleted=True,
+        )
 
-        hnsw_index.set_ef(100)
+        hnsw_index.set_ef_search_default(100)
         hnsw_index.set_num_threads(4)
 
         # Add batch 1 and 2
@@ -81,8 +86,8 @@ class RandomSelfTestCase(unittest.TestCase):
         # but we can replace the deleted ones
         # Note: there may be less than num_elements elements.
         #       As we could delete less than num_elements because of duplicates
-        labels3_tr = labels3[0:labels3.shape[0] - num_duplicates]
-        data3_tr = data3[0:data3.shape[0] - num_duplicates]
+        labels3_tr = labels3[0 : labels3.shape[0] - num_duplicates]
+        data3_tr = data3[0 : data3.shape[0] - num_duplicates]
         hnsw_index.add_items(data3_tr, labels3_tr, replace_deleted=True)
 
         # After replacing, all labels should be retrievable
@@ -112,15 +117,19 @@ class RandomSelfTestCase(unittest.TestCase):
         del hnsw_index
 
         # Reinit and load the index
-        hnsw_index = hnswlib.Index(space='l2', dim=dim)  # the space can be changed - keeps the data, alters the distance function.
+        hnsw_index = hnswlib.Index(
+            space="l2", dim=dim
+        )  # the space can be changed - keeps the data, alters the distance function.
         hnsw_index.set_num_threads(4)
         print(f"Loading index from {index_path}")
-        hnsw_index.load_index(index_path, max_elements=max_num_elements, allow_replace_deleted=True)
+        hnsw_index.load_index(
+            index_path, max_elements=max_num_elements, allow_replace_deleted=True
+        )
 
         # Insert batch 4
         print("Inserting batch 4 by replacing deleted elements")
-        labels4_tr = labels4[0:labels4.shape[0] - num_duplicates]
-        data4_tr = data4[0:data4.shape[0] - num_duplicates]
+        labels4_tr = labels4[0 : labels4.shape[0] - num_duplicates]
+        data4_tr = data4[0 : data4.shape[0] - num_duplicates]
         hnsw_index.add_items(data4_tr, labels4_tr, replace_deleted=True)
 
         # Check recall
@@ -151,11 +160,10 @@ class RandomSelfTestCase(unittest.TestCase):
 
         os.remove(index_path)
 
-
     def test_recall_degradation(self):
         """
-            Compares recall of the index with replaced elements and without
-            Measures recall degradation
+        Compares recall of the index with replaced elements and without
+        Measures recall degradation
         """
         dim = 16
         num_elements = 10_000
@@ -187,23 +195,35 @@ class RandomSelfTestCase(unittest.TestCase):
         query_data = np.float32(np.random.random((query_size, dim)))
 
         # Declaring index
-        hnsw_index_no_replace = hnswlib.Index(space='l2', dim=dim)
-        hnsw_index_no_replace.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=False)
-        hnsw_index_with_replace = hnswlib.Index(space='l2', dim=dim)
-        hnsw_index_with_replace.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+        hnsw_index_no_replace = hnswlib.Index(space="l2", dim=dim)
+        hnsw_index_no_replace.init_index(
+            max_elements=max_num_elements,
+            ef_construction=200,
+            M=16,
+            allow_replace_deleted=False,
+        )
+        hnsw_index_with_replace = hnswlib.Index(space="l2", dim=dim)
+        hnsw_index_with_replace.init_index(
+            max_elements=max_num_elements,
+            ef_construction=200,
+            M=16,
+            allow_replace_deleted=True,
+        )
 
-        bf_index = hnswlib.BFIndex(space='l2', dim=dim)
+        bf_index = hnswlib.BFIndex(space="l2", dim=dim)
         bf_index.init_index(max_elements=max_num_elements)
 
-        hnsw_index_no_replace.set_ef(100)
+        hnsw_index_no_replace.set_ef_search_default(100)
         hnsw_index_no_replace.set_num_threads(50)
-        hnsw_index_with_replace.set_ef(100)
+        hnsw_index_with_replace.set_ef_search_default(100)
         hnsw_index_with_replace.set_num_threads(50)
 
         # Add data
         print("Adding data")
         hnsw_index_with_replace.add_items(data1, labels1)
-        hnsw_index_with_replace.add_items(data2, labels2)  # maximum number of elements is reached
+        hnsw_index_with_replace.add_items(
+            data2, labels2
+        )  # maximum number of elements is reached
         bf_index.add_items(data1, labels1)
         bf_index.add_items(data3, labels3)  # maximum number of elements is reached
 
@@ -212,7 +232,9 @@ class RandomSelfTestCase(unittest.TestCase):
         hnsw_index_with_replace.add_items(data3, labels3, replace_deleted=True)
 
         hnsw_index_no_replace.add_items(data1, labels1)
-        hnsw_index_no_replace.add_items(data3, labels3)  # maximum number of elements is reached
+        hnsw_index_no_replace.add_items(
+            data3, labels3
+        )  # maximum number of elements is reached
 
         # Query the elements and measure recall:
         labels_hnsw_with_replace, _ = hnsw_index_with_replace.knn_query(query_data, k)
@@ -234,8 +256,8 @@ class RandomSelfTestCase(unittest.TestCase):
                         correct_no_replace += 1
                         break
 
-        recall_with_replace = float(correct_with_replace) / (k*query_size)
-        recall_no_replace = float(correct_no_replace) / (k*query_size)
+        recall_with_replace = float(correct_with_replace) / (k * query_size)
+        recall_no_replace = float(correct_no_replace) / (k * query_size)
         print("recall with replace:", recall_with_replace)
         print("recall without replace:", recall_no_replace)
 

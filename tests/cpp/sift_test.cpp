@@ -131,7 +131,7 @@ void test_vs_recall(
         efs.push_back(i);
     }*/
     for (size_t ef : efs) {
-        appr_alg.setEf(ef);
+        appr_alg.setEfSearchDefault(ef);
         StopW stopw = StopW();
 
         float recall = test_approx(massQ, vecsize, qsize, appr_alg, vecdim, answers, k);
@@ -283,7 +283,7 @@ void sift_test() {
 //        for (int j = 0; j < *data; j++) {
 //            g.insert(datal[j]);
 //        }
-//        appr_alg.setEf(400);
+//        appr_alg.setEfSearchDefault(400);
 //        std::priority_queue< std::pair< float, tableint >> closest_elements = appr_alg.searchKnnInternal(appr_alg.getDataByInternalId(i), 17);
 //        while (closest_elements.size() > 0) {
 //            if (closest_elements.top().second != i) {

@@ -19,7 +19,7 @@ labels3 = np.arange(2 * num_elements, 3 * num_elements)
 data3 = np.float32(np.random.random((num_elements, dim)))  # batch 3
 
 # Declaring index
-hnsw_index = hnswlib.Index(space='l2', dim=dim)
+hnsw_index = hnswlib.Index(space="l2", dim=dim)
 
 # Initiating index
 # max_elements - the maximum number of elements, should be known beforehand
@@ -30,11 +30,13 @@ hnsw_index = hnswlib.Index(space='l2', dim=dim)
 #     strongly affects the memory consumption
 
 # Enable replacing of deleted elements
-hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+hnsw_index.init_index(
+    max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True
+)
 
 # Controlling the recall by setting ef:
 # higher ef leads to better accuracy, but slower search
-hnsw_index.set_ef(10)
+hnsw_index.set_ef_search_default(10)
 
 # Set number of threads used during batch search/construction
 # By default using all available cores

@@ -30,15 +30,22 @@ class RandomSelfTestCase(unittest.TestCase):
 
         for _ in range(100):
             # Declaring index
-            hnsw_index = hnswlib.Index(space='l2', dim=dim)
-            hnsw_index.init_index(max_elements=max_num_elements, ef_construction=200, M=16, allow_replace_deleted=True)
+            hnsw_index = hnswlib.Index(space="l2", dim=dim)
+            hnsw_index.init_index(
+                max_elements=max_num_elements,
+                ef_construction=200,
+                M=16,
+                allow_replace_deleted=True,
+            )
 
-            hnsw_index.set_ef(100)
+            hnsw_index.set_ef_search_default(100)
             hnsw_index.set_num_threads(50)
 
             # Add batch 1 and 2
             hnsw_index.add_items(data1, labels1)
-            hnsw_index.add_items(data2, labels2)  # maximum number of elements is reached
+            hnsw_index.add_items(
+                data2, labels2
+            )  # maximum number of elements is reached
 
             # Delete nearest neighbors of batch 2
             labels2_deleted, _ = hnsw_index.knn_query(data2, k=1)
@@ -63,6 +70,6 @@ class RandomSelfTestCase(unittest.TestCase):
             # Note: there may be less than num_elements elements.
             #       As we could delete less than num_elements because of duplicates
             num_duplicates = len(labels2_deleted) - len(labels2_deleted_no_dup)
-            labels3_tr = labels3[0:labels3.shape[0] - num_duplicates]
-            data3_tr = data3[0:data3.shape[0] - num_duplicates]
+            labels3_tr = labels3[0 : labels3.shape[0] - num_duplicates]
+            data3_tr = data3[0 : data3.shape[0] - num_duplicates]
             hnsw_index.add_items(data3_tr, labels3_tr, replace_deleted=True)
