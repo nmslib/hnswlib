@@ -93,8 +93,8 @@ class BuildExt(build_ext):
     if sys.platform == "darwin":
         if platform.machine() == "arm64":
             c_opts["unix"].remove("-march=native")
-        c_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
-        link_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
+        c_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.12"]
+        link_opts["unix"] += ["-stdlib=libc++", "-mmacosx-version-min=10.12"]
     else:
         c_opts["unix"].append("-fopenmp")
         link_opts["unix"].extend(["-fopenmp", "-pthread"])

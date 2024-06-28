@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <set>
 #include <list>
+#include <shared_mutex>
 
 namespace hnswlib
 {
@@ -44,6 +45,7 @@ namespace hnswlib
 
         std::mutex global;
         std::vector<std::mutex> link_list_locks_;
+        std::shared_mutex ef_search_default_lock_;
 
         tableint enterpoint_node_{0};
 
@@ -209,9 +211,10 @@ namespace hnswlib
             }
         };
 
-        void setEfSearchDefault(size_t ef)
+        void setEfSearchDefault(size_t ef_search_default)
         {
-            ef_search_default_ = ef;
+            std::unique_lock<std::shared_mutex> lock(ef_search_default_lock_);
+            ef_search_default_ = ef_search_default;
         }
 
         inline std::mutex &getLabelOpMutex(labeltype label) const
@@ -375,7 +378,7 @@ namespace hnswlib
 
         template <bool has_deletions, bool collect_metrics = false>
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef, BaseFilterFunctor *isIdAllowed = nullptr) const
+        searchBaseLayerST(tableint ep_id, const void *data_point, size_t ef_search_default, BaseFilterFunctor *isIdAllowed = nullptr) const
         {
             VisitedList *vl = visited_list_pool_->getFreeVisitedList();
             vl_type *visited_array = vl->mass;
@@ -405,7 +408,7 @@ namespace hnswlib
                 std::pair<dist_t, tableint> current_node_pair = candidate_set.top();
 
                 if ((-current_node_pair.first) > lowerBound &&
-                    (top_candidates.size() == ef || (!isIdAllowed && !has_deletions)))
+                    (top_candidates.size() == ef_search_default || (!isIdAllowed && !has_deletions)))
                 {
                     break;
                 }
@@ -444,7 +447,7 @@ namespace hnswlib
                         char *currObj1 = (getDataByInternalId(candidate_id));
                         dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
-                        if (top_candidates.size() < ef || lowerBound > dist)
+                        if (top_candidates.size() < ef_search_default || lowerBound > dist)
                         {
                             candidate_set.emplace(-dist, candidate_id);
 #ifdef USE_SSE
@@ -456,7 +459,7 @@ namespace hnswlib
                             if ((!has_deletions || !isMarkedDeleted(candidate_id)) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))
                                 top_candidates.emplace(dist, candidate_id);
 
-                            if (top_candidates.size() > ef)
+                            if (top_candidates.size() > ef_search_default)
                                 top_candidates.pop();
 
                             if (!top_candidates.empty())
@@ -1720,7 +1723,15 @@ namespace hnswlib
         std::priority_queue<std::pair<dist_t, labeltype>>
         searchKnn(const void *query_data, size_t k, BaseFilterFunctor *isIdAllowed = nullptr, const std::optional<size_t> ef_search = std::nullopt) const
         {
-            std::priority_queue<std::pair<dist_t, labeltype>> result;
+            if !ef_search
+                .has_value()
+                {
+                    std::shared_lock<std::shared_mutex> lock(ef_search_default_lock_);
+                    ef_search = ef_search_default_;
+                }
+
+            std::priority_queue<std::pair<dist_t, labeltype>>
+                result;
             if (cur_element_count == 0)
                 return result;
 
