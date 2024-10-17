@@ -196,6 +196,9 @@ class AlgorithmInterface {
         searchKnnCloserFirst(const void* query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const;
 
     virtual void saveIndex(const std::string &location) = 0;
+
+    virtual int getMaxLevel() const = 0;
+
     virtual ~AlgorithmInterface(){
     }
 };
