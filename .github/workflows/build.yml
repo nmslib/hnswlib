@@ -3,18 +3,18 @@ name: HNSW CI
 on: [push, pull_request]
 
 jobs:
-  test_python:
-    runs-on: ${{ matrix.os }}
+  python:
+    runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu, windows, macos]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13.2"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          
+
       - name: Build and install
         run: python -m pip install .
       
@@ -36,11 +36,34 @@ jobs:
           python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
         shell: bash
   
-  test_cpp:
-    runs-on: ${{ matrix.os }}
+  cpp:
+    runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu, windows, macos]
+        sanitizer: [no_sanitizers, asan_ubsan]
+        exceptions: [no_exceptions, with_exceptions]
+        compiler: [clang, gcc, msvc]
+        exclude:
+          # No sanitizers on Windows
+          - os: windows
+            sanitizer: asan_ubsan
+          # No sanitizers on macOS -- might not be well supported on arm64
+          - os: macos
+            sanitizer: asan_ubsan
+          # No clang or gcc on Windows
+          - os: windows
+            compiler: clang
+          - os: windows
+            compiler: gcc
+          # No MSVC on Unix
+          - os: ubuntu
+            compiler: msvc
+          - os: macos
+            compiler: msvc
+          # No GCC on macOS
+          - os: macos
+            compiler: gcc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,11 +74,48 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake ..
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cmake --build ./ --config Release
+          cmake_cmd=( cmake -S .. -B . )
+          if [[ "${RUNNER_OS}" != "Windows" ]]; then
+            c_compiler="${{matrix.compiler}}"
+            if [[ "${c_compiler}" == "gcc" ]]; then
+              cxx_compiler=g++
+            elif [[ "${c_compiler}" == "clang" ]]; then
+              cxx_compiler=clang++
+            else
+              echo "Invalid compiler ${c_compiler} for OS ${RUNNER_OS}" >&2
+              exit 1
+            fi
+            cmake_cmd+=( 
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo
+              -DCMAKE_C_COMPILER=${c_compiler}
+              -DCMAKE_CXX_COMPILER=${cxx_compiler}
+            )
+          fi
+          if [[ "${{ matrix.sanitizer }}" == "asan_ubsan" ]]; then
+            cmake_cmd+=( -DENABLE_ASAN=ON -DENABLE_UBSAN=ON )
+          fi
+          if [[ "${{ matrix.exceptions }}" == "with_exceptions" ]]; then
+            cmake_cmd+=( -DHNSWLIB_ENABLE_EXCEPTIONS=ON )
           else
-            make
+            cmake_cmd+=( -DHNSWLIB_ENABLE_EXCEPTIONS=OFF )
+          fi
+          if [[ "${RUNNER_OS}" != "Windows" ]]; then
+            cmake_cmd+=( -G Ninja )
+          fi
+          "${cmake_cmd[@]}"
+
+          # This is essential for debugging the the build, e.g. tracking down
+          # if exceptions are enabled or NDEBUG is specified when it should not
+          # be.
+          echo
+          echo "Contents of CMakeCache.txt:"
+          echo
+          cat CMakeCache.txt
+          echo
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            cmake --build ./ --config RelWithDebInfo --verbose
+          else
+            ninja -v
           fi
         shell: bash
 
@@ -67,26 +127,16 @@ jobs:
         shell: bash
       
       - name: Test
-        timeout-minutes: 15
+        # Without sanitizers, 15 minutes might be sufficient.
+        timeout-minutes: 30
         run: |
           cd build
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cp ./Release/* ./
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            cp "./RelWithDebInfo/"* ./
           fi
-          ./example_search
-          ./example_filter
-          ./example_replace_deleted
-          ./example_mt_search
-          ./example_mt_filter
-          ./example_mt_replace_deleted
-          ./example_multivector_search
-          ./example_epsilon_search
-          ./searchKnnCloserFirst_test
-          ./searchKnnWithFilter_test
-          ./multiThreadLoad_test
-          ./multiThread_replace_test
+          ctest --build-config "RelWithDebInfo"
+          # These tests could be ctest-enabled in CMakeLists.txt, but that
+          # requires auto-generating test data and installing numpy for that.
           ./test_updates
           ./test_updates update
-          ./multivector_search_test
-          ./epsilon_search_test
         shell: bash

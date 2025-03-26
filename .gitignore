@@ -11,3 +11,5 @@ var/
 .vs/
 **.DS_Store
 *.pyc
+venv/
+tests/cpp/data/

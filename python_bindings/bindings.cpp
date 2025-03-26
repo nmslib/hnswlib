@@ -75,8 +75,10 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 
 
 inline void assert_true(bool expr, const std::string & msg) {
-    if (expr == false) throw std::runtime_error("Unpickle Error: " + msg);
-    return;
+    // Not using HNSWLIB_THROW_RUNTIME_ERROR here, because it expects a static
+    // string constant, and because we currently always compile the Python
+    // bindings with exceptions enabled.
+    if (!expr) throw std::runtime_error("Unpickle Error: " + msg);
 }
 
 
@@ -100,7 +102,7 @@ inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, 
         snprintf(msg, sizeof(msg),
             "Input vector data wrong shape. Number of dimensions %d. Data must be a 1D or 2D array.",
             buffer.ndim);
-        throw std::runtime_error(msg);
+        HNSWLIB_THROW_RUNTIME_ERROR(msg);
     }
     if (buffer.ndim == 2) {
         *rows = buffer.shape[0];
@@ -124,7 +126,7 @@ inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_
             snprintf(msg, sizeof(msg),
                 "The input label shape %d does not match the input data vector shape %d",
                 ids_numpy.ndim, feature_rows);
-            throw std::runtime_error(msg);
+            HNSWLIB_THROW_RUNTIME_ERROR(msg);
         }
         // extract data
         if (ids_numpy.ndim == 1) {
@@ -171,7 +173,7 @@ class Index {
             l2space = new hnswlib::InnerProductSpace(dim);
             normalize = true;
         } else {
-            throw std::runtime_error("Space name must be one of l2, ip, or cosine.");
+            HNSWLIB_THROW_RUNTIME_ERROR("Space name must be one of l2, ip, or cosine.");
         }
         appr_alg = NULL;
         ep_added = true;
@@ -196,7 +198,7 @@ class Index {
         size_t random_seed,
         bool allow_replace_deleted) {
         if (appr_alg) {
-            throw std::runtime_error("The index is already initiated.");
+            HNSWLIB_THROW_RUNTIME_ERROR("The index is already initiated.");
         }
         cur_l = 0;
         appr_alg = new hnswlib::HierarchicalNSW<dist_t>(l2space, maxElements, M, efConstruction, random_seed, allow_replace_deleted);
@@ -258,7 +260,7 @@ class Index {
         get_input_array_shapes(buffer, &rows, &features);
 
         if (features != dim)
-            throw std::runtime_error("Wrong dimensionality of the vectors");
+            HNSWLIB_THROW_RUNTIME_ERROR("Wrong dimensionality of the vectors");
 
         // avoid using threads when the number of additions is small:
         if (rows <= num_threads * 4) {
@@ -556,7 +558,7 @@ class Index {
 
         for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
             if (label_lookup_val_npy.data()[i] < 0) {
-                throw std::runtime_error("Internal id cannot be negative!");
+                HNSWLIB_THROW_RUNTIME_ERROR("Internal id cannot be negative!");
             } else {
                 appr_alg->label_lookup_.insert(std::make_pair(label_lookup_key_npy.data()[i], label_lookup_val_npy.data()[i]));
             }
@@ -583,7 +585,7 @@ class Index {
             } else {
                 appr_alg->linkLists_[i] = (char*)malloc(linkListSize);
                 if (appr_alg->linkLists_[i] == nullptr)
-                    throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
+                    HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate linklist");
 
                 memcpy(appr_alg->linkLists_[i], link_list_npy.data() + link_npy_offsets[i], linkListSize);
             }
@@ -644,7 +646,7 @@ class Index {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
-                        throw std::runtime_error(
+                        HNSWLIB_THROW_RUNTIME_ERROR(
                             "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
@@ -664,7 +666,7 @@ class Index {
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)(norm_array.data() + start_idx), k, p_idFilter);
                     if (result.size() != k)
-                        throw std::runtime_error(
+                        HNSWLIB_THROW_RUNTIME_ERROR(
                             "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
                     for (int i = k - 1; i >= 0; i--) {
                         auto& result_tuple = result.top();
@@ -748,7 +750,7 @@ class BFIndex {
             space = new hnswlib::InnerProductSpace(dim);
             normalize = true;
         } else {
-            throw std::runtime_error("Space name must be one of l2, ip, or cosine.");
+            HNSWLIB_THROW_RUNTIME_ERROR("Space name must be one of l2, ip, or cosine.");
         }
         alg = NULL;
         index_inited = false;
@@ -781,7 +783,7 @@ class BFIndex {
 
     void init_new_index(const size_t maxElements) {
         if (alg) {
-            throw std::runtime_error("The index is already initiated.");
+            HNSWLIB_THROW_RUNTIME_ERROR("The index is already initiated.");
         }
         cur_l = 0;
         alg = new hnswlib::BruteforceSearch<dist_t>(space, maxElements);
@@ -806,7 +808,7 @@ class BFIndex {
         get_input_array_shapes(buffer, &rows, &features);
 
         if (features != dim)
-            throw std::runtime_error("Wrong dimensionality of the vectors");
+            HNSWLIB_THROW_RUNTIME_ERROR("Wrong dimensionality of the vectors");
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
@@ -1004,7 +1006,7 @@ PYBIND11_PLUGIN(hnswlib) {
             },
             [](py::tuple t) {  // __setstate__
                 if (t.size() != 1)
-                    throw std::runtime_error("Invalid state!");
+                    HNSWLIB_THROW_RUNTIME_ERROR("Invalid state!");
                 return Index<float>::createFromParams(t[0].cast<py::dict>());
             }))
 
