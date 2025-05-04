@@ -3,8 +3,13 @@
 #include <chrono>
 
 
-int main() {
+void test(bool use_small_blocks_memory) {
     std::cout << "Running multithread load test" << std::endl;
+    size_t M = 16;
+    size_t ef_construction = 200;
+    size_t random_seed = 100;
+    bool allow_replace_deleted = false;
+
     int d = 16;
     int max_elements = 1000;
 
@@ -13,7 +18,8 @@ int main() {
     std::uniform_real_distribution<> distrib_real;
 
     hnswlib::L2Space space(d);
-    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * max_elements);
+    hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * max_elements,
+            M, ef_construction, random_seed, allow_replace_deleted, use_small_blocks_memory);
 
     std::cout << "Building index" << std::endl;
     int num_threads = 40;
@@ -136,5 +142,14 @@ int main() {
     }
     
     std::cout << "Finish" << std::endl;
-    return 0;
+}
+
+int main() {
+    std::cout << "Testing with use default memory allocator..." << std::endl;
+    test(false);
+    std::cout << "Test ok" << std::endl;
+
+    std::cout << "Testing with use block memory allocator..." << std::endl;
+    test(true);
+    std::cout << "Test ok" << std::endl;
 }

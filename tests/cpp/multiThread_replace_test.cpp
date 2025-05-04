@@ -58,12 +58,18 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 }
 
 
-int main() {
+void test(bool use_small_blocks_memory) {
     std::cout << "Running multithread load test" << std::endl;
     int d = 16;
     int num_elements = 1000;
     int max_elements = 2 * num_elements;
     int num_threads = 50;
+
+    int M = 16;                 // Tightly connected with internal dimensionality of the data
+                                // strongly affects the memory consumption
+    int ef_construction = 200;  // Controls index search speed/build speed tradeoff
+    size_t random_seed = 100;
+    bool allow_replace_deleted = true;
 
     std::mt19937 rng;
     rng.seed(47);
@@ -90,7 +96,7 @@ int main() {
 
     int iter = 0;
     while (iter < 200) {
-        hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, 16, 200, 123, true);
+        hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, M, ef_construction, 123, true, use_small_blocks_memory);
 
         // add batch1 data
         ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
@@ -117,5 +123,15 @@ int main() {
 
     delete[] batch1;
     delete[] batch2;
-    return 0;
+}
+
+
+int main() {
+    std::cout << "Testing with use default memory allocator..." << std::endl;
+    test(false);
+    std::cout << "Test ok" << std::endl;
+
+    std::cout << "Testing with use block memory allocator..." << std::endl;
+    test(true);
+    std::cout << "Test ok" << std::endl;
 }

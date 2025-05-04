@@ -14,7 +14,12 @@ namespace {
 
 using idx_t = hnswlib::labeltype;
 
-void test() {
+void test(bool use_small_blocks_memory) {
+    size_t M = 16;
+    size_t ef_construction = 200;
+    size_t random_seed = 100;
+    bool allow_replace_deleted = false;
+
     int d = 4;
     idx_t n = 100;
     idx_t nq = 10;
@@ -36,7 +41,8 @@ void test() {
 
     hnswlib::L2Space space(d);
     hnswlib::AlgorithmInterface<float>* alg_brute  = new hnswlib::BruteforceSearch<float>(&space, 2 * n);
-    hnswlib::AlgorithmInterface<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n);
+    hnswlib::AlgorithmInterface<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, 2 * n,
+            M, ef_construction, random_seed, allow_replace_deleted, use_small_blocks_memory);
 
     for (size_t i = 0; i < n; ++i) {
         alg_brute->addPoint(data.data() + d * i, i);
@@ -74,8 +80,12 @@ void test() {
 }  // namespace
 
 int main() {
-    std::cout << "Testing ..." << std::endl;
-    test();
+    std::cout << "Testing with use default memory allocator..." << std::endl;
+    test(false);
+    std::cout << "Test ok" << std::endl;
+
+    std::cout << "Testing with use block memory allocator..." << std::endl;
+    test(true);
     std::cout << "Test ok" << std::endl;
 
     return 0;

@@ -4,12 +4,14 @@
 typedef unsigned int docidtype;
 typedef float dist_t;
 
-int main() {
+void test(bool use_small_blocks_memory) {
     int dim = 16;               // Dimension of the elements
     int max_elements = 1000;    // Maximum number of elements, should be known beforehand
     int M = 16;                 // Tightly connected with internal dimensionality of the data
                                 // strongly affects the memory consumption
     int ef_construction = 200;  // Controls index search speed/build speed tradeoff
+    size_t random_seed = 100;
+    bool allow_replace_deleted = false;
 
     int num_queries = 100;
     int num_docs = 10;          // Number of documents to search
@@ -21,7 +23,8 @@ int main() {
     // Initing index
     hnswlib::MultiVectorL2Space<docidtype> space(dim);
     hnswlib::BruteforceSearch<dist_t>* alg_brute = new hnswlib::BruteforceSearch<dist_t>(&space, max_elements);
-    hnswlib::HierarchicalNSW<dist_t>* alg_hnsw = new hnswlib::HierarchicalNSW<dist_t>(&space, max_elements, M, ef_construction);
+    hnswlib::HierarchicalNSW<dist_t>* alg_hnsw = new hnswlib::HierarchicalNSW<dist_t>(&space, max_elements,
+            M, ef_construction, random_seed, allow_replace_deleted, use_small_blocks_memory);
 
     // Generate random data
     std::mt19937 rng;
@@ -122,5 +125,14 @@ int main() {
     delete[] data;
     delete alg_brute;
     delete alg_hnsw;
-    return 0;
+}
+
+int main() {
+    std::cout << "Testing with use default memory allocator..." << std::endl;
+    test(false);
+    std::cout << "Test ok" << std::endl;
+
+    std::cout << "Testing with use block memory allocator..." << std::endl;
+    test(true);
+    std::cout << "Test ok" << std::endl;
 }
