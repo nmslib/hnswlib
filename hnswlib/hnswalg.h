@@ -283,8 +283,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
 #if HNSWLIB_USE_PREFETCH
-                _mm_prefetch((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
+                if (j + 1 < size) {
+                    _mm_prefetch((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
+                    _mm_prefetch(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
+                }
 #endif
 #endif
                 if (visited_array[candidate_id] == visited_array_tag) continue;
@@ -393,9 +395,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 //                    if (candidate_id == 0) continue;
 #ifdef USE_SSE
 #if HNSWLIB_USE_PREFETCH
-                _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
-                                _MM_HINT_T0);  ////////////
+                if (j + 1 < size) {
+                    _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
+                    _mm_prefetch(data_level0_memory_ + (*(data + j + 1)) * size_data_per_element_ + offsetData_,
+                                    _MM_HINT_T0);
+                }
 #endif
 #endif
                 if (!(visited_array[candidate_id] == visited_array_tag)) {
@@ -1126,7 +1130,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     for (int i = 0; i < size; i++) {
 #ifdef USE_SSE
 #if HNSWLIB_USE_PREFETCH
-                        _mm_prefetch(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
+                        if (i + 1 < size) {
+                            _mm_prefetch(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
+                        }
 #endif
 #endif
                         tableint cand = datal[i];
