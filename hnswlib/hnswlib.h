@@ -169,7 +169,7 @@ private:
     const char* message_;
 };
 
-Status OkStatus() { return Status(); }
+inline Status OkStatus() { return Status(); }
 
 template <typename T>
 class StatusOr {
