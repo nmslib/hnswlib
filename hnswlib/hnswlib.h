@@ -26,6 +26,10 @@
 #endif
 #endif
 
+#include <assert.h>
+
+#include <memory>
+
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -354,6 +358,145 @@ class AlgorithmInterface {
 
     virtual ~AlgorithmInterface(){
     }
+};
+
+namespace internal {
+
+struct FreeDeleter {
+    void operator()(void* ptr) const {
+        std::free(ptr);
+    }
+};
+
+using MallocUniqueCharArrayPtr = std::unique_ptr<char[], FreeDeleter>;
+
+// Allocates the given number of bytes as a special kind of a unique pointer.
+// Does not initialize the memory.
+MallocUniqueCharArrayPtr makeUniqueCharArray(size_t n_bytes) {
+    char* raw_ptr = static_cast<char*>(malloc(n_bytes));
+    return MallocUniqueCharArrayPtr(raw_ptr);
+}
+
+}  // namespace internal
+
+class ChunkedArray {
+ public:
+    ChunkedArray()
+        : element_byte_size_(0),
+          elements_per_chunk_(0),
+          element_count_(0) {
+    }
+
+    ChunkedArray(size_t element_byte_size,
+                 size_t elements_per_chunk,
+                 size_t element_count) :
+        element_byte_size_(element_byte_size),
+        elements_per_chunk_(elements_per_chunk),
+        element_count_(0) {
+        resize(element_count);
+    }
+
+    ChunkedArray(const ChunkedArray& other) = delete;
+    ChunkedArray& operator=(const ChunkedArray& other) = delete;
+
+    ChunkedArray(ChunkedArray&& other) noexcept {
+        swap(other);
+    }
+
+    ChunkedArray& operator=(ChunkedArray&& other) noexcept {
+        if (this != &other) {
+            swap(other);
+        }
+        return *this;
+    }
+    
+    void swap(ChunkedArray& other) noexcept {
+        std::swap(element_byte_size_, other.element_byte_size_);
+        std::swap(elements_per_chunk_, other.elements_per_chunk_);
+        std::swap(element_count_, other.element_count_);
+        std::swap(chunks_, other.chunks_);
+    }
+
+    ~ChunkedArray() {
+    }
+
+    size_t getCapacity() const {
+        return element_count_;
+    }
+
+    size_t getSizePerElement() const {
+        return element_byte_size_;
+    }
+
+    size_t getSizePerChunk() const {
+        return elements_per_chunk_ * element_byte_size_;
+    }
+
+    char* operator[](size_t i) const {
+        assert(i < getCapacity());
+        if (i >= getCapacity()) return nullptr;
+        size_t chunk_index = i / elements_per_chunk_;
+        size_t index_in_chunk = i % elements_per_chunk_;
+        return chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk;
+    }
+
+    void clear() {
+        chunks_.clear();
+        element_count_ = 0;
+    }
+
+    void resize(size_t new_element_count) {
+        size_t chunk_count = getChunkCount(element_count_);
+        size_t new_chunk_count = getChunkCount(new_element_count);
+
+        chunks_.resize(new_chunk_count);
+        for (size_t i = chunk_count; i < new_chunk_count; i++) {
+            chunks_[i] = internal::makeUniqueCharArray(getSizePerChunk());
+        }
+
+        element_count_ = new_element_count;
+    }
+
+    void writeToStream(std::ostream& output, size_t num_elements_to_write) {
+        size_t num_chunks_to_write = getChunkCount(num_elements_to_write);
+        size_t last_chunk_bytes = 
+            element_byte_size_ * (num_elements_to_write % elements_per_chunk_);
+        for (size_t i = 0; i < num_chunks_to_write; ++i) {
+            output.write(
+                chunks_[i].get(),
+                i + 1 == num_chunks_to_write ? last_chunk_bytes : getSizePerChunk());
+        }
+    }
+
+    void readFromStream(std::istream& input, size_t num_elements_to_read) {
+        assert(num_elements_to_read <= element_count_);
+        size_t num_chunks_to_read = getChunkCount(num_elements_to_read);
+        size_t last_chunk_bytes = 
+            element_byte_size_ * (num_elements_to_read % elements_per_chunk_);
+        for (size_t i = 0; i < num_chunks_to_read; ++i) {
+            input.read(
+                chunks_[i].get(),
+                i + 1 == num_chunks_to_read ? last_chunk_bytes : getSizePerChunk());
+        }
+    }
+    
+    std::deque<internal::MallocUniqueCharArrayPtr>::const_iterator begin_chunk() const {
+        return chunks_.begin();
+    }
+
+    std::deque<internal::MallocUniqueCharArrayPtr>::const_iterator end_chunk() const {
+        return chunks_.end();
+    }
+
+ private:
+    size_t getChunkCount(size_t element_count) const {
+        return (element_count + elements_per_chunk_ - 1) / elements_per_chunk_;
+    }
+
+    size_t element_byte_size_;
+    size_t elements_per_chunk_;
+    size_t element_count_;
+    std::deque<internal::MallocUniqueCharArrayPtr> chunks_;
 };
 
 }  // namespace hnswlib

@@ -200,6 +200,7 @@ if(HNSWLIB_EXAMPLES)
         if(ENABLE_ASAN OR ENABLE_UBSAN)
             add_cxx_flags(-DHNSWLIB_USE_PREFETCH=0)
         endif()
+        add_cxx_flags(-DHNSWLIB_USE_PREFETCH=0)  # TODO(mbautin): remove
 
         add_cxx_flags(-Wall -Wextra -Wpedantic -Werror)
 
