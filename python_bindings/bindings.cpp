@@ -576,7 +576,7 @@ class Index {
                 link_npy_size += linkListSize;
         }
 
-        memcpy(appr_alg->data_level0_memory_, data_level0_npy.data(), data_level0_npy.nbytes());
+        appr_alg->data_level0_memory_.copyFrom(data_level0_npy.data(), data_level0_npy.nbytes());
 
         for (size_t i = 0; i < appr_alg->max_elements_; i++) {
             size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;

@@ -502,6 +502,17 @@ class ChunkedArray {
         }
     }
 
+    void copyFrom(char* source, size_t num_bytes) {
+        size_t chunk_index = 0;
+        size_t bytes_per_chunk = getSizePerChunk();
+        while (num_bytes > 0) {
+            size_t cur_size = std::min(bytes_per_chunk, num_bytes);
+            memcpy(chunks_[chunk_index].get(), source, cur_size);
+            num_bytes -= cur_size;
+            source += cur_size;
+        }
+    }
+
  private:
     size_t getChunkCount(size_t element_count) const {
         return (element_count + elements_per_chunk_ - 1) / elements_per_chunk_;
