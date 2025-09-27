@@ -129,8 +129,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         label_offset_ = size_links_level0_ + data_size_;
         offsetLevel0_ = 0;
 
+        // Allocate 64 more bytes for each chunk so we can safely prefetch a
+        // cache line beyond the chunk.
         data_level0_memory_ = ChunkedArray(
-            size_data_per_element_, k_elements_per_chunk, max_elements);
+            size_data_per_element_, k_elements_per_chunk, max_elements, 64);
 
         cur_element_count = 0;
 
@@ -141,7 +143,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         maxlevel_ = -1;
 
         linkLists_ = ChunkedArray(
-            sizeof(void *), k_elements_per_chunk, max_elements);
+            sizeof(void *), k_elements_per_chunk, max_elements, 0);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
         mult_ = 1 / log(1.0 * M_);
@@ -226,7 +228,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return (data_level0_memory_[internal_id] + offsetData_);
     }
 
-
     int getRandomLevel(double reverse_size) {
         std::uniform_real_distribution<double> distribution(0.0, 1.0);
         double r = -log(distribution(level_generator_)) * reverse_size;
@@ -286,24 +287,18 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
             size_t size = getListCount((linklistsizeint*)data);
             tableint *datal = (tableint *) (data + 1);
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-            _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
-            _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
-            _mm_prefetch(getDataByInternalId(*datal), _MM_HINT_T0);
-            _mm_prefetch(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
-#endif
-#endif
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH(getDataByInternalId(*datal), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
 
             for (size_t j = 0; j < size; j++) {
                 tableint candidate_id = *(datal + j);
 //                    if (candidate_id == 0) continue;
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                _mm_prefetch((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
-#endif
-#endif
+                if (j + 1 < size) {
+                    HNSWLIB_MM_PREFETCH((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
+                    HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
+                }
                 if (visited_array[candidate_id] == visited_array_tag) continue;
                 visited_array[candidate_id] = visited_array_tag;
                 char *currObj1 = (getDataByInternalId(candidate_id));
@@ -311,11 +306,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 dist_t dist1 = fstdistfunc_(data_point, currObj1, dist_func_param_);
                 if (top_candidates.size() < ef_construction_ || lowerBound > dist1) {
                     candidateSet.emplace(-dist1, candidate_id);
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                    _mm_prefetch(getDataByInternalId(candidateSet.top().second), _MM_HINT_T0);
-#endif
-#endif
+                    HNSWLIB_MM_PREFETCH(getDataByInternalId(candidateSet.top().second), _MM_HINT_T0);
 
                     if (!isMarkedDeleted(candidate_id))
                         top_candidates.emplace(dist1, candidate_id);
@@ -396,25 +387,18 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 metric_distance_computations+=size;
             }
 
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-            _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
-            _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
-            _mm_prefetch(data_level0_memory_[*(data + 1)] + offsetData_, _MM_HINT_T0);
-            _mm_prefetch((char *) (data + 2), _MM_HINT_T0);
-#endif
-#endif
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH(data_level0_memory_[*(data + 1)] + offsetData_, _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH((char *) (data + 2), _MM_HINT_T0);
 
             for (size_t j = 1; j <= size; j++) {
                 int candidate_id = *(data + j);
-//                    if (candidate_id == 0) continue;
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                _mm_prefetch((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
-                _mm_prefetch(data_level0_memory_[*(data + j + 1)] + offsetData_,
-                                _MM_HINT_T0);  ////////////
-#endif
-#endif
+                if (j < size) {
+                    HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + j + 1)), _MM_HINT_T0);
+                    HNSWLIB_MM_PREFETCH(data_level0_memory_[*(data + j + 1)] + offsetData_,
+                                    _MM_HINT_T0);
+                }
                 if (!(visited_array[candidate_id] == visited_array_tag)) {
                     visited_array[candidate_id] = visited_array_tag;
 
@@ -430,13 +414,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
                     if (flag_consider_candidate) {
                         candidate_set.emplace(-dist, candidate_id);
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                        _mm_prefetch(data_level0_memory_[candidate_set.top().second] +
+                        HNSWLIB_MM_PREFETCH(data_level0_memory_[candidate_set.top().second] +
                                         offsetLevel0_,  ///////////
                                         _MM_HINT_T0);  ////////////////////////
-#endif
-#endif
 
                         if (bare_bone_search ||
                             (!isMarkedDeleted(candidate_id) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id))))) {
@@ -822,7 +802,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_level0_memory_ = ChunkedArray(
             size_data_per_element_,
             k_elements_per_chunk,
-            max_elements);
+            max_elements,
+            64);
         data_level0_memory_.readFromStream(input, cur_element_count);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
@@ -833,7 +814,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         visited_list_pool_.reset(new VisitedListPool(1, max_elements));
 
-        linkLists_.resize(max_elements);
+        linkLists_ = ChunkedArray(
+            sizeof(void *), k_elements_per_chunk, max_elements, 0);
+        
         element_levels_ = std::vector<int>(max_elements);
         revSize_ = 1.0 / mult_;
         ef_ = 10;
@@ -1126,17 +1109,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     data = get_linklist_at_level(currObj, level);
                     int size = getListCount(data);
                     tableint *datal = (tableint *) (data + 1);
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                    _mm_prefetch(getDataByInternalId(*datal), _MM_HINT_T0);
-#endif
-#endif
+                    HNSWLIB_MM_PREFETCH(getDataByInternalId(*datal), _MM_HINT_T0);
                     for (int i = 0; i < size; i++) {
-#ifdef USE_SSE
-#if HNSWLIB_USE_PREFETCH
-                        _mm_prefetch(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
-#endif
-#endif
+                        HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
                         tableint cand = datal[i];
                         dist_t d = fstdistfunc_(dataPoint, getDataByInternalId(cand), dist_func_param_);
                         if (d < curdist) {
@@ -1523,7 +1498,7 @@ private:
         if (isMarkedDeleted(internalId)) {
             unsigned char *ll_cur = ((unsigned char *)get_linklist0(internalId)) + 2;
             *ll_cur &= ~DELETE_MARK;
-            num_deleted_ -= 1;
+                num_deleted_ -= 1;
             if (allow_replace_deleted_) {
                 std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);
                 deleted_elements.erase(internalId);

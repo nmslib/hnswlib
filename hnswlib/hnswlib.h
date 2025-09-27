@@ -384,15 +384,18 @@ class ChunkedArray {
     ChunkedArray()
         : element_byte_size_(0),
           elements_per_chunk_(0),
-          element_count_(0) {
+          element_count_(0),
+          chunk_padding_bytes_(0) {
     }
 
     ChunkedArray(size_t element_byte_size,
                  size_t elements_per_chunk,
-                 size_t element_count) :
+                 size_t element_count,
+                 size_t chunk_padding_bytes) :
         element_byte_size_(element_byte_size),
         elements_per_chunk_(elements_per_chunk),
-        element_count_(0) {
+        element_count_(0),
+        chunk_padding_bytes_(chunk_padding_bytes) {
         resize(element_count);
     }
 
@@ -415,6 +418,7 @@ class ChunkedArray {
         std::swap(elements_per_chunk_, other.elements_per_chunk_);
         std::swap(element_count_, other.element_count_);
         std::swap(chunks_, other.chunks_);
+        std::swap(chunk_padding_bytes_, other.chunk_padding_bytes_);
     }
 
     ~ChunkedArray() {
@@ -435,9 +439,7 @@ class ChunkedArray {
     char* operator[](size_t i) const {
         assert(i < getCapacity());
         if (i >= getCapacity()) return nullptr;
-        size_t chunk_index = i / elements_per_chunk_;
-        size_t index_in_chunk = i % elements_per_chunk_;
-        return chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk;
+        return getElementNoRangeChecking(i);
     }
 
     void clear() {
@@ -451,7 +453,8 @@ class ChunkedArray {
 
         chunks_.resize(new_chunk_count);
         for (size_t i = chunk_count; i < new_chunk_count; i++) {
-            chunks_[i] = internal::makeUniqueCharArray(getSizePerChunk());
+            chunks_[i] = internal::makeUniqueCharArray(
+                getSizePerChunk() + chunk_padding_bytes_);
         }
 
         element_count_ = new_element_count;
@@ -479,14 +482,6 @@ class ChunkedArray {
                 i + 1 == num_chunks_to_read ? last_chunk_bytes : getSizePerChunk());
         }
     }
-    
-    std::deque<internal::MallocUniqueCharArrayPtr>::const_iterator begin_chunk() const {
-        return chunks_.begin();
-    }
-
-    std::deque<internal::MallocUniqueCharArrayPtr>::const_iterator end_chunk() const {
-        return chunks_.end();
-    }
 
  private:
     size_t getChunkCount(size_t element_count) const {
@@ -497,9 +492,26 @@ class ChunkedArray {
     size_t elements_per_chunk_;
     size_t element_count_;
     std::deque<internal::MallocUniqueCharArrayPtr> chunks_;
+    size_t chunk_padding_bytes_;
 };
 
 }  // namespace hnswlib
+
+#if defined(USE_SSE) && HNSWLIB_USE_PREFETCH
+#if HNSWLIB_DEBUG_PREFETCH
+// This mode is used to find prefetch statements causing range check errors in
+// tests. We only print line numbers, which makes the output compact enough to
+// catch range check errors in some tests.
+#define HNSWLIB_MM_PREFETCH(address, hint) do { \
+    std::cout << __LINE__ << " "; \
+    _mm_prefetch(address, hint); \
+} while (0)
+#else
+#define HNSWLIB_MM_PREFETCH(address, hint) _mm_prefetch(address, hint)
+#endif
+#else
+#define HNSWLIB_MM_PREFETCH(address, hint)
+#endif
 
 #include "space_l2.h"
 #include "space_ip.h"
