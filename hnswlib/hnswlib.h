@@ -437,7 +437,13 @@ class ChunkedArray {
     }
 
     char* operator[](size_t i) const {
+#ifndef NDEBUG
+        if (i >= getCapacity()) {
+            HNSWERR << "Chunked array index out of range: i="  << i
+                    << ", capacity=" << getCapacity() << std::endl;
+        }
         assert(i < getCapacity());
+#endif
         if (i >= getCapacity()) return nullptr;
         size_t chunk_index = i / elements_per_chunk_;
         size_t index_in_chunk = i % elements_per_chunk_;

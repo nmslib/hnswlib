@@ -1111,7 +1111,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     tableint *datal = (tableint *) (data + 1);
                     HNSWLIB_MM_PREFETCH(getDataByInternalId(*datal), _MM_HINT_T0);
                     for (int i = 0; i < size; i++) {
-                        HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
+                        if (i + 1 < size) {
+                            HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + i + 1)), _MM_HINT_T0);
+                        }
                         tableint cand = datal[i];
                         dist_t d = fstdistfunc_(dataPoint, getDataByInternalId(cand), dist_func_param_);
                         if (d < curdist) {
