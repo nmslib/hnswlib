@@ -502,7 +502,7 @@ class ChunkedArray {
         }
     }
 
-    void copyFrom(char* source, size_t num_bytes) {
+    void copyFrom(const char* source, size_t num_bytes) {
         size_t chunk_index = 0;
         size_t bytes_per_chunk = getSizePerChunk();
         while (num_bytes > 0) {
