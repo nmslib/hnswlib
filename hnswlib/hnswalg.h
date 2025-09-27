@@ -155,8 +155,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         clear();
     }
 
-    char*& getLinkListPtrRef(tableint internal_id) {
-        return *reinterpret_cast<char**>(linkLists_[internal_id]);
+    void setLinkListPtr(tableint internal_id, char* data) {
+        *reinterpret_cast<char**>(linkLists_[internal_id]) = data;
     }
 
     char* getLinkListPtr(tableint internal_id) const {
@@ -724,7 +724,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
             writeBinaryPOD(output, linkListSize);
             if (linkListSize)
-                output.write(getLinkListPtrRef(i), linkListSize);
+                output.write(getLinkListPtr(i), linkListSize);
         }
         output.close();
         return OkStatus();
@@ -826,13 +826,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             readBinaryPOD(input, linkListSize);
             if (linkListSize == 0) {
                 element_levels_[i] = 0;
-                getLinkListPtrRef(i) = nullptr;
+                setLinkListPtr(i, nullptr);
             } else {
                 element_levels_[i] = linkListSize / size_links_per_element_;
-                getLinkListPtrRef(i) = (char *) malloc(linkListSize);
-                if (getLinkListPtrRef(i) == nullptr)
+                setLinkListPtr(i, (char *) malloc(linkListSize));
+                if (getLinkListPtr(i) == nullptr)
                     return Status("Not enough memory: loadIndex failed to allocate linklist");
-                input.read(getLinkListPtrRef(i), linkListSize);
+                input.read(getLinkListPtr(i), linkListSize);
             }
         }
 
@@ -1241,11 +1241,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         memcpy(getDataByInternalId(cur_c), data_point, data_size_);
 
         if (curlevel) {
-            getLinkListPtrRef(cur_c) = (char *) malloc(size_links_per_element_ * curlevel + 1);
-            if (getLinkListPtrRef(cur_c) == nullptr) {
+            size_t link_list_num_bytes = size_links_per_element_ * curlevel + 1;
+            setLinkListPtr(cur_c, (char *) malloc(link_list_num_bytes));
+            if (getLinkListPtr(cur_c) == nullptr) {
                 return Status("Not enough memory: addPoint failed to allocate linklist");
             }
-            memset(getLinkListPtrRef(cur_c), 0, size_links_per_element_ * curlevel + 1);
+            memset(getLinkListPtr(cur_c), 0, link_list_num_bytes);
         }
 
         if ((signed)currObj != -1) {

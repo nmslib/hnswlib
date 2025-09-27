@@ -581,10 +581,10 @@ class Index {
         for (size_t i = 0; i < appr_alg->max_elements_; i++) {
             size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
             if (linkListSize == 0) {
-                appr_alg->linkLists_[i] = nullptr;
+                appr_alg->setLinkListPtr(i, nullptr);
             } else {
-                appr_alg->linkLists_[i] = (char*)malloc(linkListSize);
-                if (appr_alg->linkLists_[i] == nullptr)
+                appr_alg->setLinkListPtr(i, (char*)malloc(linkListSize));
+                if (appr_alg->getLinkListPtr(i) == nullptr)
                     HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate linklist");
 
                 memcpy(appr_alg->linkLists_[i], link_list_npy.data() + link_npy_offsets[i], linkListSize);
