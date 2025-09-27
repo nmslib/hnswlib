@@ -383,7 +383,7 @@ class Index {
 
         memset(link_list_npy, 0, link_npy_size);
 
-        memcpy(data_level0_npy, appr_alg->data_level0_memory_, level0_npy_size);
+        appr_alg->data_level0_memory_.copyTo(data_level0_npy, level0_npy_size);
         memcpy(element_levels_npy, appr_alg->element_levels_.data(), appr_alg->element_levels_.size() * sizeof(int));
 
         for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
