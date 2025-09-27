@@ -439,7 +439,9 @@ class ChunkedArray {
     char* operator[](size_t i) const {
         assert(i < getCapacity());
         if (i >= getCapacity()) return nullptr;
-        return getElementNoRangeChecking(i);
+        size_t chunk_index = i / elements_per_chunk_;
+        size_t index_in_chunk = i % elements_per_chunk_;
+        return chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk;
     }
 
     void clear() {
