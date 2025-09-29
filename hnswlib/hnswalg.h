@@ -39,7 +39,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t maxM0_{0};
     size_t ef_construction_{0};
     size_t ef_{ 0 };
-    size_t num_elements_per_chunk_{kDefaultMaxElementsPerChunk};
 
     double mult_{0.0}, revSize_{0.0};
     int maxlevel_{0};
@@ -80,6 +79,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::mutex deleted_elements_lock;  // lock for deleted_elements
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
+    size_t num_elements_per_chunk_{kDefaultMaxElementsPerChunk};
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
