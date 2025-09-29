@@ -387,9 +387,9 @@ class Index {
         memcpy(element_levels_npy, appr_alg->element_levels_.data(), appr_alg->element_levels_.size() * sizeof(int));
 
         for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
-            size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+            size_t linkListSize = appr_alg->size_links_per_element_ * appr_alg->element_levels_[i];
             if (linkListSize) {
-                memcpy(link_list_npy + link_npy_offsets[i], appr_alg->linkLists_[i], linkListSize);
+                memcpy(link_list_npy + link_npy_offsets[i], appr_alg->getLinkListPtr(i), linkListSize);
             }
         }
 
@@ -583,11 +583,12 @@ class Index {
             if (linkListSize == 0) {
                 appr_alg->setLinkListPtr(i, nullptr);
             } else {
-                appr_alg->setLinkListPtr(i, (char*)malloc(linkListSize));
-                if (appr_alg->getLinkListPtr(i) == nullptr)
+                char* linkListPtr = reinterpret_cast<char*>(malloc(linkListSize));
+                if (linkListPtr == nullptr)
                     HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate linklist");
+                appr_alg->setLinkListPtr(i, linkListPtr);
 
-                memcpy(appr_alg->linkLists_[i], link_list_npy.data() + link_npy_offsets[i], linkListSize);
+                memcpy(linkListPtr, link_list_npy.data() + link_npy_offsets[i], linkListSize);
             }
         }
 

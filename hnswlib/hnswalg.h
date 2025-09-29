@@ -170,6 +170,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 free(getLinkListPtr(i));
             }
         }
+        data_level0_memory_.clear();
         linkLists_.clear();
         cur_element_count = 0;
         visited_list_pool_.reset(nullptr);
