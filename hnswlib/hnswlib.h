@@ -29,6 +29,7 @@
 #include <assert.h>
 
 #include <memory>
+#include <type_traits>
 
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
@@ -379,8 +380,25 @@ MallocUniqueCharArrayPtr makeUniqueCharArray(size_t n_bytes) {
 
 }  // namespace internal
 
+// Manages a large, array-like data structure by allocating memory in smaller,
+// fixed-size blocks called "chunks." This class provides a flat, array-like
+// view over a large collection of elements without needing a single, massive
+// contiguous memory allocation, which helps avoid memory fragmentation.
+//
+// It provides random access via `operator[]`, which internally maps an index
+// to the correct chunk and the element's offset within it. The size of the
+// elements and the number of elements per chunk are configured at construction.
+//
+// The class is non-copyable to prevent expensive deep copies but is movable for
+// efficient transfers of ownership. The template parameter `ElementPointerType`
+// specifies the pointer type used to access elements, e.g. `char*` if pointer
+// arithmetics are required, or `void*` if the result would be immediately cast
+// into another pointer type.
+template <typename ElementPointerType>
 class ChunkedArray {
  public:
+    static_assert(std::is_pointer<ElementPointerType>::value,
+                  "Template parameter ElementPointerType must be a pointer.");
     ChunkedArray()
         : element_byte_size_(0),
           elements_per_chunk_(0),
@@ -436,7 +454,7 @@ class ChunkedArray {
         return elements_per_chunk_ * element_byte_size_;
     }
 
-    char* operator[](size_t i) const {
+    ElementPointerType operator[](size_t i) const {
 #ifndef NDEBUG
         if (i >= getCapacity()) {
             HNSWERR << "Chunked array index out of range: i="  << i
@@ -447,7 +465,9 @@ class ChunkedArray {
         if (i >= getCapacity()) return nullptr;
         size_t chunk_index = i / elements_per_chunk_;
         size_t index_in_chunk = i % elements_per_chunk_;
-        return chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk;
+        return reinterpret_cast<ElementPointerType>(
+            chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk
+        );
     }
 
     void clear() {

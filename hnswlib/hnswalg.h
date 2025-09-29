@@ -19,11 +19,15 @@ typedef unsigned int tableint;
 constexpr tableint kInvalidInternalId = std::numeric_limits<tableint>::max();
 typedef unsigned int linklistsizeint;
 
+static const size_t kCacheLineSize = 64;
+
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
  public:
     static const tableint MAX_LABEL_OPERATION_LOCKS = 65536;
     static const unsigned char DELETE_MARK = 0x01;
+
+    static const size_t kDefaultMaxElementsPerChunk = 10 * 1024;
 
     size_t max_elements_{0};
     mutable std::atomic<size_t> cur_element_count{0};  // current number of elements
@@ -35,7 +39,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t maxM0_{0};
     size_t ef_construction_{0};
     size_t ef_{ 0 };
-    const size_t k_elements_per_chunk{10*1024};
+    size_t num_elements_per_chunk_{kDefaultMaxElementsPerChunk};
 
     double mult_{0.0}, revSize_{0.0};
     int maxlevel_{0};
@@ -53,8 +57,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t size_links_level0_{0};
     size_t offsetData_{0}, offsetLevel0_{0}, label_offset_{ 0 };
 
-    ChunkedArray data_level0_memory_;
-    ChunkedArray linkLists_;
+    ChunkedArray<char*> data_level0_memory_;
+    ChunkedArray<void*> linkLists_;
     std::vector<int> element_levels_;  // keeps level of each element
 
     size_t data_size_{0};
@@ -86,8 +90,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         const std::string &location,
         bool nmslib = false,
         size_t max_elements = 0,
-        bool allow_replace_deleted = false)
-        : allow_replace_deleted_(allow_replace_deleted) {
+        bool allow_replace_deleted = false,
+        size_t num_elements_per_chunk = kDefaultMaxElementsPerChunk)
+        : allow_replace_deleted_(allow_replace_deleted),
+          num_elements_per_chunk_(num_elements_per_chunk) {
         loadIndex(location, s, max_elements);
     }
 
@@ -98,11 +104,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t M = 16,
         size_t ef_construction = 200,
         size_t random_seed = 100,
-        bool allow_replace_deleted = false)
+        bool allow_replace_deleted = false,
+        size_t num_elements_per_chunk = kDefaultMaxElementsPerChunk)
         : label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             link_list_locks_(max_elements),
             element_levels_(max_elements),
-            allow_replace_deleted_(allow_replace_deleted) {
+            allow_replace_deleted_(allow_replace_deleted),
+            num_elements_per_chunk_(num_elements_per_chunk) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
         data_size_ = s->get_data_size();
@@ -131,8 +139,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         // Allocate 64 more bytes for each chunk so we can safely prefetch a
         // cache line beyond the chunk.
-        data_level0_memory_ = ChunkedArray(
-            size_data_per_element_, k_elements_per_chunk, max_elements, 64);
+        data_level0_memory_ = ChunkedArray<char*>(
+            size_data_per_element_, num_elements_per_chunk_, max_elements,
+            kCacheLineSize);
 
         cur_element_count = 0;
 
@@ -142,8 +151,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         enterpoint_node_ = -1;
         maxlevel_ = -1;
 
-        linkLists_ = ChunkedArray(
-            sizeof(void *), k_elements_per_chunk, max_elements, 0);
+        linkLists_ = ChunkedArray<void*>(
+            /* element_byte_size= */ sizeof(void *),
+            num_elements_per_chunk_, max_elements,
+            /* chunk_padding_bytes= */ 0);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
         mult_ = 1 / log(1.0 * M_);
@@ -289,7 +300,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             size_t size = getListCount((linklistsizeint*)data);
             tableint *datal = (tableint *) (data + 1);
             HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
-            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + kCacheLineSize), _MM_HINT_T0);
             HNSWLIB_MM_PREFETCH(getDataByInternalId(*datal), _MM_HINT_T0);
             HNSWLIB_MM_PREFETCH(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
 
@@ -389,7 +400,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
 
             HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
-            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+            HNSWLIB_MM_PREFETCH((char *) (visited_array + *(data + 1) + kCacheLineSize), _MM_HINT_T0);
             HNSWLIB_MM_PREFETCH(data_level0_memory_[*(data + 1)] + offsetData_, _MM_HINT_T0);
             HNSWLIB_MM_PREFETCH((char *) (data + 2), _MM_HINT_T0);
 
@@ -800,11 +811,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         input.seekg(pos, input.beg);
 
-        data_level0_memory_ = ChunkedArray(
+        data_level0_memory_ = ChunkedArray<char*>(
             size_data_per_element_,
-            k_elements_per_chunk,
+            num_elements_per_chunk_,
             max_elements,
-            64);
+            kCacheLineSize);
         data_level0_memory_.readFromStream(input, cur_element_count);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
@@ -815,8 +826,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         visited_list_pool_.reset(new VisitedListPool(1, max_elements));
 
-        linkLists_ = ChunkedArray(
-            sizeof(void *), k_elements_per_chunk, max_elements, 0);
+        linkLists_ = ChunkedArray<void*>(
+            sizeof(void *), num_elements_per_chunk_, max_elements, 0);
         
         element_levels_ = std::vector<int>(max_elements);
         revSize_ = 1.0 / mult_;
