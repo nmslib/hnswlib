@@ -1,4 +1,4 @@
 #pragma once
 
-void RegisterHnswBenchmarks();
+void RegisterHnswBasicBenchmarks();
 
