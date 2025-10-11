@@ -481,25 +481,23 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return;
         }
 
-        std::priority_queue<std::pair<dist_t, tableint>> queue_closest;
-        std::vector<std::pair<dist_t, tableint>> return_list;
+        std::vector<std::pair<dist_t, tableint>> rqueue_closest;
+        std::vector<tableint> return_id_list;
         while (top_candidates.size() > 0) {
-            queue_closest.emplace(-top_candidates.top().first, top_candidates.top().second);
+            rqueue_closest.emplace_back(top_candidates.top());
             top_candidates.pop();
         }
 
-        while (queue_closest.size()) {
-            if (return_list.size() >= M)
+        for(auto rit = rqueue_closest.rbegin(); rit != rqueue_closest.rend(); ++rit) {
+            if (return_id_list.size() >= M)
                 break;
-            std::pair<dist_t, tableint> curent_pair = queue_closest.top();
-            dist_t dist_to_query = -curent_pair.first;
-            queue_closest.pop();
+            dist_t dist_to_query = rit->first;
             bool good = true;
 
-            for (std::pair<dist_t, tableint> second_pair : return_list) {
+            for (const auto& id : return_id_list) {
                 dist_t curdist =
-                        fstdistfunc_(getDataByInternalId(second_pair.second),
-                                        getDataByInternalId(curent_pair.second),
+                        fstdistfunc_(getDataByInternalId(id),
+                                        getDataByInternalId(rit->second),
                                         dist_func_param_);
                 if (curdist < dist_to_query) {
                     good = false;
@@ -507,12 +505,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 }
             }
             if (good) {
-                return_list.push_back(curent_pair);
+                return_id_list.push_back(rit->second);
+                top_candidates.emplace(std::move(*rit));
             }
-        }
-
-        for (std::pair<dist_t, tableint> curent_pair : return_list) {
-            top_candidates.emplace(-curent_pair.first, curent_pair.second);
         }
     }
 

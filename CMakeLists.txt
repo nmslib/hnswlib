@@ -247,6 +247,7 @@ if(HNSWLIB_EXAMPLES)
                     "Please check if this is a typo.")
         endif()
     endforeach()
+    add_subdirectory(benchmark/cpp)
 endif()
 
 # Persist CMAKE_CXX_FLAGS in the cache for debuggability.
