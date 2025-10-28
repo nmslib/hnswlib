@@ -383,7 +383,7 @@ MallocUniqueCharArrayPtr makeUniqueCharArray(size_t n_bytes) {
 // Manages a large, array-like data structure by allocating memory in smaller,
 // fixed-size blocks called "chunks." This class provides a flat, array-like
 // view over a large collection of elements without needing a single, massive
-// contiguous memory allocation, which helps avoid memory fragmentation.
+// contiguous memory allocation.
 //
 // It provides random access via `operator[]`, which internally maps an index
 // to the correct chunk and the element's offset within it. The size of the
@@ -481,7 +481,7 @@ class ChunkedArray {
 
         chunks_.resize(new_chunk_count);
         for (size_t i = chunk_count; i < new_chunk_count; i++) {
-            chunks_[i] = internal::makeUniqueCharArray(
+            chunks_[i] = ::hnswlib::internal::makeUniqueCharArray(
                 getSizePerChunk() + chunk_padding_bytes_);
         }
 
@@ -489,25 +489,26 @@ class ChunkedArray {
     }
 
     void writeToStream(std::ostream& output, size_t num_elements_to_write) {
+        assert(num_elements_to_write <= element_count_);
         size_t num_chunks_to_write = getChunkCount(num_elements_to_write);
-        size_t last_chunk_bytes = 
-            element_byte_size_ * (num_elements_to_write % elements_per_chunk_);
+        size_t last_chunk_bytes = getLastChunkBytes(num_elements_to_write);
         for (size_t i = 0; i < num_chunks_to_write; ++i) {
             output.write(
                 chunks_[i].get(),
-                i + 1 == num_chunks_to_write ? last_chunk_bytes : getSizePerChunk());
+                i + 1 == num_chunks_to_write ? last_chunk_bytes
+                                             : getSizePerChunk());
         }
     }
 
     void readFromStream(std::istream& input, size_t num_elements_to_read) {
         assert(num_elements_to_read <= element_count_);
         size_t num_chunks_to_read = getChunkCount(num_elements_to_read);
-        size_t last_chunk_bytes = 
-            element_byte_size_ * (num_elements_to_read % elements_per_chunk_);
+        size_t last_chunk_bytes = getLastChunkBytes(num_elements_to_read);
         for (size_t i = 0; i < num_chunks_to_read; ++i) {
             input.read(
                 chunks_[i].get(),
-                i + 1 == num_chunks_to_read ? last_chunk_bytes : getSizePerChunk());
+                i + 1 == num_chunks_to_read ? last_chunk_bytes
+                                            : getSizePerChunk());
         }
     }
 
@@ -536,6 +537,17 @@ class ChunkedArray {
  private:
     size_t getChunkCount(size_t element_count) const {
         return (element_count + elements_per_chunk_ - 1) / elements_per_chunk_;
+    }
+
+    // Returns the byte size of the last chunk if pretend the element count is
+    // the given number.
+    size_t getLastChunkBytes(size_t element_count) {
+        size_t last_chunk_num_elements = element_count % elements_per_chunk_;
+        if (last_chunk_num_elements == 0) {
+            // Last chunk is whole.
+            last_chunk_num_elements = elements_per_chunk_;
+        }
+        return last_chunk_num_elements * element_byte_size_;
     }
 
     size_t element_byte_size_;
