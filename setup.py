@@ -76,7 +76,7 @@ class BuildExt(build_ext):
     compiler_flag_native = '-march=native'
     c_opts = {
         'msvc': ['/EHsc', '/openmp', '/O2'],
-        'unix': ['-O3', compiler_flag_native],  # , '-w'
+        'unix': ['-O3', compiler_flag_native, '-Wall', '-Wextra', '-Wpedantic'] # , '-w'
     }
     link_opts = {
         'unix': [],

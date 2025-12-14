@@ -4,6 +4,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include "hnswlib.h"
+#include <type_traits>
 #include <thread>
 #include <atomic>
 #include <stdlib.h>
@@ -100,8 +101,8 @@ inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, 
     if (buffer.ndim != 2 && buffer.ndim != 1) {
         char msg[256];
         snprintf(msg, sizeof(msg),
-            "Input vector data wrong shape. Number of dimensions %d. Data must be a 1D or 2D array.",
-            buffer.ndim);
+            "Input vector data wrong shape. Number of dimensions %zd. Data must be a 1D or 2D array.",
+            (ssize_t)buffer.ndim);
         HNSWLIB_THROW_RUNTIME_ERROR(msg);
     }
     if (buffer.ndim == 2) {
@@ -113,6 +114,16 @@ inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, 
     }
 }
 
+// Quick and dirty implementations of C++20's std::cmp_equal() and friends.
+template<typename Left_, typename Right_>
+bool safe_unsigned_eq(Left_ l, Right_ r) {
+    return static_cast<typename std::make_unsigned<Left_>::type>(l) == static_cast<typename std::make_unsigned<Right_>::type>(r);
+}
+
+template<typename Left_, typename Right_>
+bool safe_unsigned_lte(Left_ l, Right_ r) {
+    return static_cast<typename std::make_unsigned<Left_>::type>(l) <= static_cast<typename std::make_unsigned<Right_>::type>(r);
+}
 
 inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_, size_t feature_rows) {
     std::vector<size_t> ids;
@@ -120,12 +131,12 @@ inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_
         py::array_t < size_t, py::array::c_style | py::array::forcecast > items(ids_);
         auto ids_numpy = items.request();
         // check shapes
-        if (!((ids_numpy.ndim == 1 && ids_numpy.shape[0] == feature_rows) ||
+        if (!((ids_numpy.ndim == 1 && safe_unsigned_eq(ids_numpy.shape[0], feature_rows)) ||
               (ids_numpy.ndim == 0 && feature_rows == 1))) {
             char msg[256];
             snprintf(msg, sizeof(msg),
-                "The input label shape %d does not match the input data vector shape %d",
-                ids_numpy.ndim, feature_rows);
+                "The input label shape %zd does not match the input data vector shape %zu",
+                (ssize_t)ids_numpy.ndim, feature_rows);
             HNSWLIB_THROW_RUNTIME_ERROR(msg);
         }
         // extract data
@@ -259,11 +270,11 @@ class Index {
         size_t rows, features;
         get_input_array_shapes(buffer, &rows, &features);
 
-        if (features != dim)
+        if (!safe_unsigned_eq(features, dim))
             HNSWLIB_THROW_RUNTIME_ERROR("Wrong dimensionality of the vectors");
 
         // avoid using threads when the number of additions is small:
-        if (rows <= num_threads * 4) {
+        if (safe_unsigned_lte(rows, num_threads * 4)) {
             num_threads = 1;
         }
 
@@ -287,6 +298,7 @@ class Index {
             py::gil_scoped_release l;
             if (normalize == false) {
                 ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    (void)threadId; // silence unused variable warnings.
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
                     appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
                     });
@@ -334,9 +346,9 @@ class Index {
         if (return_type == "list") {
             return py::cast(data);
         }
-        if (return_type == "numpy") {
-            return py::array_t< data_t, py::array::c_style | py::array::forcecast >(py::cast(data));
-        }
+
+        // Must be numpy if it's not a list.
+        return py::array_t< data_t, py::array::c_style | py::array::forcecast >(py::cast(data));
     }
 
 
@@ -394,19 +406,19 @@ class Index {
         }
 
         py::capsule free_when_done_l0(data_level0_npy, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<char*>(f);
             });
         py::capsule free_when_done_lvl(element_levels_npy, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<int*>(f);
             });
         py::capsule free_when_done_lb(label_lookup_key_npy, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<hnswlib::labeltype*>(f);
             });
         py::capsule free_when_done_id(label_lookup_val_npy, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<hnswlib::tableint*>(f);
             });
         py::capsule free_when_done_ll(link_list_npy, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<char*>(f);
             });
 
         /*  TODO: serialize state of random generators appr_alg->level_generator_ and appr_alg->update_probability_generator_  */
@@ -557,11 +569,10 @@ class Index {
         auto link_list_npy = d["link_lists"].cast<py::array_t < char, py::array::c_style | py::array::forcecast > >();
 
         for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
-            if (label_lookup_val_npy.data()[i] < 0) {
-                HNSWLIB_THROW_RUNTIME_ERROR("Internal id cannot be negative!");
-            } else {
-                appr_alg->label_lookup_.insert(std::make_pair(label_lookup_key_npy.data()[i], label_lookup_val_npy.data()[i]));
-            }
+//            if (label_lookup_val_npy.data()[i] < 0) { // unnecessary as tableint is unsigned.
+//                HNSWLIB_THROW_RUNTIME_ERROR("Internal id cannot be negative!");
+//            }
+              appr_alg->label_lookup_.insert(std::make_pair(label_lookup_key_npy.data()[i], label_lookup_val_npy.data()[i]));
         }
 
         memcpy(appr_alg->element_levels_.data(), element_levels_npy.data(), element_levels_npy.nbytes());
@@ -630,7 +641,7 @@ class Index {
             get_input_array_shapes(buffer, &rows, &features);
 
             // avoid using threads when the number of searches is small:
-            if (rows <= num_threads * 4) {
+            if (safe_unsigned_lte(rows, num_threads * 4)) {
                 num_threads = 1;
             }
 
@@ -643,6 +654,7 @@ class Index {
 
             if (normalize == false) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                    (void)threadId; // silence unused variable warnings.
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
@@ -658,8 +670,6 @@ class Index {
             } else {
                 std::vector<float> norm_array(num_threads * features);
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
-                    float* data = (float*)items.data(row);
-
                     size_t start_idx = threadId * dim;
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
@@ -678,10 +688,10 @@ class Index {
             }
         }
         py::capsule free_when_done_l(data_numpy_l, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<hnswlib::labeltype*>(f);
             });
         py::capsule free_when_done_d(data_numpy_d, [](void* f) {
-            delete[] f;
+            delete[] reinterpret_cast<dist_t*>(f);
             });
 
         return py::make_tuple(
@@ -807,7 +817,7 @@ class BFIndex {
         size_t rows, features;
         get_input_array_shapes(buffer, &rows, &features);
 
-        if (features != dim)
+        if (!safe_unsigned_eq(features, dim))
             HNSWLIB_THROW_RUNTIME_ERROR("Wrong dimensionality of the vectors");
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
@@ -839,6 +849,7 @@ class BFIndex {
 
 
     void loadIndex(const std::string &path_to_index, size_t max_elements) {
+        (void)max_elements; // silence unused variable warnings.
         if (alg) {
             std::cerr << "Warning: Calling load_index for an already inited index. Old index is being deallocated." << std::endl;
             delete alg;
@@ -875,6 +886,7 @@ class BFIndex {
 
             if (!normalize) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
+                    (void)threadId; // silence unused variable warnings.
                     std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = alg->searchKnn(
                         (void*)items.data(row), k, p_idFilter);
                     if (result.size() != k)
@@ -909,10 +921,10 @@ class BFIndex {
         }
 
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
-            delete[] f;
+            delete[] reinterpret_cast<hnswlib::labeltype*>(f);
         });
         py::capsule free_when_done_d(data_numpy_d, [](void *f) {
-            delete[] f;
+            delete[] reinterpret_cast<dist_t*>(f);
         });
 
 
@@ -932,9 +944,7 @@ class BFIndex {
 };
 
 
-PYBIND11_PLUGIN(hnswlib) {
-        py::module m("hnswlib");
-
+PYBIND11_MODULE(hnswlib, m) {
         py::class_<Index<float>>(m, "Index")
         .def(py::init(&Index<float>::createFromParams), py::arg("params"))
            /* WARNING: Index::createFromIndex is not thread-safe with Index::addItems */
@@ -1034,5 +1044,4 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("get_max_elements", &BFIndex<float>::getMaxElements)
         .def("get_current_count", &BFIndex<float>::getCurrentCount)
         .def_readwrite("num_threads", &BFIndex<float>::num_threads_default);
-        return m.ptr();
 }

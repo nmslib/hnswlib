@@ -87,6 +87,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t max_elements = 0,
         bool allow_replace_deleted = false)
         : allow_replace_deleted_(allow_replace_deleted) {
+        (void)nmslib; // silence unused variable warnings.
         loadIndex(location, s, max_elements);
     }
 
@@ -543,6 +544,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> &top_candidates,
         int level,
         bool isUpdate) {
+        (void)data_point; // silence unused variable warning.
         size_t Mcurmax = level ? maxM_ : maxM0_;
         getNeighborsByHeuristic2(top_candidates, M_);
         if (top_candidates.size() > M_)
@@ -1291,7 +1293,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                         tableint *datal = (tableint *) (data + 1);
                         for (int i = 0; i < size; i++) {
                             tableint cand = datal[i];
-                            if (cand < 0 || cand > max_elements_)
+                            if (cand > max_elements_)
                                 return Status("cand error");
                             dist_t d = fstdistfunc_(data_point, getDataByInternalId(cand), dist_func_param_);
                             if (d < curdist) {
@@ -1365,7 +1367,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                 tableint *datal = (tableint *) (data + 1);
                 for (int i = 0; i < size; i++) {
                     tableint cand = datal[i];
-                    if (cand < 0 || cand > max_elements_)
+                    if (cand > max_elements_)
                         return Status("cand error");
                     dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
 

@@ -92,6 +92,7 @@ static bool AVXCapable() {
     return HW_AVX && avxSupported;
 }
 
+#if defined(USE_AVX512)
 static bool AVX512Capable() {
     if (!AVXCapable()) return false;
 
@@ -120,6 +121,8 @@ static bool AVX512Capable() {
     }
     return HW_AVX512F && avx512Supported;
 }
+#endif
+
 #endif
 
 #include <queue>
@@ -212,7 +215,11 @@ typedef size_t labeltype;
 // This can be extended to store state for filtering (e.g. from a std::set)
 class BaseFilterFunctor {
  public:
-    virtual bool operator()(hnswlib::labeltype id) { return true; }
+    virtual bool operator()(hnswlib::labeltype id) {
+        (void)id; // silence unused variable warning.
+        return true;
+    }
+
     virtual ~BaseFilterFunctor() {};
 };
 
