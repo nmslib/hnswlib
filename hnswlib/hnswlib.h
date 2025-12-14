@@ -65,6 +65,7 @@ static uint64_t xgetbv(unsigned int index) {
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
 
+#if defined(USE_AVX)
 static bool AVXCapable() {
     int cpuInfo[4];
 
@@ -91,6 +92,7 @@ static bool AVXCapable() {
     }
     return HW_AVX && avxSupported;
 }
+#endif
 
 #if defined(USE_AVX512)
 static bool AVX512Capable() {
