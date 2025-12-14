@@ -30,16 +30,19 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #include <stdexcept>
+#if defined(USE_AVX)
 static void cpuid(int32_t out[4], int32_t eax, int32_t ecx) {
     __cpuidex(out, eax, ecx);
 }
 static __int64 xgetbv(unsigned int x) {
     return _xgetbv(x);
 }
+#endif
 #else
 #include <x86intrin.h>
 #include <cpuid.h>
 #include <stdint.h>
+#if defined(USE_AVX)
 static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
     __cpuid_count(eax, ecx, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 }
@@ -48,6 +51,7 @@ static uint64_t xgetbv(unsigned int index) {
     __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
     return ((uint64_t)edx << 32) | eax;
 }
+#endif
 #endif
 
 #if defined(USE_AVX512)
@@ -92,7 +96,6 @@ static bool AVXCapable() {
     }
     return HW_AVX && avxSupported;
 }
-#endif
 
 #if defined(USE_AVX512)
 static bool AVX512Capable() {
@@ -124,7 +127,7 @@ static bool AVX512Capable() {
     return HW_AVX512F && avx512Supported;
 }
 #endif
-
+#endif
 #endif
 
 #include <queue>

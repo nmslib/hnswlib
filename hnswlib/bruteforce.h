@@ -32,6 +32,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             size_per_element_(0),
             data_size_(0),
             dist_func_param_(nullptr) {
+        (void)s; // silence unused variable warnings.
     }
 
 

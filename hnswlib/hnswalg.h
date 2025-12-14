@@ -77,6 +77,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
+        (void)s; // silence unused variable warnings.
     }
 
 
