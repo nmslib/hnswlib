@@ -101,8 +101,8 @@ inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, 
     if (buffer.ndim != 2 && buffer.ndim != 1) {
         char msg[256];
         snprintf(msg, sizeof(msg),
-            "Input vector data wrong shape. Number of dimensions %zd. Data must be a 1D or 2D array.",
-            (ssize_t)buffer.ndim);
+            "Input vector data wrong shape. Number of dimensions %lld. Data must be a 1D or 2D array.",
+            (long long)buffer.ndim); // use long long to avoid overflowing an int (%d) from a pybind11::ssize_t.
         HNSWLIB_THROW_RUNTIME_ERROR(msg);
     }
     if (buffer.ndim == 2) {
@@ -135,8 +135,8 @@ inline std::vector<size_t> get_input_ids_and_check_shapes(const py::object& ids_
               (ids_numpy.ndim == 0 && feature_rows == 1))) {
             char msg[256];
             snprintf(msg, sizeof(msg),
-                "The input label shape %zd does not match the input data vector shape %zu",
-                (ssize_t)ids_numpy.ndim, feature_rows);
+                "The input label shape %lld does not match the input data vector shape %zu",
+                (long long)ids_numpy.ndim, feature_rows);
             HNSWLIB_THROW_RUNTIME_ERROR(msg);
         }
         // extract data
