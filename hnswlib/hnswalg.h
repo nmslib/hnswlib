@@ -186,6 +186,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return union_count == 0 ? 0.0 : static_cast<double>(intersection) / union_count;
     }
 
+    void setNodeEntities(const std::vector<std::vector<tableint>>& entities) {
+        node_entities_ = entities;
+
+        std::cout << "==================================Node entities set: " << std::endl;
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            std::cout << "Node " << i << ": ";
+            for (size_t j = 0; j < node_entities_[i].size(); j++) {
+                std::cout << node_entities_[i][j] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
 
     void setEf(size_t ef) {
         ef_ = ef;

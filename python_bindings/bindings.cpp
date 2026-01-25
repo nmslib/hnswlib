@@ -362,15 +362,26 @@ class Index {
 
         auto* data = static_cast<hnswlib::tableint*>(buf.ptr);
 
-        for (size_t id : ids) {
-            std::cout << "id is: " << id << "\n";
-            std::cout << "entities[" << id << "]: ";
+        // for (size_t id : ids) {
+        //     std::cout << "id is: " << id << "\n";
+        //     std::cout << "entities[" << id << "]: ";
 
+        //     for (size_t j = 0; j < cols; j++) {
+        //         std::cout << data[id * cols + j] << " ";
+        //     }
+        //     std::cout << "\n";
+        // }
+
+        std::vector<std::vector<hnswlib::tableint>> entities_cpp(entity_rows, std::vector<hnswlib::tableint>(cols));
+
+        for (size_t i = 0; i < entity_rows; i++) {
             for (size_t j = 0; j < cols; j++) {
-                std::cout << data[id * cols + j] << " ";
+                entities_cpp[i][j] = data[i * cols + j];
             }
-            std::cout << "\n";
         }
+        
+        appr_alg->setNodeEntities(entities_cpp);
+
 
         {
             int start = 0;
