@@ -200,10 +200,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         std::cout << "Total nodes: " << node_entities_.size() << std::endl;
 
+        size_t total_bytes = 0;
+
         for (size_t i = 0; i < node_entities_.size(); i++) {
-            std::cout << "Node " << i << " has " << node_entities_[i].size() << " entities." << std::endl;
+            size_t node_size = node_entities_[i].size() * sizeof(tableint);
+            total_bytes += node_size;
+            std::cout << "Node " << i << " has " << node_entities_[i].size() 
+                    << " entities, approx " << node_size << " bytes" << std::endl;
         }
 
+        std::cout << "Approx total memory for all entities: " << total_bytes << " bytes" << std::endl;
     }
 
 
@@ -722,6 +728,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             size += sizeof(linkListSize);
             size += linkListSize;
         }
+
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            unsigned int numEntities = node_entities_[i].size();
+            size += sizeof(numEntities);
+            size += numEntities * sizeof(tableint);
+        }
+
         return size;
     }
 
@@ -733,6 +746,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, offsetLevel0_);
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
+        std::cout << "CURRENT ELEMENT COUNT: " << cur_element_count << "\n";
         writeBinaryPOD(output, size_data_per_element_);
         writeBinaryPOD(output, label_offset_);
         writeBinaryPOD(output, offsetData_);
@@ -753,6 +767,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (linkListSize)
                 output.write(linkLists_[i], linkListSize);
         }
+
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            unsigned int numEntities = node_entities_[i].size();
+            writeBinaryPOD(output, numEntities);
+            if (numEntities > 0) {
+                output.write(reinterpret_cast<const char*>(node_entities_[i].data()),
+                            numEntities * sizeof(tableint));
+            }
+        }
+
         output.close();
     }
 
@@ -760,7 +784,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         std::cout<< "======================LOADING=============================\n";
         std::ifstream input(location, std::ios::binary);
-        node_entities_.resize(cur_element_count);
+        // node_entities_.resize(cur_element_count);
 
         if (!input.is_open())
             throw std::runtime_error("Cannot open file");
@@ -798,22 +822,22 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         auto pos = input.tellg();
 
         /// Optional - check if index is ok:
-        input.seekg(cur_element_count * size_data_per_element_, input.cur);
-        for (size_t i = 0; i < cur_element_count; i++) {
-            if (input.tellg() < 0 || input.tellg() >= total_filesize) {
-                throw std::runtime_error("Index seems to be corrupted or unsupported");
-            }
+        // input.seekg(cur_element_count * size_data_per_element_, input.cur);
+        // for (size_t i = 0; i < cur_element_count; i++) {
+        //     if (input.tellg() < 0 || input.tellg() >= total_filesize) {
+        //         throw std::runtime_error("Index seems to be corrupted or unsupported");
+        //     }
 
-            unsigned int linkListSize;
-            readBinaryPOD(input, linkListSize);
-            if (linkListSize != 0) {
-                input.seekg(linkListSize, input.cur);
-            }
-        }
+        //     unsigned int linkListSize;
+        //     readBinaryPOD(input, linkListSize);
+        //     if (linkListSize != 0) {
+        //         input.seekg(linkListSize, input.cur);
+        //     }
+        // }
 
         // throw exception if it either corrupted or old index
-        if (input.tellg() != total_filesize)
-            throw std::runtime_error("Index seems to be corrupted or unsupported");
+        // if (input.tellg() != total_filesize)
+        //     throw std::runtime_error("Index seems to be corrupted or unsupported");
 
         input.clear();
         /// Optional check end
@@ -862,7 +886,24 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
+        for (size_t i = 0; i < cur_element_count; i++) {
+            unsigned int numEntities;
+            readBinaryPOD(input, numEntities);
+
+            std::vector<tableint> entities(numEntities);
+            if (numEntities > 0)
+                input.read(reinterpret_cast<char*>(entities.data()), numEntities * sizeof(tableint));
+
+            node_entities_.push_back(std::move(entities));
+        }
+
         input.close();
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            size_t node_size = node_entities_[i].size() * sizeof(tableint);
+            std::cout << "Node " << i << " has " << node_entities_[i].size() 
+                    << " entities, approx " << node_size << " bytes" << std::endl;
+        }
+        
 
         return;
     }
