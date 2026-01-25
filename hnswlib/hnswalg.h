@@ -821,23 +821,31 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         auto pos = input.tellg();
 
-        /// Optional - check if index is ok:
-        // input.seekg(cur_element_count * size_data_per_element_, input.cur);
-        // for (size_t i = 0; i < cur_element_count; i++) {
-        //     if (input.tellg() < 0 || input.tellg() >= total_filesize) {
-        //         throw std::runtime_error("Index seems to be corrupted or unsupported");
-        //     }
+        // optional check
+        input.seekg(cur_element_count * size_data_per_element_, input.cur);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            if (input.tellg() < 0 || input.tellg() > total_filesize)
+                throw std::runtime_error("Index seems to be corrupted or unsupported");
 
-        //     unsigned int linkListSize;
-        //     readBinaryPOD(input, linkListSize);
-        //     if (linkListSize != 0) {
-        //         input.seekg(linkListSize, input.cur);
-        //     }
-        // }
+            unsigned int linkListSize;
+            readBinaryPOD(input, linkListSize);
 
-        // throw exception if it either corrupted or old index
-        // if (input.tellg() != total_filesize)
-        //     throw std::runtime_error("Index seems to be corrupted or unsupported");
+            if (linkListSize)
+                input.seekg(linkListSize, std::ios::cur);
+        }
+
+        for (size_t i = 0; i < cur_element_count; i++) {
+            unsigned int numEntities;
+            readBinaryPOD(input, numEntities);
+
+            input.seekg(numEntities * sizeof(tableint), std::ios::cur);
+
+            if (input.tellg() < 0 || input.tellg() > total_filesize)
+                throw std::runtime_error("Index seems to be corrupted or unsupported");
+        }
+
+        if (input.tellg() != total_filesize)
+            throw std::runtime_error("Index seems to be corrupted or unsupported");
 
         input.clear();
         /// Optional check end
@@ -900,8 +908,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         input.close();
         for (size_t i = 0; i < node_entities_.size(); i++) {
             size_t node_size = node_entities_[i].size() * sizeof(tableint);
-            std::cout << "Node " << i << " has " << node_entities_[i].size() 
-                    << " entities, approx " << node_size << " bytes" << std::endl;
+            std::cout << "Loaded Node " << i << " has " << node_entities_[i].size() 
+                    << " entities, approx " << node_size << " bytes: ";
+
+            for (size_t j = 0; j < node_entities_[i].size(); j++) {
+                std::cout << node_entities_[i][j] << " ";
+            }
+
+            std::cout << std::endl;
         }
         
 
