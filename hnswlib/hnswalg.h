@@ -10,6 +10,8 @@
 #include <list>
 #include <memory>
 
+#include "ats_dummy.h"
+
 namespace hnswlib {
 typedef unsigned int tableint;
 typedef unsigned int linklistsizeint;
@@ -70,6 +72,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::mutex deleted_elements_lock;  // lock for deleted_elements
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
+    std::vector<std::vector<tableint>> node_entities_;
+
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -96,6 +100,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         : label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             link_list_locks_(max_elements),
             element_levels_(max_elements),
+            node_entities_(max_elements),
             allow_replace_deleted_(allow_replace_deleted) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
@@ -169,6 +174,18 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
     };
 
+    double getJaccardSimilarity(const std::unordered_set<tableint>& a,
+                                const std::unordered_set<tableint>& b) {
+
+        size_t intersection = 0;
+        for (const auto& x : a) {
+            if (b.count(x)) intersection++;
+        }
+
+        size_t union_count = a.size() + b.size() - intersection;
+        return union_count == 0 ? 0.0 : static_cast<double>(intersection) / union_count;
+    }
+
 
     void setEf(size_t ef) {
         ef_ = ef;
@@ -224,6 +241,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
+        ATSDummy::ping();
+        // std::unordered_set<tableint> setA = {1, 2, 3, 4};
+        // std::unordered_set<tableint> setB = {3, 4, 5, 6};
+        // double sim = getJaccardSimilarity(setA, setB);
+        // std::cout << "Jaccard similarity: " << sim << std::endl;
+        
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
@@ -683,6 +706,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void saveIndex(const std::string &location) {
+        std::cout<< "======================SAVING=============================\n";
         std::ofstream output(location, std::ios::binary);
         std::streampos position;
 
@@ -714,7 +738,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
+        std::cout<< "======================LOADING=============================\n";
         std::ifstream input(location, std::ios::binary);
+        node_entities_.resize(cur_element_count);
 
         if (!input.is_open())
             throw std::runtime_error("Cannot open file");
@@ -1265,6 +1291,24 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         return cur_c;
     }
+    
+    
+    tableint addPointWithEntities(
+        const void* data_point,
+        labeltype label,
+        const std::vector<tableint>& entities,
+        int level = -1) {
+            tableint id = addPoint(data_point, label, level);
+
+            // Ensure capacity
+            if (id >= node_entities_.size()) {
+                node_entities_.resize(max_elements_);
+            }
+
+            node_entities_[id] = entities;
+            return id;
+    }
+
 
 
     std::priority_queue<std::pair<dist_t, labeltype >>

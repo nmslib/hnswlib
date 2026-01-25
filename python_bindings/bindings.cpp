@@ -248,6 +248,17 @@ class Index {
     }
 
 
+    // std::vector<tableint> getEntities(tableint internal_id) {
+    //     if (!appr_alg) {
+    //         throw std::runtime_error("Index not initialized");
+    //     }
+    //     if (internal_id >= appr_alg->getCurrentElementCount()) {
+    //         throw std::out_of_range("Invalid internal id");
+    //     }
+    //     return appr_alg->node_entities_[internal_id]
+    // }
+
+
     void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
@@ -266,6 +277,100 @@ class Index {
         }
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
+
+        {
+            int start = 0;
+            if (!ep_added) {
+                size_t id = ids.size() ? ids.at(0) : (cur_l);
+                float* vector_data = (float*)items.data(0);
+                std::vector<float> norm_array(dim);
+                if (normalize) {
+                    normalize_vector(vector_data, norm_array.data());
+                    vector_data = norm_array.data();
+                }
+                appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
+                start = 1;
+                ep_added = true;
+            }
+
+            py::gil_scoped_release l;
+            if (normalize == false) {
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
+                    });
+            } else {
+                std::vector<float> norm_array(num_threads * dim);
+                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                    // normalize vector:
+                    size_t start_idx = threadId * dim;
+                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
+
+                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
+                    });
+            }
+            cur_l += rows;
+        }
+    }
+
+    void addItemsWithEntities(py::object input, py::object ids_ = py::none(), py::object entities_ = py::none(),
+                              int num_threads = -1, bool replace_deleted = false) 
+        {
+
+        std::cout << "CUSTOM FUNCTION CALLED" << std::endl;
+        if (!entities_.is_none()) {
+            std::cout << "Entities passed:" << std::endl;
+
+            // Convert Python object to iterable
+            py::list entity_list = entities_;
+            for (size_t i = 0; i < entity_list.size(); i++) {
+                py::object ent = entity_list[i];
+                // Convert to string for printing
+                std::string ent_str = py::str(ent);
+                std::cout << "  " << i << ": " << ent_str << std::endl;
+            }
+        } else {
+            std::cout << "No entities provided." << std::endl;
+        }
+
+        py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
+        auto buffer = items.request();
+        if (num_threads <= 0)
+            num_threads = num_threads_default;
+
+        size_t rows, features;
+        get_input_array_shapes(buffer, &rows, &features);
+
+        if (features != dim)
+            throw std::runtime_error("Wrong dimensionality of the vectors");
+
+        // avoid using threads when the number of additions is small:
+        if (rows <= num_threads * 4) {
+            num_threads = 1;
+        }
+
+        std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
+
+        py::array_t<hnswlib::tableint, py::array::c_style | py::array::forcecast> entities_arr =
+            entities_.cast<py::array_t<hnswlib::tableint>>();
+
+        auto buf = entities_arr.request();
+
+        size_t entity_rows = buf.shape[0];
+        size_t cols = buf.shape[1];
+
+        auto* data = static_cast<hnswlib::tableint*>(buf.ptr);
+
+        for (size_t id : ids) {
+            std::cout << "id is: " << id << "\n";
+            std::cout << "entities[" << id << "]: ";
+
+            for (size_t j = 0; j < cols; j++) {
+                std::cout << data[id * cols + j] << " ";
+            }
+            std::cout << "\n";
+        }
 
         {
             int start = 0;
@@ -932,6 +1037,13 @@ PYBIND11_PLUGIN(hnswlib) {
             &Index<float>::addItems,
             py::arg("data"),
             py::arg("ids") = py::none(),
+            py::arg("num_threads") = -1,
+            py::arg("replace_deleted") = false)
+        .def("add_items_with_entities",
+            &Index<float>::addItemsWithEntities,
+            py::arg("data"),
+            py::arg("ids_") = py::none(),
+            py::arg("entities_") = py::none(),
             py::arg("num_threads") = -1,
             py::arg("replace_deleted") = false)
         .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
