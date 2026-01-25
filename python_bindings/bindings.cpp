@@ -352,34 +352,24 @@ class Index {
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
-        py::array_t<hnswlib::tableint, py::array::c_style | py::array::forcecast> entities_arr =
-            entities_.cast<py::array_t<hnswlib::tableint>>();
+        std::vector<std::vector<hnswlib::tableint>> entities_cpp;
+        if (!entities_.is_none()) {
+            py::list entity_list = entities_;
+            if (entity_list.size() != rows)
+                throw std::runtime_error("Number of entities lists must match number of vectors");
 
-        auto buf = entities_arr.request();
+            for (size_t i = 0; i < entity_list.size(); i++) {
+                py::list single_node = entity_list[i];
+                std::vector<hnswlib::tableint> node_entities;
 
-        size_t entity_rows = buf.shape[0];
-        size_t cols = buf.shape[1];
+                for (size_t j = 0; j < single_node.size(); j++) {
+                    node_entities.push_back(single_node[j].cast<hnswlib::tableint>());
+                }
 
-        auto* data = static_cast<hnswlib::tableint*>(buf.ptr);
-
-        // for (size_t id : ids) {
-        //     std::cout << "id is: " << id << "\n";
-        //     std::cout << "entities[" << id << "]: ";
-
-        //     for (size_t j = 0; j < cols; j++) {
-        //         std::cout << data[id * cols + j] << " ";
-        //     }
-        //     std::cout << "\n";
-        // }
-
-        std::vector<std::vector<hnswlib::tableint>> entities_cpp(entity_rows, std::vector<hnswlib::tableint>(cols));
-
-        for (size_t i = 0; i < entity_rows; i++) {
-            for (size_t j = 0; j < cols; j++) {
-                entities_cpp[i][j] = data[i * cols + j];
+                entities_cpp.push_back(node_entities);
             }
         }
-        
+
         appr_alg->setNodeEntities(entities_cpp);
 
 

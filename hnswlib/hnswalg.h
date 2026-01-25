@@ -197,6 +197,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
             std::cout << std::endl;
         }
+
+        std::cout << "Total nodes: " << node_entities_.size() << std::endl;
+
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            std::cout << "Node " << i << " has " << node_entities_[i].size() << " entities." << std::endl;
+        }
+
     }
 
 
