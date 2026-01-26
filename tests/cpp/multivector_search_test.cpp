@@ -79,17 +79,17 @@ int main() {
             docidtype doc_id = label_docid_lookup[label];
             hnsw_docs.emplace(doc_id);
         }
-        assert(hnsw_docs.size() == num_docs);
+        assert(hnsw_docs.size() == static_cast<size_t>(num_docs));
 
         // Check overall recall
-        std::vector<std::pair<dist_t, hnswlib::labeltype>> gt_results = 
+        std::vector<std::pair<dist_t, hnswlib::labeltype>> gt_results =
             alg_brute->searchKnnCloserFirst(query_data, max_elements);
         std::unordered_set<docidtype> gt_docs;
-        for (int i = 0; i < gt_results.size(); i++) {
-            if (gt_docs.size() == num_docs) {
+        for (size_t j = 0; j < gt_results.size(); j++) {
+            if (gt_docs.size() == static_cast<size_t>(num_docs)) {
                 break;
             }
-            hnswlib::labeltype gt_label = gt_results[i].second;
+            hnswlib::labeltype gt_label = gt_results[j].second;
             if (hnsw_labels.find(gt_label) != hnsw_labels.end()) {
                 correct += 1;
             }
@@ -109,13 +109,13 @@ int main() {
         hnswlib::MultiVectorSearchStopCondition<docidtype, dist_t> stop_condition(space, num_docs, ef_collection);
         std::vector<std::pair<float, hnswlib::labeltype>> result =
             alg_hnsw->searchStopConditionClosest(data + i * data_point_size, stop_condition);
-        hnswlib::labeltype label = -1;
+        hnswlib::labeltype label = static_cast<hnswlib::labeltype>(-1);
         if (!result.empty()) {
             label = result[0].second;
         }
-        if (label == i) correct++;
+        if (label == static_cast<hnswlib::labeltype>(i)) correct++;
     }
-    recall = correct / max_elements;
+    recall = correct / static_cast<float>(max_elements);
     std::cout << "same elements search recall : " << recall << "\n";
     assert(recall > 0.99);
 

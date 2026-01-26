@@ -110,8 +110,8 @@ test_approx(std::vector<float> &queries, size_t qsize, hnswlib::HierarchicalNSW<
     size_t correct = 0;
     size_t total = 0;
 
-    for (int i = 0; i < qsize; i++) {
-        std::priority_queue<std::pair<d_type, hnswlib::labeltype>> result = appr_alg.searchKnn((char *)(queries.data() + vecdim * i), K);
+    for (size_t i = 0; i < qsize; i++) {
+        std::priority_queue<std::pair<d_type, hnswlib::labeltype>> result = appr_alg.searchKnn(reinterpret_cast<char*>(queries.data() + vecdim * i), K);
         total += K;
         while (result.size()) {
             if (answers[i].find(result.top().second) != answers[i].end()) {
@@ -226,12 +226,12 @@ int main(int argc, char **argv) {
     if (update) {
         std::cout << "Update iteration 0\n";
 
-        ParallelFor(1, N, num_threads, [&](size_t i, size_t threadId) {
+        ParallelFor(1, N, num_threads, [&](size_t i, size_t /*threadId*/) {
             appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
         });
         appr_alg.checkIntegrity();
 
-        ParallelFor(1, N, num_threads, [&](size_t i, size_t threadId) {
+        ParallelFor(1, N, num_threads, [&](size_t i, size_t /*threadId*/) {
             appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
         });
         appr_alg.checkIntegrity();
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
             snprintf(cpath, sizeof(cpath), "batch_dummy_%02d.bin", b);
             std::vector<float> dummy_batchb = load_batch<float>(path + cpath, N * d);
 
-            ParallelFor(0, N, num_threads, [&](size_t i, size_t threadId) {
+            ParallelFor(0, N, num_threads, [&](size_t i, size_t /*threadId*/) {
                 appr_alg.addPoint((void *)(dummy_batch.data() + i * d), i);
             });
             appr_alg.checkIntegrity();
@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
     std::vector<float> final_batch = load_batch<float>(path + "batch_final.bin", N * d);
 
     stopw.reset();
-    ParallelFor(0, N, num_threads, [&](size_t i, size_t threadId) {
+    ParallelFor(0, N, num_threads, [&](size_t i, size_t /*threadId*/) {
                     appr_alg.addPoint((void *)(final_batch.data() + i * d), i);
                 });
     std::cout << "Finished. Time taken:" << stopw.getElapsedTimeMicro()*1e-6 << " s\n";

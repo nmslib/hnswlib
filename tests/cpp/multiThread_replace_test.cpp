@@ -93,7 +93,7 @@ int main() {
         hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, 16, 200, 123, true);
 
         // add batch1 data
-        ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
+        ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t /*threadId*/) {
             alg_hnsw->addPoint((void*)(batch1 + d * row), row);
         });
 
@@ -103,7 +103,7 @@ int main() {
         }
 
         // replace deleted elements with batch2 data
-        ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t threadId) {
+        ParallelFor(0, num_elements, num_threads, [&](size_t row, size_t /*threadId*/) {
             int label = rand_labels[row] + max_elements;
             alg_hnsw->addPoint((void*)(batch2 + d * row), label, true);
         });

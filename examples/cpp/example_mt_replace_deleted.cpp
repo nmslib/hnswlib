@@ -83,13 +83,13 @@ int main() {
     }
 
     // Add data to index
-    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
+    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t /*threadId*/) {
         alg_hnsw->addPoint((void*)(data + dim * row), row);
     });
 
     // Mark first half of elements as deleted
     int num_deleted = max_elements / 2;
-    ParallelFor(0, num_deleted, num_threads, [&](size_t row, size_t threadId) {
+    ParallelFor(0, num_deleted, num_threads, [&](size_t row, size_t /*threadId*/) {
         alg_hnsw->markDelete(row);
     });
 
@@ -102,8 +102,8 @@ int main() {
     // Replace deleted data with new elements
     // Maximum number of elements is reached therefore we cannot add new items,
     // but we can replace the deleted ones by using replace_deleted=true
-    ParallelFor(0, num_deleted, num_threads, [&](size_t row, size_t threadId) {
-        hnswlib::labeltype label = max_elements + row;
+    ParallelFor(0, num_deleted, num_threads, [&](size_t row, size_t /*threadId*/) {
+        hnswlib::labeltype label = static_cast<hnswlib::labeltype>(max_elements) + row;
         alg_hnsw->addPoint((void*)(add_data + dim * row), label, true);
     });
 

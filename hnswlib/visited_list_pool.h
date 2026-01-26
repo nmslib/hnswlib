@@ -11,12 +11,12 @@ class VisitedList {
  public:
     vl_type curV;
     vl_type *mass;
-    unsigned int numelements;
+    size_t numelements;
 
-    VisitedList(int numelements1) {
-        curV = -1;
-        numelements = numelements1;
-        mass = new vl_type[numelements];
+    explicit VisitedList(size_t numelements_init)
+        : curV(static_cast<vl_type>(-1)),
+          mass(new vl_type[numelements_init]),
+          numelements(numelements_init) {
     }
 
     void reset() {
@@ -38,12 +38,12 @@ class VisitedList {
 class VisitedListPool {
     std::deque<VisitedList *> pool;
     std::mutex poolguard;
-    int numelements;
+    size_t numelements;
 
  public:
-    VisitedListPool(int initmaxpools, int numelements1) {
-        numelements = numelements1;
-        for (int i = 0; i < initmaxpools; i++)
+    VisitedListPool(size_t initmaxpools, size_t numelements_init)
+        : numelements(numelements_init) {
+        for (size_t i = 0; i < initmaxpools; i++)
             pool.push_front(new VisitedList(numelements));
     }
 

@@ -40,7 +40,7 @@ static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
 static uint64_t xgetbv(unsigned int index) {
     uint32_t eax, edx;
     __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
-    return ((uint64_t)edx << 32) | eax;
+    return (static_cast<uint64_t>(edx) << 32) | eax;
 }
 #endif
 
@@ -59,6 +59,14 @@ static uint64_t xgetbv(unsigned int index) {
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
 
+// These functions may be unused when SIMD is disabled or specific instruction sets are not available
+#if defined(__GNUC__) || defined(__clang__)
+#define HNSWLIB_MAYBE_UNUSED __attribute__((unused))
+#else
+#define HNSWLIB_MAYBE_UNUSED
+#endif
+
+HNSWLIB_MAYBE_UNUSED
 static bool AVXCapable() {
     int cpuInfo[4];
 
@@ -69,7 +77,7 @@ static bool AVXCapable() {
     bool HW_AVX = false;
     if (nIds >= 0x00000001) {
         cpuid(cpuInfo, 0x00000001, 0);
-        HW_AVX = (cpuInfo[2] & ((int)1 << 28)) != 0;
+        HW_AVX = (cpuInfo[2] & (1 << 28)) != 0;
     }
 
     // OS support
@@ -86,6 +94,7 @@ static bool AVXCapable() {
     return HW_AVX && avxSupported;
 }
 
+HNSWLIB_MAYBE_UNUSED
 static bool AVX512Capable() {
     if (!AVXCapable()) return false;
 
@@ -98,7 +107,7 @@ static bool AVX512Capable() {
     bool HW_AVX512F = false;
     if (nIds >= 0x00000007) {  //  AVX512 Foundation
         cpuid(cpuInfo, 0x00000007, 0);
-        HW_AVX512F = (cpuInfo[1] & ((int)1 << 16)) != 0;
+        HW_AVX512F = (cpuInfo[1] & (1 << 16)) != 0;
     }
 
     // OS support
@@ -127,7 +136,7 @@ typedef size_t labeltype;
 // This can be extended to store state for filtering (e.g. from a std::set)
 class BaseFilterFunctor {
  public:
-    virtual bool operator()(hnswlib::labeltype id) { return true; }
+    virtual bool operator()(hnswlib::labeltype /*id*/) { return true; }
     virtual ~BaseFilterFunctor() {};
 };
 
@@ -159,12 +168,12 @@ class pairGreater {
 
 template<typename T>
 static void writeBinaryPOD(std::ostream &out, const T &podRef) {
-    out.write((char *) &podRef, sizeof(T));
+    out.write(reinterpret_cast<const char*>(&podRef), sizeof(T));
 }
 
 template<typename T>
 static void readBinaryPOD(std::istream &in, T &podRef) {
-    in.read((char *) &podRef, sizeof(T));
+    in.read(reinterpret_cast<char*>(&podRef), sizeof(T));
 }
 
 template<typename MTYPE>
