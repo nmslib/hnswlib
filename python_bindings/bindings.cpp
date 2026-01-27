@@ -720,6 +720,94 @@ class Index {
     size_t getCurrentCount() const {
         return appr_alg->cur_element_count;
     }
+
+
+    py::dict checkIntegrity() {
+        /**
+         * Python-friendly integrity check that returns detailed results
+         * instead of crashing on assert failures.
+         *
+         * Returns a dict with:
+         *   - valid: bool - whether integrity check passed
+         *   - connections_checked: int - total connections verified
+         *   - min_inbound: int - minimum inbound connections per node
+         *   - max_inbound: int - maximum inbound connections per node
+         *   - errors: list[str] - list of any errors found
+         */
+        if (!appr_alg) {
+            return py::dict(
+                "valid"_a = false,
+                "connections_checked"_a = 0,
+                "min_inbound"_a = 0,
+                "max_inbound"_a = 0,
+                "errors"_a = py::list(py::cast(std::vector<std::string>{"Index not initialized"}))
+            );
+        }
+
+        std::vector<std::string> errors;
+        int connections_checked = 0;
+        std::vector<int> inbound_connections_num(appr_alg->cur_element_count, 0);
+
+        for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
+            for (int l = 0; l <= appr_alg->element_levels_[i]; l++) {
+                hnswlib::linklistsizeint *ll_cur = appr_alg->get_linklist_at_level(i, l);
+                int size = appr_alg->getListCount(ll_cur);
+                hnswlib::tableint *data = (hnswlib::tableint *) (ll_cur + 1);
+                std::unordered_set<hnswlib::tableint> s;
+
+                for (int j = 0; j < size; j++) {
+                    // Check: connection points to valid element
+                    if (data[j] >= appr_alg->cur_element_count) {
+                        errors.push_back("Element " + std::to_string(i) + " at level " +
+                            std::to_string(l) + " has invalid connection to " + std::to_string(data[j]));
+                    }
+                    // Check: no self-loops
+                    if (data[j] == i) {
+                        errors.push_back("Element " + std::to_string(i) + " at level " +
+                            std::to_string(l) + " has self-loop");
+                    }
+                    // Track for duplicate check
+                    if (s.find(data[j]) != s.end()) {
+                        errors.push_back("Element " + std::to_string(i) + " at level " +
+                            std::to_string(l) + " has duplicate connection to " + std::to_string(data[j]));
+                    }
+                    s.insert(data[j]);
+                    if (data[j] < appr_alg->cur_element_count) {
+                        inbound_connections_num[data[j]]++;
+                    }
+                    connections_checked++;
+                }
+            }
+        }
+
+        // Check for orphan nodes (no inbound connections)
+        int min_inbound = 0, max_inbound = 0;
+        if (appr_alg->cur_element_count > 1) {
+            min_inbound = inbound_connections_num[0];
+            max_inbound = inbound_connections_num[0];
+            for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
+                if (inbound_connections_num[i] == 0) {
+                    errors.push_back("Element " + std::to_string(i) + " has no inbound connections (orphan)");
+                }
+                min_inbound = std::min(inbound_connections_num[i], min_inbound);
+                max_inbound = std::max(inbound_connections_num[i], max_inbound);
+            }
+        }
+
+        py::list error_list;
+        for (const auto& err : errors) {
+            error_list.append(err);
+        }
+
+        return py::dict(
+            "valid"_a = errors.empty(),
+            "connections_checked"_a = connections_checked,
+            "element_count"_a = (size_t)appr_alg->cur_element_count,
+            "min_inbound"_a = min_inbound,
+            "max_inbound"_a = max_inbound,
+            "errors"_a = error_list
+        );
+    }
 };
 
 template<typename dist_t, typename data_t = float>
@@ -950,6 +1038,15 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
         .def("get_max_elements", &Index<float>::getMaxElements)
         .def("get_current_count", &Index<float>::getCurrentCount)
+        .def("check_integrity", &Index<float>::checkIntegrity,
+            "Check index integrity and return detailed results.\n\n"
+            "Returns a dict with:\n"
+            "  - valid: bool - whether integrity check passed\n"
+            "  - connections_checked: int - total connections verified\n"
+            "  - element_count: int - number of elements in index\n"
+            "  - min_inbound: int - minimum inbound connections per node\n"
+            "  - max_inbound: int - maximum inbound connections per node\n"
+            "  - errors: list[str] - list of any errors found\n")
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
