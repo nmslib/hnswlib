@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "ats_dummy.h"
+#include "AhoCorasick.h"
 
 namespace hnswlib {
 typedef unsigned int tableint;
@@ -742,6 +743,29 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::cout<< "======================SAVING=============================\n";
         std::ofstream output(location, std::ios::binary);
         std::streampos position;
+
+        // ---- Aho-Corasick small test ----
+    {
+        std::vector<std::string> patterns = {
+            "apple",
+            "banana",
+            "pie"
+        };
+
+        AhoCorasick ac;
+        ac.build(patterns);
+
+        std::string text = "I like apple pie and banana bread";
+        auto matches = ac.search(text);
+
+        std::cout << "=== Aho-Corasick test ===\n";
+        for (const auto &m : matches) {
+            std::cout << "Found \"" << m.second
+                      << "\" at position " << m.first << "\n";
+        }
+        std::cout << "========================\n";
+    }
+    // ---- end test ----
 
         writeBinaryPOD(output, offsetLevel0_);
         writeBinaryPOD(output, max_elements_);
