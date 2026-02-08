@@ -352,7 +352,7 @@ class Index {
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
-        std::vector<std::vector<hnswlib::tableint>> entities_cpp;
+        std::vector<std::vector<std::string>> entities_cpp;
         if (!entities_.is_none()) {
             py::list entity_list = entities_;
             if (entity_list.size() != rows)
@@ -360,10 +360,10 @@ class Index {
 
             for (size_t i = 0; i < entity_list.size(); i++) {
                 py::list single_node = entity_list[i];
-                std::vector<hnswlib::tableint> node_entities;
+                std::vector<std::string> node_entities;
 
                 for (size_t j = 0; j < single_node.size(); j++) {
-                    node_entities.push_back(single_node[j].cast<hnswlib::tableint>());
+                    node_entities.push_back(single_node[j].cast<std::string>());
                 }
 
                 entities_cpp.push_back(node_entities);
@@ -384,6 +384,7 @@ class Index {
                     vector_data = norm_array.data();
                 }
                 appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
+                // std::cout << "Id point: " << id << "\n";
                 start = 1;
                 ep_added = true;
             }

@@ -3,12 +3,13 @@
 #include <vector>
 #include <string>
 
-struct TrieNode;
+using EntityId = size_t;
 
 struct TrieNode {
     std::unordered_map<char, TrieNode*> children;
     TrieNode* failure;
-    std::vector<std::string> outputs;
+    std::vector<EntityId> outputs;
+    bool is_end = false;
 
     TrieNode() : failure(nullptr) {}
 };

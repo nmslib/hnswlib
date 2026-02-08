@@ -1,25 +1,43 @@
 #pragma once
-#include "TrieNode.h"
-#include <string>
+#include <unordered_map>
 #include <vector>
+#include <string>
+#include <queue>
+#include <algorithm>
+
+using EntityId = size_t;
+
+struct TrieNode {
+    std::unordered_map<char, TrieNode*> children;
+    TrieNode* failure = nullptr;
+    std::vector<EntityId> outputs;
+    bool is_end = false;
+
+    TrieNode() : failure(nullptr), is_end(false) {}
+};
 
 class AhoCorasick {
-
 public:
     AhoCorasick();
     ~AhoCorasick();
-    
-    size_t numWords() const;
 
-    void build(const std::vector<std::string> &entities);
+    EntityId addEntity(const std::string& word);
+    void build();
+    std::vector<std::pair<size_t, EntityId>> search(const std::string& text);
 
-    std::vector<std::pair<size_t, std::string>> search(const std::string& text) const;
+    const std::string& getEntity(EntityId id) const;
+    size_t getFrequency(EntityId id) const;
+    size_t numWords() const { return entities.size(); }
 
-    void save(const std::string& filename) const;
-    void load(const std::string& filename);
+    void save(std::ostream &out) const;
+    void load(std::istream &in);
 
 private:
     TrieNode* root;
-    void buildFailureLinks();
+    std::vector<std::string> entities; 
+    std::vector<size_t> frequency;     
+    bool built = false;
+
     void deleteTrie(TrieNode* node);
+    void buildFailureLinks();
 };
