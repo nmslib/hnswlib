@@ -18,12 +18,21 @@ include_dirs = [
 
 # compatibility when run in python_bindings
 bindings_dir = 'python_bindings'
+this_dir = os.path.abspath(os.path.dirname(__file__))
+
 if bindings_dir in os.path.basename(os.getcwd()):
-    source_files = ['./bindings.cpp']
-    include_dirs.extend(['../hnswlib/'])
+    source_files = [
+        os.path.join(this_dir, 'python_bindings', 'bindings.cpp'),
+        os.path.join(this_dir, 'hnswlib', 'AhoCorasick.cpp'),
+    ]
+    include_dirs.extend([os.path.join(this_dir, 'hnswlib')])
 else:
-    source_files = ['./python_bindings/bindings.cpp']
-    include_dirs.extend(['./hnswlib/'])
+    source_files = [
+        os.path.join(this_dir, 'python_bindings', 'bindings.cpp'),
+        os.path.join(this_dir, 'hnswlib', 'AhoCorasick.cpp'),
+    ]
+    include_dirs.extend([os.path.join(this_dir, 'hnswlib')])
+
 
 
 libraries = []
@@ -62,10 +71,10 @@ def cpp_flag(compiler):
     """Return the -std=c++[11/14] compiler flag.
     The c++14 is prefered over c++11 (when it is available).
     """
-    if has_flag(compiler, '-std=c++14'):
+    if has_flag(compiler, '/std:c++17'):
+        return '/std:c++17'
+    elif has_flag(compiler, '-std=c++14'):
         return '-std=c++14'
-    elif has_flag(compiler, '-std=c++11'):
-        return '-std=c++11'
     else:
         raise RuntimeError('Unsupported compiler -- at least C++11 support '
                            'is needed!')
@@ -119,6 +128,7 @@ class BuildExt(build_ext):
                 else:
                     print(f'flag: {BuildExt.compiler_flag_native} is available')
         elif ct == 'msvc':
+            opts.append('/std:c++17')
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
 
         for ext in self.extensions:

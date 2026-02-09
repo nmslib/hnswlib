@@ -10,6 +10,12 @@
 #include <list>
 #include <memory>
 
+#include "ats_dummy.h"
+#include "AhoCorasick.h"
+#include <thread>
+#include <chrono>
+#include <future>
+
 namespace hnswlib {
 typedef unsigned int tableint;
 typedef unsigned int linklistsizeint;
@@ -70,6 +76,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::mutex deleted_elements_lock;  // lock for deleted_elements
     std::unordered_set<tableint> deleted_elements;  // contains internal ids of deleted elements
 
+    std::vector<std::vector<tableint>> node_entities_;
+    std::vector<std::vector<tableint>> entity_to_nodes_;
+    AhoCorasick aho_corasick_;
+    mutable std::mutex cout_lock;
+
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
     }
@@ -96,6 +107,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         : label_op_locks_(MAX_LABEL_OPERATION_LOCKS),
             link_list_locks_(max_elements),
             element_levels_(max_elements),
+            node_entities_(max_elements),
             allow_replace_deleted_(allow_replace_deleted) {
         max_elements_ = max_elements;
         num_deleted_ = 0;
@@ -169,6 +181,44 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
     };
 
+    double getJaccardSimilarity(const std::unordered_set<tableint>& a,
+                                const std::unordered_set<tableint>& b) const {
+
+        size_t intersection = 0;
+        for (const auto& x : a) {
+            if (b.count(x)) intersection++;
+        }
+
+        size_t union_count = a.size() + b.size() - intersection;
+        return union_count == 0 ? 0.0 : static_cast<double>(intersection) / union_count;
+    }
+
+    void setNodeEntities(const std::vector<std::vector<std::string>>& entities_from_python) {
+        // prepare internal storage
+        node_entities_.assign(entities_from_python.size(), std::vector<tableint>());
+
+        for (size_t i = 0; i < entities_from_python.size(); i++) {
+            for (const std::string& ent_str : entities_from_python[i]) {
+                // add string to TRIE and get back a unique Integer ID
+                tableint ent_id = static_cast<tableint>(aho_corasick_.addEntity(ent_str));
+
+                node_entities_[i].push_back(ent_id);
+            }
+        }
+        
+        aho_corasick_.build();
+
+        // build the bridge (entity -> nodes) for seed steering
+        entity_to_nodes_.assign(aho_corasick_.numWords(), std::vector<tableint>());
+        for (size_t node_id = 0; node_id < node_entities_.size(); node_id++) {
+            for (tableint eid : node_entities_[node_id]) {
+                entity_to_nodes_[eid].push_back(static_cast<tableint>(node_id));
+            }
+        }
+
+        std::cout << "ATS Bridge Built: " << aho_corasick_.numWords() << " entities mapped to " 
+                << node_entities_.size() << " nodes." << std::endl;
+    }
 
     void setEf(size_t ef) {
         ef_ = ef;
@@ -222,8 +272,56 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return num_deleted_;
     }
 
+    std::vector<tableint> getIslandSeeds() const {
+    std::vector<tableint> seeds;
+    if (cur_element_count == 0) return seeds;
+
+    std::vector<bool> visited(cur_element_count, false);
+
+    for (tableint i = 0; i < cur_element_count; i++) {
+        // If we haven't seen this node, it belongs to a NEW island
+        if (!visited[i]) {
+            // 1. Save this node as the "representative" for this island
+            seeds.push_back(i);
+            
+            // 2. Standard BFS to mark the rest of this island as visited
+            std::list<tableint> queue;
+            queue.push_back(i);
+            visited[i] = true;
+
+            while (!queue.empty()) {
+                tableint curr = queue.front();
+                queue.pop_front();
+
+                unsigned int* data = (unsigned int*)get_linklist0(curr);
+                int size = getListCount(data);
+                tableint* neighbors = (tableint*)(data + 1);
+
+                for (int j = 0; j < size; j++) {
+                    tableint neighbor = neighbors[j];
+                    if (!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+    }
+
+    // Print the findings for your console logs
+    std::cout << "--- GRAPH CONNECTIVITY CHECK ---" << std::endl;
+    std::cout << "Nodes in Graph: " << cur_element_count << std::endl;
+    std::cout << "Isolated Islands found: " << seeds.size() << std::endl;
+    std::cout << "Island Seeds: ";
+    for (tableint s : seeds) std::cout << s << " ";
+    std::cout << "\n--------------------------------" << std::endl;
+
+    return seeds;
+}
+
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
+        
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
@@ -242,6 +340,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             candidateSet.emplace(-lowerBound, ep_id);
         }
         visited_array[ep_id] = visited_array_tag;
+        // std::cout << "EP ID: " << ep_id << "\n";
+        // for (size_t j = 0; j < node_entities_[ep_id].size(); j++) {
+        //     std::cout << node_entities_[ep_id][j] << " ";
+        // }
+        // std::cout << "\n";
 
         while (!candidateSet.empty()) {
             std::pair<dist_t, tableint> curr_el_pair = candidateSet.top();
@@ -388,6 +491,32 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     char *currObj1 = (getDataByInternalId(candidate_id));
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
+                    const auto& current_ents = node_entities_[current_node_id];
+                    const auto& neighbor_ents = node_entities_[candidate_id];
+                    
+                    // std::lock_guard<std::mutex> lock(cout_lock);
+                    // std::cout << "  [TRAVERSAL] From Node " << current_node_id << " { ";
+                    // for (auto e : current_ents) std::cout << e << " ";
+                    // std::cout << "} -> Checking Neighbor " << candidate_id << " { ";
+                    // for (auto e : neighbor_ents) std::cout << e << " ";
+                    // std::cout << "}";
+                    // std::cout << "\n";
+
+                    std::unordered_set<tableint> set_a(current_ents.begin(), current_ents.end());
+                    std::unordered_set<tableint> set_b(neighbor_ents.begin(), neighbor_ents.end());
+
+                    double similarity = getJaccardSimilarity(set_a, set_b);
+
+                    // std::cout << "  MATCH! Jaccard Sim: " << similarity << std::endl;
+                    // std::cout << "  DISTANCE: " << dist << std::endl;
+                    
+                    float alpha = 2.0f; // Tuning parameter
+                    float steering_factor = 1.0f / (1.0f + alpha * similarity); 
+                    dist = dist * steering_factor;
+                    // std::cout << "  DISTANCE STEERED: " << d_steered << std::endl;
+                    // std::cout << "\n";
+                    
+
                     bool flag_consider_candidate;
                     if (!bare_bone_search && stop_condition) {
                         flag_consider_candidate = stop_condition->should_consider_candidate(dist, lowerBound);
@@ -467,6 +596,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                         fstdistfunc_(getDataByInternalId(second_pair.second),
                                         getDataByInternalId(curent_pair.second),
                                         dist_func_param_);
+
+            // std::cout << "HEEEEEEEEEEEEEEEEEEEEEEEEEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE " << second_pair.second << " " << curent_pair.second << "\n";
                 if (curdist < dist_to_query) {
                     good = false;
                     break;
@@ -679,148 +810,268 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             size += sizeof(linkListSize);
             size += linkListSize;
         }
+
+        for (size_t i = 0; i < node_entities_.size(); i++) {
+            unsigned int numEntities = node_entities_[i].size();
+            size += sizeof(numEntities);
+            size += numEntities * sizeof(tableint);
+        }
+
         return size;
     }
+    
+    // void simple_print(int thread_id, std::string message) {
+    // std::cout << "[Thread " << thread_id << "] says: " << message << std::endl;
+    // }
 
     void saveIndex(const std::string &location) {
-        std::ofstream output(location, std::ios::binary);
-        std::streampos position;
+    std::cout << "====================== SAVING =============================\n";
+    std::ofstream output(location, std::ios::binary);
+    if (!output.is_open()) throw std::runtime_error("Cannot open file for saving");
 
-        writeBinaryPOD(output, offsetLevel0_);
-        writeBinaryPOD(output, max_elements_);
-        writeBinaryPOD(output, cur_element_count);
-        writeBinaryPOD(output, size_data_per_element_);
-        writeBinaryPOD(output, label_offset_);
-        writeBinaryPOD(output, offsetData_);
-        writeBinaryPOD(output, maxlevel_);
-        writeBinaryPOD(output, enterpoint_node_);
-        writeBinaryPOD(output, maxM_);
+    // Standard HNSW Metadata
+    writeBinaryPOD(output, offsetLevel0_);
+    writeBinaryPOD(output, max_elements_);
+    writeBinaryPOD(output, cur_element_count);
+    writeBinaryPOD(output, size_data_per_element_);
+    writeBinaryPOD(output, label_offset_);
+    writeBinaryPOD(output, offsetData_);
+    writeBinaryPOD(output, maxlevel_);
+    writeBinaryPOD(output, enterpoint_node_);
+    writeBinaryPOD(output, maxM_);
+    writeBinaryPOD(output, maxM0_);
+    writeBinaryPOD(output, M_);
+    writeBinaryPOD(output, mult_);
+    writeBinaryPOD(output, ef_construction_);
 
-        writeBinaryPOD(output, maxM0_);
-        writeBinaryPOD(output, M_);
-        writeBinaryPOD(output, mult_);
-        writeBinaryPOD(output, ef_construction_);
+    // Save Vector Data
+    output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
 
-        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
-
-        for (size_t i = 0; i < cur_element_count; i++) {
-            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            writeBinaryPOD(output, linkListSize);
-            if (linkListSize)
-                output.write(linkLists_[i], linkListSize);
-        }
-        output.close();
+    // Save HNSW Graph Links
+    for (size_t i = 0; i < cur_element_count; i++) {
+        unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+        writeBinaryPOD(output, linkListSize);
+        if (linkListSize)
+            output.write(linkLists_[i], linkListSize);
     }
 
+    // --- ATS EXTENSIONS START HERE ---
 
-    void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
-        std::ifstream input(location, std::ios::binary);
-
-        if (!input.is_open())
-            throw std::runtime_error("Cannot open file");
-
-        clear();
-        // get file size:
-        input.seekg(0, input.end);
-        std::streampos total_filesize = input.tellg();
-        input.seekg(0, input.beg);
-
-        readBinaryPOD(input, offsetLevel0_);
-        readBinaryPOD(input, max_elements_);
-        readBinaryPOD(input, cur_element_count);
-
-        size_t max_elements = max_elements_i;
-        if (max_elements < cur_element_count)
-            max_elements = max_elements_;
-        max_elements_ = max_elements;
-        readBinaryPOD(input, size_data_per_element_);
-        readBinaryPOD(input, label_offset_);
-        readBinaryPOD(input, offsetData_);
-        readBinaryPOD(input, maxlevel_);
-        readBinaryPOD(input, enterpoint_node_);
-
-        readBinaryPOD(input, maxM_);
-        readBinaryPOD(input, maxM0_);
-        readBinaryPOD(input, M_);
-        readBinaryPOD(input, mult_);
-        readBinaryPOD(input, ef_construction_);
-
-        data_size_ = s->get_data_size();
-        fstdistfunc_ = s->get_dist_func();
-        dist_func_param_ = s->get_dist_func_param();
-
-        auto pos = input.tellg();
-
-        /// Optional - check if index is ok:
-        input.seekg(cur_element_count * size_data_per_element_, input.cur);
-        for (size_t i = 0; i < cur_element_count; i++) {
-            if (input.tellg() < 0 || input.tellg() >= total_filesize) {
-                throw std::runtime_error("Index seems to be corrupted or unsupported");
-            }
-
-            unsigned int linkListSize;
-            readBinaryPOD(input, linkListSize);
-            if (linkListSize != 0) {
-                input.seekg(linkListSize, input.cur);
-            }
+    // 1. Save Forward Index (Node ID -> Entity IDs)
+    // ONLY ONE LOOP HERE!
+    size_t num_nodes = node_entities_.size();
+    writeBinaryPOD(output, num_nodes); 
+    for (size_t i = 0; i < num_nodes; i++) {
+        unsigned int numEntities = (unsigned int)node_entities_[i].size();
+        writeBinaryPOD(output, numEntities);
+        if (numEntities > 0) {
+            output.write(reinterpret_cast<const char*>(node_entities_[i].data()),
+                         numEntities * sizeof(tableint));
         }
+    }
 
-        // throw exception if it either corrupted or old index
-        if (input.tellg() != total_filesize)
-            throw std::runtime_error("Index seems to be corrupted or unsupported");
+    // 2. Save the Trie (Strings & Frequencies)
+    aho_corasick_.save(output); 
 
-        input.clear();
-        /// Optional check end
+    // 3. Save the Inverted Bridge (Entity ID -> List of Node IDs)
+    size_t num_unique_entities = entity_to_nodes_.size();
+    writeBinaryPOD(output, num_unique_entities);
+    for (auto& vec : entity_to_nodes_) {
+        size_t vec_size = vec.size();
+        writeBinaryPOD(output, vec_size);
+        if (vec_size > 0)
+            output.write((char*)vec.data(), vec_size * sizeof(tableint));
+    }
 
-        input.seekg(pos, input.beg);
+    std::cout << "\n--- ATS REVERSE BRIDGE (ENTITY -> NODES) ---" << std::endl;
+    // for (size_t eid = 0; eid < entity_to_nodes_.size(); eid++) {
+    //     const std::vector<tableint>& nodes = entity_to_nodes_[eid];
+        
+    //     std::string entity_name = aho_corasick_.getEntity(eid);
+        
+    //     std::cout << "Entity [" << eid << "] (" << entity_name << ") is in nodes: ";
+    //     for (size_t i = 0; i < nodes.size(); i++) {
+    //         std::cout << nodes[i] << (i == nodes.size() - 1 ? "" : ", ");
+    //     }
+    //     std::cout << std::endl;
+    // }
+    std::cout << "--------------------------------------------\n" << std::endl;
 
-        data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
-        if (data_level0_memory_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+    output.close();
+    std::cout << "====================== SAVE COMPLETE =====================\n";
+}
 
-        size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
+void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
+    std::cout << "====================== LOADING =============================\n";
+    std::ifstream input(location, std::ios::binary);
 
-        size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-        std::vector<std::mutex>(max_elements).swap(link_list_locks_);
-        std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
+    if (!input.is_open())
+        throw std::runtime_error("Cannot open file");
 
-        visited_list_pool_.reset(new VisitedListPool(1, max_elements));
+    clear();
+    // 1. Get file size for sanity checks
+    input.seekg(0, input.end);
+    std::streampos total_filesize = input.tellg();
+    input.seekg(0, input.beg);
 
-        linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
-        if (linkLists_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklists");
-        element_levels_ = std::vector<int>(max_elements);
-        revSize_ = 1.0 / mult_;
-        ef_ = 10;
-        for (size_t i = 0; i < cur_element_count; i++) {
-            label_lookup_[getExternalLabel(i)] = i;
-            unsigned int linkListSize;
-            readBinaryPOD(input, linkListSize);
-            if (linkListSize == 0) {
-                element_levels_[i] = 0;
-                linkLists_[i] = nullptr;
+    // 2. Read HNSW Metadata
+    readBinaryPOD(input, offsetLevel0_);
+    readBinaryPOD(input, max_elements_);
+    readBinaryPOD(input, cur_element_count);
+
+    size_t max_elements = max_elements_i;
+    if (max_elements < cur_element_count)
+        max_elements = max_elements_;
+    max_elements_ = max_elements;
+
+    readBinaryPOD(input, size_data_per_element_);
+    readBinaryPOD(input, label_offset_);
+    readBinaryPOD(input, offsetData_);
+    readBinaryPOD(input, maxlevel_);
+    readBinaryPOD(input, enterpoint_node_);
+    readBinaryPOD(input, maxM_);
+    readBinaryPOD(input, maxM0_);
+    readBinaryPOD(input, M_);
+    readBinaryPOD(input, mult_);
+    readBinaryPOD(input, ef_construction_);
+
+    data_size_ = s->get_data_size();
+    fstdistfunc_ = s->get_dist_func();
+    dist_func_param_ = s->get_dist_func_param();
+
+    // 3. Re-allocate memory and load base layer vectors
+    data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
+    if (data_level0_memory_ == nullptr)
+        throw std::runtime_error("Not enough memory: loadIndex failed to allocate level0");
+    input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+
+    // 4. Load HNSW Graph Links
+    size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
+    size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+    
+    std::vector<std::mutex>(max_elements).swap(link_list_locks_);
+    std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
+    visited_list_pool_.reset(new VisitedListPool(1, max_elements));
+
+    linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
+    element_levels_ = std::vector<int>(max_elements);
+    
+    for (size_t i = 0; i < cur_element_count; i++) {
+        label_lookup_[getExternalLabel(i)] = i;
+        unsigned int linkListSize;
+        readBinaryPOD(input, linkListSize);
+        if (linkListSize == 0) {
+            element_levels_[i] = 0;
+            linkLists_[i] = nullptr;
+        } else {
+            element_levels_[i] = linkListSize / size_links_per_element_;
+            linkLists_[i] = (char *) malloc(linkListSize);
+            input.read(linkLists_[i], linkListSize);
+        }
+    }
+
+    // 5. Handle Deleted Elements
+    for (size_t i = 0; i < cur_element_count; i++) {
+        if (isMarkedDeleted(i)) {
+            num_deleted_ += 1;
+            if (allow_replace_deleted_) deleted_elements.insert(i);
+        }
+    }
+
+    // --- ATS EXTENSIONS START HERE ---
+
+    // 6. Load Forward Index (Node ID -> Entity IDs)
+    node_entities_.clear();
+    // In saveIndex, we wrote the size of node_entities_.size()
+    size_t num_nodes_in_index;
+    readBinaryPOD(input, num_nodes_in_index); 
+    
+    for (size_t i = 0; i < num_nodes_in_index; i++) {
+        unsigned int numEntities;
+        readBinaryPOD(input, numEntities);
+        std::vector<tableint> entities(numEntities);
+        if (numEntities > 0)
+            input.read(reinterpret_cast<char*>(entities.data()), numEntities * sizeof(tableint));
+        node_entities_.push_back(std::move(entities));
+    }
+
+    // 7. Load the Trie (The Dictionary & Frequencies)
+    aho_corasick_.load(input); 
+
+    // 8. Load the Inverted Bridge (Entity ID -> List of Node IDs)
+    size_t num_e_to_n;
+    readBinaryPOD(input, num_e_to_n);
+    entity_to_nodes_.assign(num_e_to_n, std::vector<tableint>());
+    for (size_t i = 0; i < num_e_to_n; i++) {
+        size_t vec_size;
+        readBinaryPOD(input, vec_size);
+        entity_to_nodes_[i].resize(vec_size);
+        if (vec_size > 0)
+            input.read((char*)entity_to_nodes_[i].data(), vec_size * sizeof(tableint));
+    }
+
+    input.close();
+    std::cout << "====================== LOAD COMPLETE =====================\n";
+
+    // Debug print with entities translated back to strings
+    // for (size_t i = 0; i < std::min(node_entities_.size(), (size_t)10); i++) {
+    //     std::cout << "Node " << i << " entities: ";
+    //     for (tableint eid : node_entities_[i]) {
+    //         std::cout << aho_corasick_.getEntity(eid) << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    checkTrie();
+
+    std::cout << "Global HNSW Entry Point (Top Layer): Node " << enterpoint_node_ << std::endl;
+    
+    printGraphStats();
+
+    
+    return;
+}
+
+    void checkTrie() {
+        std::cout << "--- ATS TRIE VERIFICATION ---" << std::endl;
+        if (aho_corasick_.numWords() == 0) {
+            std::cerr << "CRITICAL ERROR: Aho-Corasick Trie is EMPTY after loading!" << std::endl;
+        } else {
+            std::cout << "Trie successfully loaded " << aho_corasick_.numWords() << " unique entities." << std::endl;
+            
+            // Pick the first entity as a test case
+            std::string test_entity = aho_corasick_.getEntity(0);
+            auto matches = aho_corasick_.search(test_entity);
+            
+            if (!matches.empty()) {
+                std::cout << "Integrity Check: Found entity '" << test_entity 
+                        << "' via Trie search. Logic is functional." << std::endl;
             } else {
-                element_levels_[i] = linkListSize / size_links_per_element_;
-                linkLists_[i] = (char *) malloc(linkListSize);
-                if (linkLists_[i] == nullptr)
-                    throw std::runtime_error("Not enough memory: loadIndex failed to allocate linklist");
-                input.read(linkLists_[i], linkListSize);
+                std::cerr << "WARNING: Trie contains strings but search logic failed. Check build() call." << std::endl;
+            }
+            
+            // Verify Inverted Bridge
+            if (!entity_to_nodes_.empty() && !entity_to_nodes_[0].empty()) {
+                std::cout << "Bridge Check: Entity ID 0 is linked to " 
+                        << entity_to_nodes_[0].size() << " nodes. Seeds are ready." << std::endl;
             }
         }
+        std::cout << "-----------------------------" << std::endl;
 
-        for (size_t i = 0; i < cur_element_count; i++) {
-            if (isMarkedDeleted(i)) {
-                num_deleted_ += 1;
-                if (allow_replace_deleted_) deleted_elements.insert(i);
-            }
-        }
-
-        input.close();
-
-        return;
     }
 
+    void printGraphStats() const {
+        // int islands = countSubgraphs();
+        // std::cout << "--- GRAPH CONNECTIVITY CHECK ---" << std::endl;
+        // std::cout << "Nodes in Graph: " << cur_element_count << std::endl;
+        // std::cout << "Isolated Subgraphs (Islands): " << islands << std::endl;
+        // if (islands > 1) {
+        //     std::cout << "ALERT: Graph is fragmented into " << islands << " disconnected parts." << std::endl;
+        // } else {
+        //     std::cout << "SUCCESS: Graph is fully connected (1 island)." << std::endl;
+        // }
+        // std::cout << "--------------------------------" << std::endl;
+    }
 
     template<typename data_t>
     std::vector<data_t> getDataByLabel(labeltype label) const {
@@ -1265,63 +1516,85 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
         return cur_c;
     }
+    
+    
 
+std::priority_queue<std::pair<dist_t, labeltype>>
+searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
+    std::priority_queue<std::pair<dist_t, labeltype>> result;
+    if (cur_element_count == 0) return result;
 
-    std::priority_queue<std::pair<dist_t, labeltype >>
-    searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
-        std::priority_queue<std::pair<dist_t, labeltype >> result;
-        if (cur_element_count == 0) return result;
+    std::vector<tableint> test_seeds = getIslandSeeds();
+    // std::vector<tableint> test_seeds = { 1050 }; 
+    typedef std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> PQ;
+    std::vector<std::pair<tableint, std::future<PQ>>> futures;
 
-        tableint currObj = enterpoint_node_;
-        dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-        for (int level = maxlevel_; level > 0; level--) {
-            bool changed = true;
-            while (changed) {
-                changed = false;
-                unsigned int *data;
+    // 1. Launch Section (Same as before)
+    for (tableint seed_id : test_seeds) {
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "START ========================================= " << seed_id << "\n";
+        }
+        futures.push_back(std::make_pair(seed_id, std::async(std::launch::async, [this, seed_id, query_data, k, isIdAllowed]() {
+            return this->searchBaseLayerST<false>(seed_id, query_data, std::max(ef_, k), isIdAllowed);
+        })));
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "END (Launch) ================================== " << seed_id << "\n";
+        }
+    }
 
-                data = (unsigned int *) get_linklist(currObj, level);
-                int size = getListCount(data);
-                metric_hops++;
-                metric_distance_computations+=size;
+    // 2. Aggregation Section with UNIQUE FILTER
+    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> global_top_candidates;
+    std::unordered_set<tableint> seen_ids; // NEW: Tracks IDs already added to the global pool
 
-                tableint *datal = (tableint *) (data + 1);
-                for (int i = 0; i < size; i++) {
-                    tableint cand = datal[i];
-                    if (cand < 0 || cand > max_elements_)
-                        throw std::runtime_error("cand error");
-                    dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+    for (auto& f : futures) {
+        tableint id = f.first;
+        auto seed_results = f.second.get(); 
 
-                    if (d < curdist) {
-                        curdist = d;
-                        currObj = cand;
-                        changed = true;
-                    }
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "THREAD COLLECTED ============================== " << id << "\n";
+        }
+        
+        while (!seed_results.empty()) {
+            std::pair<dist_t, tableint> cand = seed_results.top();
+            seed_results.pop();
+
+            // CHECK FOR DUPLICATES: Only add if we haven't seen this internal node ID yet
+            if (seen_ids.find(cand.second) == seen_ids.end()) {
+                global_top_candidates.push(cand);
+                seen_ids.insert(cand.second);
+                
+                // Ensure we don't hold more than the search budget (ef_)
+                if (global_top_candidates.size() > std::max(ef_, k)) {
+                    // Remove the entry with the largest distance
+                    global_top_candidates.pop(); 
                 }
             }
         }
-
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-        bool bare_bone_search = !num_deleted_ && !isIdAllowed;
-        if (bare_bone_search) {
-            top_candidates = searchBaseLayerST<true>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
-        } else {
-            top_candidates = searchBaseLayerST<false>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
-        }
-
-        while (top_candidates.size() > k) {
-            top_candidates.pop();
-        }
-        while (top_candidates.size() > 0) {
-            std::pair<dist_t, tableint> rez = top_candidates.top();
-            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
-            top_candidates.pop();
-        }
-        return result;
     }
+
+    // 3. Result Formatting (Same as before)
+    while (global_top_candidates.size() > k) global_top_candidates.pop();
+    while (!global_top_candidates.empty()) {
+        std::pair<dist_t, tableint> rez = global_top_candidates.top();
+        result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+        global_top_candidates.pop();
+    }
+
+    auto stop_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time);
+
+    std::cout << "--- SEARCH PERFORMANCE ---" << std::endl;
+    std::cout << "Parallel Search Time: " << duration.count() << " us" << std::endl;
+    std::cout << "Total Seeds: " << test_seeds.size() << std::endl;
+    std::cout << "--------------------------" << std::endl;
+
+    return result;
+}
 
 
     std::vector<std::pair<dist_t, labeltype >>
@@ -1335,7 +1608,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         tableint currObj = enterpoint_node_;
         dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
 
+        std::cout << "\n--- SEARCH STARTING ---" << std::endl;
+        std::cout << "Global Entry Point: " << enterpoint_node_ << " (Max Level: " << maxlevel_ << ")" << std::endl;
+        
         for (int level = maxlevel_; level > 0; level--) {
+            std::cout << "[ELEVATOR] Level " << level << " starting at Node " << currObj << std::endl;
             bool changed = true;
             while (changed) {
                 changed = false;
@@ -1352,6 +1629,16 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     if (cand < 0 || cand > max_elements_)
                         throw std::runtime_error("cand error");
                     dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+
+                    const auto& current_ents = node_entities_[currObj];
+                    const auto& neighbor_ents = node_entities_[cand];
+                    
+                    // Re-use your Jaccard logic
+                    std::unordered_set<tableint> set_a(current_ents.begin(), current_ents.end());
+                    std::unordered_set<tableint> set_b(neighbor_ents.begin(), neighbor_ents.end());
+                    double similarity = getJaccardSimilarity(set_a, set_b);
+
+                    std::cout << "  MATCH! Jaccard Sim: " << similarity << std::endl;
 
                     if (d < curdist) {
                         curdist = d;
