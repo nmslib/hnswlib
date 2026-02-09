@@ -324,12 +324,12 @@ class Index {
 
             // Convert Python object to iterable
             py::list entity_list = entities_;
-            for (size_t i = 0; i < entity_list.size(); i++) {
-                py::object ent = entity_list[i];
-                // Convert to string for printing
-                std::string ent_str = py::str(ent);
-                std::cout << "  " << i << ": " << ent_str << std::endl;
-            }
+            // for (size_t i = 0; i < entity_list.size(); i++) {
+            //     py::object ent = entity_list[i];
+            //     // Convert to string for printing
+            //     std::string ent_str = py::str(ent);
+            //     std::cout << "  " << i << ": " << ent_str << std::endl;
+            // }
         } else {
             std::cout << "No entities provided." << std::endl;
         }

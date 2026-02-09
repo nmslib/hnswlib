@@ -13,6 +13,8 @@
 #include "ats_dummy.h"
 #include "AhoCorasick.h"
 #include <thread>
+#include <chrono>
+#include <future>
 
 namespace hnswlib {
 typedef unsigned int tableint;
@@ -77,6 +79,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     std::vector<std::vector<tableint>> node_entities_;
     std::vector<std::vector<tableint>> entity_to_nodes_;
     AhoCorasick aho_corasick_;
+    mutable std::mutex cout_lock;
 
 
     HierarchicalNSW(SpaceInterface<dist_t> *s) {
@@ -269,51 +272,55 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return num_deleted_;
     }
 
-    int countSubgraphs() const {
-        if (cur_element_count == 0) return 0;
+    std::vector<tableint> getIslandSeeds() const {
+    std::vector<tableint> seeds;
+    if (cur_element_count == 0) return seeds;
 
-        std::vector<bool> visited(cur_element_count, false);
-        int subgraph_count = 0;
+    std::vector<bool> visited(cur_element_count, false);
 
-        for (tableint i = 0; i < cur_element_count; i++) {
-            // If we haven't seen this node yet, it's the start of a NEW subgraph
-            if (!visited[i]) {
-                subgraph_count++;
-                
-                // Start a BFS/DFS to mark everything reachable from node 'i'
-                std::list<tableint> queue;
-                queue.push_back(i);
-                visited[i] = true;
+    for (tableint i = 0; i < cur_element_count; i++) {
+        // If we haven't seen this node, it belongs to a NEW island
+        if (!visited[i]) {
+            // 1. Save this node as the "representative" for this island
+            seeds.push_back(i);
+            
+            // 2. Standard BFS to mark the rest of this island as visited
+            std::list<tableint> queue;
+            queue.push_back(i);
+            visited[i] = true;
 
-                while (!queue.empty()) {
-                    tableint curr = queue.front();
-                    queue.pop_front();
+            while (!queue.empty()) {
+                tableint curr = queue.front();
+                queue.pop_front();
 
-                    // Get neighbors of 'curr' at Level 0
-                    unsigned int* data = (unsigned int*)get_linklist0(curr);
-                    int size = getListCount(data);
-                    tableint* neighbors = (tableint*)(data + 1);
+                unsigned int* data = (unsigned int*)get_linklist0(curr);
+                int size = getListCount(data);
+                tableint* neighbors = (tableint*)(data + 1);
 
-                    for (int j = 0; j < size; j++) {
-                        tableint neighbor = neighbors[j];
-                        if (!visited[neighbor]) {
-                            visited[neighbor] = true;
-                            queue.push_back(neighbor);
-                        }
+                for (int j = 0; j < size; j++) {
+                    tableint neighbor = neighbors[j];
+                    if (!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        queue.push_back(neighbor);
                     }
                 }
             }
         }
-        return subgraph_count;
     }
+
+    // Print the findings for your console logs
+    std::cout << "--- GRAPH CONNECTIVITY CHECK ---" << std::endl;
+    std::cout << "Nodes in Graph: " << cur_element_count << std::endl;
+    std::cout << "Isolated Islands found: " << seeds.size() << std::endl;
+    std::cout << "Island Seeds: ";
+    for (tableint s : seeds) std::cout << s << " ";
+    std::cout << "\n--------------------------------" << std::endl;
+
+    return seeds;
+}
 
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayer(tableint ep_id, const void *data_point, int layer) {
-        ATSDummy::ping();
-        // std::unordered_set<tableint> setA = {1, 2, 3, 4};
-        // std::unordered_set<tableint> setB = {3, 4, 5, 6};
-        // double sim = getJaccardSimilarity(setA, setB);
-        // std::cout << "Jaccard similarity: " << sim << std::endl;
         
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
@@ -486,28 +493,28 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
                     const auto& current_ents = node_entities_[current_node_id];
                     const auto& neighbor_ents = node_entities_[candidate_id];
-
-                    std::cout << "  [TRAVERSAL] From Node " << current_node_id << " { ";
-                    for (auto e : current_ents) std::cout << e << " ";
-                    std::cout << "} -> Checking Neighbor " << candidate_id << " { ";
-                    for (auto e : neighbor_ents) std::cout << e << " ";
-                    std::cout << "}";
-                    std::cout << "\n";
+                    
+                    // std::lock_guard<std::mutex> lock(cout_lock);
+                    // std::cout << "  [TRAVERSAL] From Node " << current_node_id << " { ";
+                    // for (auto e : current_ents) std::cout << e << " ";
+                    // std::cout << "} -> Checking Neighbor " << candidate_id << " { ";
+                    // for (auto e : neighbor_ents) std::cout << e << " ";
+                    // std::cout << "}";
+                    // std::cout << "\n";
 
                     std::unordered_set<tableint> set_a(current_ents.begin(), current_ents.end());
                     std::unordered_set<tableint> set_b(neighbor_ents.begin(), neighbor_ents.end());
 
                     double similarity = getJaccardSimilarity(set_a, set_b);
 
-      
-                    std::cout << "  MATCH! Jaccard Sim: " << similarity << std::endl;
-                    std::cout << "  DISTANCE: " << dist << std::endl;
+                    // std::cout << "  MATCH! Jaccard Sim: " << similarity << std::endl;
+                    // std::cout << "  DISTANCE: " << dist << std::endl;
                     
                     float alpha = 2.0f; // Tuning parameter
                     float steering_factor = 1.0f / (1.0f + alpha * similarity); 
-                    dist_t d_steered = dist * steering_factor;
-                    std::cout << "  DISTANCE STEERED: " << d_steered << std::endl;
-                    std::cout << "\n";
+                    dist = dist * steering_factor;
+                    // std::cout << "  DISTANCE STEERED: " << d_steered << std::endl;
+                    // std::cout << "\n";
                     
 
                     bool flag_consider_candidate;
@@ -877,17 +884,17 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     std::cout << "\n--- ATS REVERSE BRIDGE (ENTITY -> NODES) ---" << std::endl;
-    for (size_t eid = 0; eid < entity_to_nodes_.size(); eid++) {
-        const std::vector<tableint>& nodes = entity_to_nodes_[eid];
+    // for (size_t eid = 0; eid < entity_to_nodes_.size(); eid++) {
+    //     const std::vector<tableint>& nodes = entity_to_nodes_[eid];
         
-        std::string entity_name = aho_corasick_.getEntity(eid);
+    //     std::string entity_name = aho_corasick_.getEntity(eid);
         
-        std::cout << "Entity [" << eid << "] (" << entity_name << ") is in nodes: ";
-        for (size_t i = 0; i < nodes.size(); i++) {
-            std::cout << nodes[i] << (i == nodes.size() - 1 ? "" : ", ");
-        }
-        std::cout << std::endl;
-    }
+    //     std::cout << "Entity [" << eid << "] (" << entity_name << ") is in nodes: ";
+    //     for (size_t i = 0; i < nodes.size(); i++) {
+    //         std::cout << nodes[i] << (i == nodes.size() - 1 ? "" : ", ");
+    //     }
+    //     std::cout << std::endl;
+    // }
     std::cout << "--------------------------------------------\n" << std::endl;
 
     output.close();
@@ -1007,13 +1014,13 @@ void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t ma
     std::cout << "====================== LOAD COMPLETE =====================\n";
 
     // Debug print with entities translated back to strings
-    for (size_t i = 0; i < std::min(node_entities_.size(), (size_t)10); i++) {
-        std::cout << "Node " << i << " entities: ";
-        for (tableint eid : node_entities_[i]) {
-            std::cout << aho_corasick_.getEntity(eid) << " ";
-        }
-        std::cout << std::endl;
-    }
+    // for (size_t i = 0; i < std::min(node_entities_.size(), (size_t)10); i++) {
+    //     std::cout << "Node " << i << " entities: ";
+    //     for (tableint eid : node_entities_[i]) {
+    //         std::cout << aho_corasick_.getEntity(eid) << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     checkTrie();
 
@@ -1054,16 +1061,16 @@ void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t ma
     }
 
     void printGraphStats() const {
-        int islands = countSubgraphs();
-        std::cout << "--- GRAPH CONNECTIVITY CHECK ---" << std::endl;
-        std::cout << "Nodes in Graph: " << cur_element_count << std::endl;
-        std::cout << "Isolated Subgraphs (Islands): " << islands << std::endl;
-        if (islands > 1) {
-            std::cout << "ALERT: Graph is fragmented into " << islands << " disconnected parts." << std::endl;
-        } else {
-            std::cout << "SUCCESS: Graph is fully connected (1 island)." << std::endl;
-        }
-        std::cout << "--------------------------------" << std::endl;
+        // int islands = countSubgraphs();
+        // std::cout << "--- GRAPH CONNECTIVITY CHECK ---" << std::endl;
+        // std::cout << "Nodes in Graph: " << cur_element_count << std::endl;
+        // std::cout << "Isolated Subgraphs (Islands): " << islands << std::endl;
+        // if (islands > 1) {
+        //     std::cout << "ALERT: Graph is fragmented into " << islands << " disconnected parts." << std::endl;
+        // } else {
+        //     std::cout << "SUCCESS: Graph is fully connected (1 island)." << std::endl;
+        // }
+        // std::cout << "--------------------------------" << std::endl;
     }
 
     template<typename data_t>
@@ -1512,78 +1519,82 @@ void loadIndex(const std::string &location, SpaceInterface<dist_t> *s, size_t ma
     
     
 
-    std::priority_queue<std::pair<dist_t, labeltype >>
-    searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
-        std::priority_queue<std::pair<dist_t, labeltype >> result;
-        if (cur_element_count == 0) return result;
+std::priority_queue<std::pair<dist_t, labeltype>>
+searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
+    std::priority_queue<std::pair<dist_t, labeltype>> result;
+    if (cur_element_count == 0) return result;
 
-        tableint currObj = enterpoint_node_;
-        dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
+    std::vector<tableint> test_seeds = getIslandSeeds();
+    // std::vector<tableint> test_seeds = { 1050 }; 
+    typedef std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> PQ;
+    std::vector<std::pair<tableint, std::future<PQ>>> futures;
 
-        std::cout << "\n--- SEARCH STARTING (via searchKnn) ---" << std::endl;
-        std::cout << "Global Entry Point: " << enterpoint_node_ << " (Max Level: " << maxlevel_ << ")" << std::endl;
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-        if ((signed)enterpoint_node_ != -1) {
-            for (int l = maxlevel_; l >= 0; l--) {
-                unsigned int *link_data = get_linklist_at_level(enterpoint_node_, l);
-                int size = getListCount(link_data);
-                tableint *datal = (tableint *) (link_data + 1);
-                
-                std::cout << "[DEBUG] Node " << enterpoint_node_ << " Neighbors at Level " << l << ": ";
-                for (int i = 0; i < size; i++) {
-                    std::cout << datal[i] << " ";
-                }
-                std::cout << std::endl;
-            }
+    // 1. Launch Section (Same as before)
+    for (tableint seed_id : test_seeds) {
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "START ========================================= " << seed_id << "\n";
         }
-
-        for (int level = maxlevel_; level > 0; level--) {
-            bool changed = true;
-            while (changed) {
-                changed = false;
-                unsigned int *data;
-
-                data = (unsigned int *) get_linklist(currObj, level);
-                int size = getListCount(data);
-                metric_hops++;
-                metric_distance_computations+=size;
-
-                tableint *datal = (tableint *) (data + 1);
-                for (int i = 0; i < size; i++) {
-                    tableint cand = datal[i];
-                    if (cand < 0 || cand > max_elements_)
-                        throw std::runtime_error("cand error");
-                    dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
-
-                    if (d < curdist) {
-                        curdist = d;
-                        currObj = cand;
-                        changed = true;
-                    }
-                }
-            }
+        futures.push_back(std::make_pair(seed_id, std::async(std::launch::async, [this, seed_id, query_data, k, isIdAllowed]() {
+            return this->searchBaseLayerST<false>(seed_id, query_data, std::max(ef_, k), isIdAllowed);
+        })));
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "END (Launch) ================================== " << seed_id << "\n";
         }
-
-        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
-        bool bare_bone_search = !num_deleted_ && !isIdAllowed;
-        if (bare_bone_search) {
-            top_candidates = searchBaseLayerST<true>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
-        } else {
-            top_candidates = searchBaseLayerST<false>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
-        }
-
-        while (top_candidates.size() > k) {
-            top_candidates.pop();
-        }
-        while (top_candidates.size() > 0) {
-            std::pair<dist_t, tableint> rez = top_candidates.top();
-            result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
-            top_candidates.pop();
-        }
-        return result;
     }
+
+    // 2. Aggregation Section with UNIQUE FILTER
+    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> global_top_candidates;
+    std::unordered_set<tableint> seen_ids; // NEW: Tracks IDs already added to the global pool
+
+    for (auto& f : futures) {
+        tableint id = f.first;
+        auto seed_results = f.second.get(); 
+
+        {
+            std::lock_guard<std::mutex> lock(cout_lock);
+            std::cout << "THREAD COLLECTED ============================== " << id << "\n";
+        }
+        
+        while (!seed_results.empty()) {
+            std::pair<dist_t, tableint> cand = seed_results.top();
+            seed_results.pop();
+
+            // CHECK FOR DUPLICATES: Only add if we haven't seen this internal node ID yet
+            if (seen_ids.find(cand.second) == seen_ids.end()) {
+                global_top_candidates.push(cand);
+                seen_ids.insert(cand.second);
+                
+                // Ensure we don't hold more than the search budget (ef_)
+                if (global_top_candidates.size() > std::max(ef_, k)) {
+                    // Remove the entry with the largest distance
+                    global_top_candidates.pop(); 
+                }
+            }
+        }
+    }
+
+    // 3. Result Formatting (Same as before)
+    while (global_top_candidates.size() > k) global_top_candidates.pop();
+    while (!global_top_candidates.empty()) {
+        std::pair<dist_t, tableint> rez = global_top_candidates.top();
+        result.push(std::pair<dist_t, labeltype>(rez.first, getExternalLabel(rez.second)));
+        global_top_candidates.pop();
+    }
+
+    auto stop_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time);
+
+    std::cout << "--- SEARCH PERFORMANCE ---" << std::endl;
+    std::cout << "Parallel Search Time: " << duration.count() << " us" << std::endl;
+    std::cout << "Total Seeds: " << test_seeds.size() << std::endl;
+    std::cout << "--------------------------" << std::endl;
+
+    return result;
+}
 
 
     std::vector<std::pair<dist_t, labeltype >>
