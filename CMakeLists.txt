@@ -36,7 +36,7 @@ endif()
 option(HNSWLIB_WERROR "Treat warnings as errors" OFF)
 
 if(HNSWLIB_EXAMPLES)
-    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD 11)
 
     # Common warning flags for GCC/Clang
     set(HNSWLIB_WARNING_FLAGS
