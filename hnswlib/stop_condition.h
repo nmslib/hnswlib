@@ -63,14 +63,14 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
     }
 
     DOCIDTYPE get_doc_id(const void *datapoint) override {
-        return *(DOCIDTYPE *)((char *)datapoint + vector_size_);
+        return *reinterpret_cast<const DOCIDTYPE*>(static_cast<const char*>(datapoint) + vector_size_);
     }
 
     void set_doc_id(void *datapoint, DOCIDTYPE doc_id) override {
-        *(DOCIDTYPE*)((char *)datapoint + vector_size_) = doc_id;
+        *reinterpret_cast<DOCIDTYPE*>(static_cast<char*>(datapoint) + vector_size_) = doc_id;
     }
 
-    ~MultiVectorL2Space() {}
+    ~MultiVectorL2Space() override {}
 };
 
 
@@ -115,6 +115,7 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
         else if (dim > 4)
             fstdistfunc_ = InnerProductDistanceSIMD4ExtResiduals;
 #endif
+        dim_ = dim;
         vector_size_ = dim * sizeof(float);
         data_size_ = vector_size_ + sizeof(DOCIDTYPE);
     }
@@ -132,14 +133,14 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
     }
 
     DOCIDTYPE get_doc_id(const void *datapoint) override {
-        return *(DOCIDTYPE *)((char *)datapoint + vector_size_);
+        return *reinterpret_cast<const DOCIDTYPE*>(static_cast<const char*>(datapoint) + vector_size_);
     }
 
     void set_doc_id(void *datapoint, DOCIDTYPE doc_id) override {
-        *(DOCIDTYPE*)((char *)datapoint + vector_size_) = doc_id;
+        *reinterpret_cast<DOCIDTYPE*>(static_cast<char*>(datapoint) + vector_size_) = doc_id;
     }
 
-    ~MultiVectorInnerProductSpace() {}
+    ~MultiVectorInnerProductSpace() override {}
 };
 
 
@@ -163,7 +164,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
             ef_collection_ = std::max(ef_collection, num_docs_to_search);
         }
 
-    void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) override {
+    void add_point_to_result(labeltype /*label*/, const void *datapoint, dist_t dist) override {
         DOCIDTYPE doc_id = space_.get_doc_id(datapoint);
         if (doc_counter_[doc_id] == 0) {
             curr_num_docs_ += 1;
@@ -172,7 +173,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         doc_counter_[doc_id] += 1;
     }
 
-    void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) override {
+    void remove_point_from_result(labeltype /*label*/, const void *datapoint, dist_t /*dist*/) override {
         DOCIDTYPE doc_id = space_.get_doc_id(datapoint);
         doc_counter_[doc_id] -= 1;
         if (doc_counter_[doc_id] == 0) {
@@ -198,9 +199,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
 
     void filter_results(std::vector<std::pair<dist_t, labeltype >> &candidates) override {
         while (curr_num_docs_ > num_docs_to_search_) {
-            dist_t dist_cand = candidates.back().first;
-            dist_t dist_res = search_results_.top().first;
-            assert(dist_cand == dist_res);
+            assert(candidates.back().first == search_results_.top().first);
             DOCIDTYPE doc_id = search_results_.top().second;
             doc_counter_[doc_id] -= 1;
             if (doc_counter_[doc_id] == 0) {
@@ -231,11 +230,11 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         curr_num_items_ = 0;
     }
 
-    void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) override {
+    void add_point_to_result(labeltype /*label*/, const void* /*datapoint*/, dist_t /*dist*/) override {
         curr_num_items_ += 1;
     }
 
-    void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) override {
+    void remove_point_from_result(labeltype /*label*/, const void* /*datapoint*/, dist_t /*dist*/) override {
         curr_num_items_ -= 1;
     }
 
@@ -257,7 +256,7 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         return flag_consider_candidate;
     }
 
-    bool should_remove_extra() {
+    bool should_remove_extra() override {
         bool flag_remove_extra = curr_num_items_ > max_num_candidates_;
         return flag_remove_extra;
     }

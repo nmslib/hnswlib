@@ -5,9 +5,9 @@ namespace hnswlib {
 
 static float
 L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
-    size_t qty = *((size_t *) qty_ptr);
+    const float *pVect1 = static_cast<const float*>(pVect1v);
+    const float *pVect2 = static_cast<const float*>(pVect2v);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
 
     float res = 0;
     for (size_t i = 0; i < qty; i++) {
@@ -16,7 +16,7 @@ L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
         pVect2++;
         res += t * t;
     }
-    return (res);
+    return res;
 }
 
 #if defined(USE_AVX512)
@@ -24,9 +24,9 @@ L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
 // Favor using AVX512 if available.
 static float
 L2SqrSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
-    size_t qty = *((size_t *) qty_ptr);
+    const float *pVect1 = static_cast<const float*>(pVect1v);
+    const float *pVect2 = static_cast<const float*>(pVect2v);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     float PORTABLE_ALIGN64 TmpRes[16];
     size_t qty16 = qty >> 4;
 
@@ -59,9 +59,9 @@ L2SqrSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void *qty_p
 // Favor using AVX if available.
 static float
 L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
-    size_t qty = *((size_t *) qty_ptr);
+    const float *pVect1 = static_cast<const float*>(pVect1v);
+    const float *pVect2 = static_cast<const float*>(pVect2v);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     float PORTABLE_ALIGN32 TmpRes[8];
     size_t qty16 = qty >> 4;
 
@@ -96,9 +96,9 @@ L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr)
 
 static float
 L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
-    size_t qty = *((size_t *) qty_ptr);
+    const float *pVect1 = static_cast<const float*>(pVect1v);
+    const float *pVect2 = static_cast<const float*>(pVect2v);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     float PORTABLE_ALIGN32 TmpRes[8];
     size_t qty16 = qty >> 4;
 
@@ -148,15 +148,15 @@ static DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
 
 static float
 L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    size_t qty = *((size_t *) qty_ptr);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     size_t qty16 = qty >> 4 << 4;
     float res = L2SqrSIMD16Ext(pVect1v, pVect2v, &qty16);
-    float *pVect1 = (float *) pVect1v + qty16;
-    float *pVect2 = (float *) pVect2v + qty16;
+    const float *pVect1 = static_cast<const float*>(pVect1v) + qty16;
+    const float *pVect2 = static_cast<const float*>(pVect2v) + qty16;
 
     size_t qty_left = qty - qty16;
     float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
-    return (res + res_tail);
+    return res + res_tail;
 }
 #endif
 
@@ -165,9 +165,9 @@ L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qt
 static float
 L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
     float PORTABLE_ALIGN32 TmpRes[8];
-    float *pVect1 = (float *) pVect1v;
-    float *pVect2 = (float *) pVect2v;
-    size_t qty = *((size_t *) qty_ptr);
+    const float *pVect1 = static_cast<const float*>(pVect1v);
+    const float *pVect2 = static_cast<const float*>(pVect2v);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
 
 
     size_t qty4 = qty >> 2;
@@ -191,17 +191,17 @@ L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
 
 static float
 L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
-    size_t qty = *((size_t *) qty_ptr);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     size_t qty4 = qty >> 2 << 2;
 
     float res = L2SqrSIMD4Ext(pVect1v, pVect2v, &qty4);
     size_t qty_left = qty - qty4;
 
-    float *pVect1 = (float *) pVect1v + qty4;
-    float *pVect2 = (float *) pVect2v + qty4;
+    const float *pVect1 = static_cast<const float*>(pVect1v) + qty4;
+    const float *pVect2 = static_cast<const float*>(pVect2v) + qty4;
     float res_tail = L2Sqr(pVect1, pVect2, &qty_left);
 
-    return (res + res_tail);
+    return res + res_tail;
 }
 #endif
 
@@ -254,10 +254,10 @@ class L2Space : public SpaceInterface<float> {
 
 static int
 L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
-    size_t qty = *((size_t *) qty_ptr);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     int res = 0;
-    unsigned char *a = (unsigned char *) pVect1;
-    unsigned char *b = (unsigned char *) pVect2;
+    const unsigned char *a = static_cast<const unsigned char*>(pVect1);
+    const unsigned char *b = static_cast<const unsigned char*>(pVect2);
 
     qty = qty >> 2;
     for (size_t i = 0; i < qty; i++) {
@@ -278,10 +278,10 @@ L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const voi
 }
 
 static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
-    size_t qty = *((size_t*)qty_ptr);
+    size_t qty = *static_cast<const size_t*>(qty_ptr);
     int res = 0;
-    unsigned char* a = (unsigned char*)pVect1;
-    unsigned char* b = (unsigned char*)pVect2;
+    const unsigned char* a = static_cast<const unsigned char*>(pVect1);
+    const unsigned char* b = static_cast<const unsigned char*>(pVect2);
 
     for (size_t i = 0; i < qty; i++) {
         res += ((*a) - (*b)) * ((*a) - (*b));

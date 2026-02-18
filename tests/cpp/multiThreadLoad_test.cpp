@@ -29,7 +29,7 @@ int main() {
         // add elements by batches
         std::uniform_int_distribution<> distrib_int(start_label, start_label + num_labels - 1);
         std::vector<std::thread> threads;
-        for (size_t thread_id = 0; thread_id < num_threads; thread_id++) {
+        for (int thread_id = 0; thread_id < num_threads; thread_id++) {
             threads.push_back(
                 std::thread(
                     [&] {
@@ -48,14 +48,14 @@ int main() {
         for (auto &thread : threads) {
             thread.join();
         }
-        if (alg_hnsw->cur_element_count > max_elements - num_labels) {
+        if (alg_hnsw->cur_element_count > static_cast<size_t>(max_elements - num_labels)) {
             break;
         }
         start_label += num_labels;
     }
 
     // insert remaining elements if needed
-    for (hnswlib::labeltype label = 0; label < max_elements; label++) {
+    for (int label = 0; label < max_elements; label++) {
         auto search = alg_hnsw->label_lookup_.find(label);
         if (search == alg_hnsw->label_lookup_.end()) {
             std::cout << "Adding " << label << std::endl;
@@ -77,7 +77,7 @@ int main() {
     std::cout << "Starting markDeleted and unmarkDeleted threads" << std::endl;
     num_threads = 20;
     int chunk_size = max_elements / num_threads;
-    for (size_t thread_id = 0; thread_id < num_threads; thread_id++) {
+    for (int thread_id = 0; thread_id < num_threads; thread_id++) {
         threads.push_back(
             std::thread(
                 [&, thread_id] {
@@ -104,7 +104,7 @@ int main() {
     std::cout << "Starting add and update elements threads" << std::endl;
     num_threads = 20;
     std::uniform_int_distribution<> distrib_int_add(max_elements, 2 * max_elements - 1);
-    for (size_t thread_id = 0; thread_id < num_threads; thread_id++) {
+    for (int thread_id = 0; thread_id < num_threads; thread_id++) {
         threads.push_back(
             std::thread(
                 [&] {
@@ -115,8 +115,8 @@ int main() {
                             data[i] = distrib_real(rng);
                         }
                         alg_hnsw->addPoint(data.data(), label);
-                        std::vector<float> data = alg_hnsw->getDataByLabel<float>(label);
-                        float max_val = *max_element(data.begin(), data.end());
+                        std::vector<float> retrieved_data = alg_hnsw->getDataByLabel<float>(label);
+                        float max_val = *max_element(retrieved_data.begin(), retrieved_data.end());
                         // never happens but prevents compiler from deleting unused code
                         if (max_val > 10) {
                             throw std::runtime_error("Unexpected value in data");

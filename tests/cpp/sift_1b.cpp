@@ -66,7 +66,7 @@ class StopW {
 * memory use) measured in bytes, or zero if the value cannot be
 * determined on this OS.
 */
-static size_t getPeakRSS() {
+[[maybe_unused]] static size_t getPeakRSS() {
 #if defined(_WIN32)
     /* Windows -------------------------------------------------- */
     PROCESS_MEMORY_COUNTERS info;
@@ -146,19 +146,18 @@ static size_t getCurrentRSS() {
 static void
 get_gt(
     unsigned int *massQA,
-    unsigned char *massQ,
-    unsigned char *mass,
-    size_t vecsize,
+    unsigned char * /*massQ*/,
+    unsigned char * /*mass*/,
+    size_t /*vecsize*/,
     size_t qsize,
-    L2SpaceI &l2space,
-    size_t vecdim,
+    L2SpaceI & /*l2space*/,
+    size_t /*vecdim*/,
     vector<std::priority_queue<std::pair<int, labeltype>>> &answers,
     size_t k) {
     (vector<std::priority_queue<std::pair<int, labeltype >>>(qsize)).swap(answers);
-    DISTFUNC<int> fstdistfunc_ = l2space.get_dist_func();
     cout << qsize << "\n";
-    for (int i = 0; i < qsize; i++) {
-        for (int j = 0; j < k; j++) {
+    for (size_t i = 0; i < qsize; i++) {
+        for (size_t j = 0; j < k; j++) {
             answers[i].emplace(0.0f, massQA[1000 * i + j]);
         }
     }
@@ -167,7 +166,7 @@ get_gt(
 static float
 test_approx(
     unsigned char *massQ,
-    size_t vecsize,
+    size_t /*vecsize*/,
     size_t qsize,
     HierarchicalNSW<int> &appr_alg,
     size_t vecdim,
@@ -177,7 +176,7 @@ test_approx(
     size_t total = 0;
     // uncomment to test in parallel mode:
     //#pragma omp parallel for
-    for (int i = 0; i < qsize; i++) {
+    for (size_t i = 0; i < qsize; i++) {
         std::priority_queue<std::pair<int, labeltype >> result = appr_alg.searchKnn(massQ + vecdim * i, k);
         std::priority_queue<std::pair<int, labeltype >> gt(answers[i]);
         unordered_set<labeltype> g;
@@ -261,7 +260,7 @@ void sift_test1B() {
     cout << "Loading GT:\n";
     ifstream inputGT(path_gt, ios::binary);
     unsigned int *massQA = new unsigned int[qsize * 1000];
-    for (int i = 0; i < qsize; i++) {
+    for (size_t i = 0; i < qsize; i++) {
         int t;
         inputGT.read((char *) &t, 4);
         inputGT.read((char *) (massQA + 1000 * i), t * 4);
@@ -276,7 +275,7 @@ void sift_test1B() {
     unsigned char *massQ = new unsigned char[qsize * vecdim];
     ifstream inputQ(path_q, ios::binary);
 
-    for (int i = 0; i < qsize; i++) {
+    for (size_t i = 0; i < qsize; i++) {
         int in = 0;
         inputQ.read((char *) &in, 4);
         if (in != 128) {
@@ -284,7 +283,7 @@ void sift_test1B() {
             exit(1);
         }
         inputQ.read((char *) massb, in);
-        for (int j = 0; j < vecdim; j++) {
+        for (size_t j = 0; j < vecdim; j++) {
             massQ[i * vecdim + j] = massb[j];
         }
     }
@@ -312,19 +311,19 @@ void sift_test1B() {
         }
         input.read((char *) massb, in);
 
-        for (int j = 0; j < vecdim; j++) {
+        for (size_t j = 0; j < vecdim; j++) {
             mass[j] = massb[j] * (1.0f);
         }
 
         appr_alg->addPoint((void *) (massb), (size_t) 0);
-        int j1 = 0;
+        size_t j1 = 0;
         StopW stopw = StopW();
         StopW stopw_full = StopW();
         size_t report_every = 100000;
 #pragma omp parallel for
-        for (int i = 1; i < vecsize; i++) {
+        for (size_t i = 1; i < vecsize; i++) {
             unsigned char mass[128];
-            int j2 = 0;
+            size_t j2 = 0;
 #pragma omp critical
             {
                 input.read((char *) &in, 4);
@@ -333,7 +332,7 @@ void sift_test1B() {
                     exit(1);
                 }
                 input.read((char *) massb, in);
-                for (int j = 0; j < vecdim; j++) {
+                for (size_t j = 0; j < vecdim; j++) {
                     mass[j] = massb[j];
                 }
                 j1++;

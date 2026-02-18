@@ -31,9 +31,9 @@ int main() {
     for (int i = 0; i < max_elements; i++) {
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result = alg_hnsw->searchKnn(data + i * dim, 1);
         hnswlib::labeltype label = result.top().second;
-        if (label == i) correct++;
+        if (label == static_cast<hnswlib::labeltype>(i)) correct++;
     }
-    float recall = correct / max_elements;
+    float recall = correct / static_cast<float>(max_elements);
     std::cout << "Recall: " << recall << "\n";
 
     // Serialize index
@@ -47,9 +47,9 @@ int main() {
     for (int i = 0; i < max_elements; i++) {
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result = alg_hnsw->searchKnn(data + i * dim, 1);
         hnswlib::labeltype label = result.top().second;
-        if (label == i) correct++;
+        if (label == static_cast<hnswlib::labeltype>(i)) correct++;
     }
-    recall = (float)correct / max_elements;
+    recall = correct / static_cast<float>(max_elements);
     std::cout << "Recall of deserialized index: " << recall << "\n";
 
     delete[] data;

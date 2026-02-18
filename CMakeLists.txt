@@ -31,75 +31,81 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 else()
     option(HNSWLIB_EXAMPLES "Build examples and tests." OFF)
 endif()
+
+# Option to treat warnings as errors (useful for CI)
+option(HNSWLIB_WERROR "Treat warnings as errors" OFF)
+
 if(HNSWLIB_EXAMPLES)
     set(CMAKE_CXX_STANDARD 11)
 
+    # Common warning flags for GCC/Clang
+    set(HNSWLIB_WARNING_FLAGS
+        -Wall
+        -Wextra
+        -Wno-unknown-pragmas
+    )
+
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-      SET( CMAKE_CXX_FLAGS  "-Ofast -std=c++11 -DHAVE_CXX0X -openmp -fpic -ftree-vectorize" )
+      set(CMAKE_CXX_FLAGS "-O3 -DHAVE_CXX0X -fpic -ftree-vectorize")
       check_cxx_compiler_flag("-march=native" COMPILER_SUPPORT_NATIVE_FLAG)
       if(COMPILER_SUPPORT_NATIVE_FLAG)
-        SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native" )
-        message("set -march=native flag")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+        message(STATUS "set -march=native flag")
       else()
         check_cxx_compiler_flag("-mcpu=apple-m1" COMPILER_SUPPORT_M1_FLAG)
         if(COMPILER_SUPPORT_M1_FLAG)
-          SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=apple-m1" )
-          message("set -mcpu=apple-m1 flag")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=apple-m1")
+          message(STATUS "set -mcpu=apple-m1 flag")
         endif()
       endif()
+      # Add OpenMP if available
+      find_package(OpenMP QUIET)
+      if(OpenMP_CXX_FOUND)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+      endif()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -std=c++11 -DHAVE_CXX0X -march=native -fpic -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0" )
+      set(CMAKE_CXX_FLAGS "-O3 -lrt -DHAVE_CXX0X -march=native -fpic -fopenmp -ftree-vectorize")
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      SET( CMAKE_CXX_FLAGS  "/O2 -DHAVE_CXX0X /W1 /openmp /EHsc" )
+      set(CMAKE_CXX_FLAGS "/O2 -DHAVE_CXX0X /W3 /openmp /EHsc")
+      set(HNSWLIB_WARNING_FLAGS /W3)
     endif()
 
+    # Add warning-as-error flag if requested
+    if(HNSWLIB_WERROR)
+      if(MSVC)
+        list(APPEND HNSWLIB_WARNING_FLAGS /WX)
+      else()
+        list(APPEND HNSWLIB_WARNING_FLAGS -Werror)
+      endif()
+    endif()
+
+    # Helper function to add warning flags to targets
+    function(hnswlib_add_executable target_name)
+        add_executable(${target_name} ${ARGN})
+        target_link_libraries(${target_name} hnswlib)
+        target_compile_options(${target_name} PRIVATE ${HNSWLIB_WARNING_FLAGS})
+    endfunction()
+
     # examples
-    add_executable(example_search examples/cpp/example_search.cpp)
-    target_link_libraries(example_search hnswlib)
-
-    add_executable(example_epsilon_search examples/cpp/example_epsilon_search.cpp)
-    target_link_libraries(example_epsilon_search hnswlib)
-
-    add_executable(example_multivector_search examples/cpp/example_multivector_search.cpp)
-    target_link_libraries(example_multivector_search hnswlib)
-
-    add_executable(example_filter examples/cpp/example_filter.cpp)
-    target_link_libraries(example_filter hnswlib)
-
-    add_executable(example_replace_deleted examples/cpp/example_replace_deleted.cpp)
-    target_link_libraries(example_replace_deleted hnswlib)
-
-    add_executable(example_mt_search examples/cpp/example_mt_search.cpp)
-    target_link_libraries(example_mt_search hnswlib)
-
-    add_executable(example_mt_filter examples/cpp/example_mt_filter.cpp)
-    target_link_libraries(example_mt_filter hnswlib)
-
-    add_executable(example_mt_replace_deleted examples/cpp/example_mt_replace_deleted.cpp)
-    target_link_libraries(example_mt_replace_deleted hnswlib)
+    hnswlib_add_executable(example_search examples/cpp/example_search.cpp)
+    hnswlib_add_executable(example_epsilon_search examples/cpp/example_epsilon_search.cpp)
+    hnswlib_add_executable(example_multivector_search examples/cpp/example_multivector_search.cpp)
+    hnswlib_add_executable(example_filter examples/cpp/example_filter.cpp)
+    hnswlib_add_executable(example_replace_deleted examples/cpp/example_replace_deleted.cpp)
+    hnswlib_add_executable(example_mt_search examples/cpp/example_mt_search.cpp)
+    hnswlib_add_executable(example_mt_filter examples/cpp/example_mt_filter.cpp)
+    hnswlib_add_executable(example_mt_replace_deleted examples/cpp/example_mt_replace_deleted.cpp)
 
     # tests
-    add_executable(multivector_search_test tests/cpp/multivector_search_test.cpp)
-    target_link_libraries(multivector_search_test hnswlib)
-
-    add_executable(epsilon_search_test tests/cpp/epsilon_search_test.cpp)
-    target_link_libraries(epsilon_search_test hnswlib)
-
-    add_executable(test_updates tests/cpp/updates_test.cpp)
-    target_link_libraries(test_updates hnswlib)
-
-    add_executable(searchKnnCloserFirst_test tests/cpp/searchKnnCloserFirst_test.cpp)
-    target_link_libraries(searchKnnCloserFirst_test hnswlib)
-
-    add_executable(searchKnnWithFilter_test tests/cpp/searchKnnWithFilter_test.cpp)
-    target_link_libraries(searchKnnWithFilter_test hnswlib)
-
-    add_executable(multiThreadLoad_test tests/cpp/multiThreadLoad_test.cpp)
-    target_link_libraries(multiThreadLoad_test hnswlib)
-
-    add_executable(multiThread_replace_test tests/cpp/multiThread_replace_test.cpp)
-    target_link_libraries(multiThread_replace_test hnswlib)
+    hnswlib_add_executable(multivector_search_test tests/cpp/multivector_search_test.cpp)
+    hnswlib_add_executable(epsilon_search_test tests/cpp/epsilon_search_test.cpp)
+    hnswlib_add_executable(test_updates tests/cpp/updates_test.cpp)
+    hnswlib_add_executable(searchKnnCloserFirst_test tests/cpp/searchKnnCloserFirst_test.cpp)
+    hnswlib_add_executable(searchKnnWithFilter_test tests/cpp/searchKnnWithFilter_test.cpp)
+    hnswlib_add_executable(multiThreadLoad_test tests/cpp/multiThreadLoad_test.cpp)
+    hnswlib_add_executable(multiThread_replace_test tests/cpp/multiThread_replace_test.cpp)
 
     add_executable(main tests/cpp/main.cpp tests/cpp/sift_1b.cpp)
     target_link_libraries(main hnswlib)
+    target_compile_options(main PRIVATE ${HNSWLIB_WARNING_FLAGS})
 endif()

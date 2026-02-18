@@ -22,7 +22,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     std::unordered_map<labeltype, size_t > dict_external_to_internal;
 
 
-    BruteforceSearch(SpaceInterface <dist_t> *s)
+    BruteforceSearch(SpaceInterface <dist_t>* /*s*/)
         : data_(nullptr),
             maxelements_(0),
             cur_element_count(0),
@@ -49,7 +49,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
         size_per_element_ = data_size_ + sizeof(labeltype);
-        data_ = (char *) malloc(maxElements * size_per_element_);
+        data_ = static_cast<char*>(malloc(maxElements * size_per_element_));
         if (data_ == nullptr)
             throw std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
         cur_element_count = 0;
@@ -61,8 +61,8 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    void addPoint(const void *datapoint, labeltype label, bool replace_deleted = false) {
-        int idx;
+    void addPoint(const void *datapoint, labeltype label, bool /*replace_deleted*/ = false) {
+        size_t idx;
         {
             std::unique_lock<std::mutex> lock(index_lock);
 
@@ -94,7 +94,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         dict_external_to_internal.erase(found);
 
         size_t cur_c = found->second;
-        labeltype label = *((labeltype*)(data_ + size_per_element_ * (cur_element_count-1) + data_size_));
+        labeltype label = *reinterpret_cast<labeltype*>(data_ + size_per_element_ * (cur_element_count-1) + data_size_);
         dict_external_to_internal[label] = cur_c;
         memcpy(data_ + size_per_element_ * cur_c,
                 data_ + size_per_element_ * (cur_element_count-1),
@@ -108,18 +108,18 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         assert(k <= cur_element_count);
         std::priority_queue<std::pair<dist_t, labeltype >> topResults;
         if (cur_element_count == 0) return topResults;
-        for (int i = 0; i < k; i++) {
+        for (size_t i = 0; i < k; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
-            labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
+            labeltype label = *reinterpret_cast<labeltype*>(data_ + size_per_element_ * i + data_size_);
             if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                 topResults.emplace(dist, label);
             }
         }
         dist_t lastdist = topResults.empty() ? std::numeric_limits<dist_t>::max() : topResults.top().first;
-        for (int i = k; i < cur_element_count; i++) {
+        for (size_t i = k; i < cur_element_count; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             if (dist <= lastdist) {
-                labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
+                labeltype label = *reinterpret_cast<labeltype*>(data_ + size_per_element_ * i + data_size_);
                 if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                     topResults.emplace(dist, label);
                 }
@@ -161,7 +161,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
         size_per_element_ = data_size_ + sizeof(labeltype);
-        data_ = (char *) malloc(maxelements_ * size_per_element_);
+        data_ = static_cast<char*>(malloc(maxelements_ * size_per_element_));
         if (data_ == nullptr)
             throw std::runtime_error("Not enough memory: loadIndex failed to allocate data");
 

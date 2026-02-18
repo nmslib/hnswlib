@@ -17,14 +17,14 @@ unsigned int divisor = 1;
     PickDivisibleIds(unsigned int divisor): divisor(divisor) {
         assert(divisor != 0);
     }
-    bool operator()(idx_t label_id) {
+    bool operator()(idx_t label_id) override {
         return label_id % divisor == 0;
     }
 };
 
 class PickNothing: public hnswlib::BaseFilterFunctor {
  public:
-    bool operator()(idx_t label_id) {
+    bool operator()(idx_t /*label_id*/) override {
         return false;
     }
 };
@@ -151,7 +151,7 @@ class CustomFilterFunctor: public hnswlib::BaseFilterFunctor {
  public:
     explicit CustomFilterFunctor(const std::unordered_set<idx_t>& values) : allowed_values(values) {}
 
-    bool operator()(idx_t id) {
+    bool operator()(idx_t id) override {
         return allowed_values.count(id) != 0;
     }
 };

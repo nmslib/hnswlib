@@ -95,7 +95,7 @@ int main() {
     }
 
     // Add data to index
-    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
+    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t /*threadId*/) {
         alg_hnsw->addPoint((void*)(data + dim * row), row);
     });
 
@@ -104,13 +104,13 @@ int main() {
 
     // Query the elements for themselves with filter and check returned labels
     int k = 10;
-    std::vector<hnswlib::labeltype> neighbors(max_elements * k);
-    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t threadId) {
+    std::vector<hnswlib::labeltype> neighbors(static_cast<size_t>(max_elements * k));
+    ParallelFor(0, max_elements, num_threads, [&](size_t row, size_t /*threadId*/) {
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result = alg_hnsw->searchKnn(data + dim * row, k, &pickIdsDivisibleByTwo);
         for (int i = 0; i < k; i++) {
             hnswlib::labeltype label = result.top().second;
             result.pop();
-            neighbors[row * k + i] = label;
+            neighbors[row * static_cast<size_t>(k) + static_cast<size_t>(i)] = label;
         }
     });
 
