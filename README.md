@@ -39,9 +39,9 @@ Description of the algorithm parameters can be found in [ALGO_PARAMS.md](ALGO_PA
 
 | Distance         | parameter       | Equation                |
 | -------------    |:---------------:| -----------------------:|
-|Squared L2        |'l2'             | d = sum((Ai-Bi)^2)      |
-|Inner product     |'ip'             | d = 1.0 - sum(Ai\*Bi)   |
-|Cosine similarity |'cosine'         | d = 1.0 - sum(Ai\*Bi) / sqrt(sum(Ai\*Ai) * sum(Bi\*Bi))|
+|Squared L2        |'l2'             | $d = \sum_{i} (A_i - B_i)^2$      |
+|Inner product     |'ip'             | $d = 1.0 - \sum_{i} (A_i \cdot B_i)$   |
+|Cosine similarity |'cosine'         | $d = 1.0 - \frac{\sum_{i} (A_i \cdot B_i)}{\sqrt{\sum_{i} A_i^2 \cdot \sum_{i} B_i^2}}$|
 
 Note that inner product is not an actual metric. An element can be closer to some other element than to itself. That allows some speedup if you remove all elements that are not the closest to themselves from the index.
 
