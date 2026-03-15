@@ -77,4 +77,5 @@ jobs:
           ./test_updates update
           ./multivector_search_test
           ./epsilon_search_test
+          ./memory_usage_test
         shell: bash
