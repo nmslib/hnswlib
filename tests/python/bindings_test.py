@@ -44,6 +44,7 @@ class RandomSelfTestCase(unittest.TestCase):
         # Query the elements for themselves and measure recall:
         labels, distances = p.knn_query(data1, k=1)
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data1))), 1.0, 3)
+        del labels, distances
 
         # Serializing and deleting the index:
         index_path = 'first_half.bin'
@@ -64,5 +65,6 @@ class RandomSelfTestCase(unittest.TestCase):
         labels, distances = p.knn_query(data, k=1)
 
         self.assertAlmostEqual(np.mean(labels.reshape(-1) == np.arange(len(data))), 1.0, 3)
+        del labels, distances
         
         os.remove(index_path)
