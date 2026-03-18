@@ -339,16 +339,17 @@ class Index {
         }
     }
 
-
-    std::vector<hnswlib::labeltype> getIdsList() {
+    std::vector<hnswlib::labeltype> getIdsList(bool no_deleted = false) {
         std::vector<hnswlib::labeltype> ids;
 
         for (auto kv : appr_alg->label_lookup_) {
+            if (no_deleted && appr_alg->isMarkedDeleted(kv.second)) {
+                continue;
+            }
             ids.push_back(kv.first);
         }
         return ids;
     }
-
 
     py::dict getAnnData() const { /* WARNING: Index::getAnnData is not thread-safe with Index::addItems */
         std::unique_lock <std::mutex> templock(appr_alg->global);
@@ -960,7 +961,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("num_threads") = -1,
             py::arg("replace_deleted") = false)
         .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
-        .def("get_ids_list", &Index<float>::getIdsList)
+        .def("get_ids_list", &Index<float>::getIdsList, py::arg("no_deleted") = false)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("index_file_size", &Index<float>::indexFileSize)
