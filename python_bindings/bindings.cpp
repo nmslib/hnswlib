@@ -341,13 +341,20 @@ class Index {
 
     std::vector<hnswlib::labeltype> getIdsList(bool no_deleted = false) {
         std::vector<hnswlib::labeltype> ids;
-
-        for (auto kv : appr_alg->label_lookup_) {
-            if (no_deleted && appr_alg->isMarkedDeleted(kv.second)) {
-                continue;
+        if (no_deleted) {
+            for (auto kv : appr_alg->label_lookup_) {
+                
+                if (appr_alg->isMarkedDeleted(kv.second)) {
+                    continue;
+                }
+                ids.push_back(kv.first);
+            }     
+        } else {
+            for (auto kv : appr_alg->label_lookup_) {
+                ids.push_back(kv.first);
             }
-            ids.push_back(kv.first);
         }
+            
         return ids;
     }
 
