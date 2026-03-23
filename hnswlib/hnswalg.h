@@ -739,6 +739,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, M_);
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
+        writeBinaryPOD(output, ef_);
 
         output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
 
@@ -789,6 +790,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input, M_);
         readBinaryPOD(input, mult_);
         readBinaryPOD(input, ef_construction_);
+        readBinaryPOD(input, ef_);
 
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
