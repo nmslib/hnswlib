@@ -88,6 +88,16 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
+    size_t getMaxElements() {
+        return maxelements_;
+    }
+
+
+    size_t getCurrentElementCount() {
+        return cur_element_count;
+    }
+
+
     void removePoint(labeltype cur_external) {
         std::unique_lock<std::mutex> lock(index_lock);
 
