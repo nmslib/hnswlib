@@ -1,3 +1,8 @@
+/* NEON vectorized distance calculation is supported.
+ *
+ * Copyright 2026 Huawei Technologies Co., Ltd.
+ */
+
 #pragma once
 #include "space_l2.h"
 #include "space_ip.h"
@@ -36,6 +41,16 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
             L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
     #endif
 
+    #if defined(USE_NEON)
+        if (dim % 16 == 0)
+            fstdistfunc_ = L2SqrSIMD16ExtNEON;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = L2SqrSIMD4ExtNEON;
+        else if (dim > 16)
+            fstdistfunc_ = L2SqrSIMD16ExtResidualsNEON;
+        else if (dim > 4)
+            fstdistfunc_ = L2SqrSIMD4ExtResidualsNEON;
+    #else
         if (dim % 16 == 0)
             fstdistfunc_ = L2SqrSIMD16Ext;
         else if (dim % 4 == 0)
@@ -44,6 +59,7 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
             fstdistfunc_ = L2SqrSIMD16ExtResiduals;
         else if (dim > 4)
             fstdistfunc_ = L2SqrSIMD4ExtResiduals;
+    #endif
 #endif
         dim_ = dim;
         vector_size_ = dim * sizeof(float);
@@ -106,6 +122,16 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
         }
     #endif
 
+    #if defined(USE_NEON)
+        if (dim % 16 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtNEON;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtNEON;
+        else if (dim > 16)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtResidualsNEON;
+        else if (dim > 4)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtResidualsNEON;
+    #else
         if (dim % 16 == 0)
             fstdistfunc_ = InnerProductDistanceSIMD16Ext;
         else if (dim % 4 == 0)
@@ -114,6 +140,7 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
             fstdistfunc_ = InnerProductDistanceSIMD16ExtResiduals;
         else if (dim > 4)
             fstdistfunc_ = InnerProductDistanceSIMD4ExtResiduals;
+    #endif
 #endif
         vector_size_ = dim * sizeof(float);
         data_size_ = vector_size_ + sizeof(DOCIDTYPE);

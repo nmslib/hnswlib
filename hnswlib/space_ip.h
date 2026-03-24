@@ -1,5 +1,15 @@
+/* NEON vectorized distance calculation is supported.
+ *
+ * Copyright 2026 Huawei Technologies Co., Ltd.
+ */
+
 #pragma once
 #include "hnswlib.h"
+#ifdef USE_NEON
+#include "arm_neon.h"
+#endif
+
+
 
 namespace hnswlib {
 
@@ -158,7 +168,7 @@ InnerProductSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void
     __m512 sum512 = _mm512_set1_ps(0);
 
     size_t loop = qty16 / 4;
-
+    
     while (loop--) {
         __m512 v1 = _mm512_loadu_ps(pVect1);
         __m512 v2 = _mm512_loadu_ps(pVect2);
@@ -339,6 +349,120 @@ InnerProductDistanceSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, 
 }
 #endif
 
+#if defined(USE_NEON)
+
+static float
+InnerProductSIMD16ExtNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    float *x = (float *) pVect1v;
+    float *y = (float *) pVect2v;
+    size_t qty = *((size_t *) qty_ptr);
+
+    size_t i;
+    float res;
+    constexpr size_t single_round = 16;
+
+    float32x4_t x4_0 = vld1q_f32(x);
+    float32x4_t x4_1 = vld1q_f32(x + 4);
+    float32x4_t x4_2 = vld1q_f32(x + 8);
+    float32x4_t x4_3 = vld1q_f32(x + 12);
+
+    float32x4_t y4_0 = vld1q_f32(y);
+    float32x4_t y4_1 = vld1q_f32(y + 4);
+    float32x4_t y4_2 = vld1q_f32(y + 8);
+    float32x4_t y4_3 = vld1q_f32(y + 12);
+
+    float32x4_t d4_0 = vmulq_f32(x4_0, y4_0);
+    float32x4_t d4_1 = vmulq_f32(x4_1, y4_1);
+    float32x4_t d4_2 = vmulq_f32(x4_2, y4_2);
+    float32x4_t d4_3 = vmulq_f32(x4_3, y4_3);
+
+    for (i = single_round; i <= qty - single_round; i += single_round) {
+        x4_0 = vld1q_f32(x + i);
+        y4_0 = vld1q_f32(y + i);
+        d4_0 = vmlaq_f32(d4_0, x4_0, y4_0);
+
+        x4_1 = vld1q_f32(x + i + 4);
+        y4_1 = vld1q_f32(y + i + 4);
+        d4_1 = vmlaq_f32(d4_1, x4_1, y4_1);
+
+        x4_2 = vld1q_f32(x + i + 8);
+        y4_2 = vld1q_f32(y + i + 8);
+        d4_2 = vmlaq_f32(d4_2, x4_2, y4_2);
+
+        x4_3 = vld1q_f32(x + i + 12);
+        y4_3 = vld1q_f32(y + i + 12);
+        d4_3 = vmlaq_f32(d4_3, x4_3, y4_3);
+    }
+
+    d4_0 = vaddq_f32(d4_0, d4_1);
+    d4_2 = vaddq_f32(d4_2, d4_3);
+    d4_0 = vaddq_f32(d4_0, d4_2);
+    res = vaddvq_f32(d4_0);
+
+    return (res);
+}
+
+static float
+InnerProductDistanceSIMD16ExtNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    return 1.0f - InnerProductSIMD16ExtNEON(pVect1v, pVect2v, qty_ptr);
+}
+
+static float
+InnerProductSIMD4ExtNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    float *x = (float *) pVect1v;
+    float *y = (float *) pVect2v;
+    size_t qty = *((size_t *) qty_ptr);
+
+    size_t i;
+    float res;
+    constexpr size_t single_round = 4;
+
+    float32x4_t x4_0 = vld1q_f32(x);
+    float32x4_t y4_0 = vld1q_f32(y);
+    float32x4_t d4_0 = vmulq_f32(x4_0, y4_0);
+
+    for (i = single_round; i <= qty - single_round; i += single_round) {
+        x4_0 = vld1q_f32(x + i);
+        y4_0 = vld1q_f32(y + i);
+        d4_0 = vmlaq_f32(d4_0, x4_0, y4_0);
+    }
+    res = vaddvq_f32(d4_0);
+
+    return (res);
+}
+
+static float
+InnerProductDistanceSIMD4ExtNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    return 1.0f - InnerProductSIMD4ExtNEON(pVect1v, pVect2v, qty_ptr);
+}
+
+static float
+InnerProductDistanceSIMD16ExtResidualsNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    size_t qty = *((size_t *) qty_ptr);
+    size_t qty16 = qty >> 4 << 4;
+    float res_16 = InnerProductSIMD16ExtNEON(pVect1v, pVect2v, &qty16);
+    
+    size_t qty_left = qty - qty16;
+    float *pVect1 = (float *) pVect1v + qty16;
+    float *pVect2 = (float *) pVect2v + qty16;
+    float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+    return 1.0f - (res_16 + res_tail);
+}
+
+static float
+InnerProductDistanceSIMD4ExtResidualsNEON(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+    size_t qty = *((size_t *) qty_ptr);
+    size_t qty4 = qty >> 2 << 2;
+    float res = InnerProductSIMD4ExtNEON(pVect1v, pVect2v, &qty4);
+
+    size_t qty_left = qty - qty4;
+    float *pVect1 = (float *) pVect1v + qty4;
+    float *pVect2 = (float *) pVect2v + qty4;
+    float res_tail = InnerProduct(pVect1, pVect2, &qty_left);
+    return 1.0f - (res + res_tail);
+}
+#endif
+
 class InnerProductSpace : public SpaceInterface<float> {
     DISTFUNC<float> fstdistfunc_;
     size_t data_size_;
@@ -347,7 +471,7 @@ class InnerProductSpace : public SpaceInterface<float> {
  public:
     InnerProductSpace(size_t dim) {
         fstdistfunc_ = InnerProductDistance;
-#if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
+#if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512) || defined(USE_NEON)
     #if defined(USE_AVX512)
         if (AVX512Capable()) {
             InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX512;
@@ -369,6 +493,16 @@ class InnerProductSpace : public SpaceInterface<float> {
         }
     #endif
 
+    #if defined(USE_NEON)
+        if (dim > 0 && dim % 16 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtNEON;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtNEON;
+        else if (dim > 16)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtResidualsNEON;
+        else if (dim > 4)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtResidualsNEON;
+    #else
         if (dim % 16 == 0)
             fstdistfunc_ = InnerProductDistanceSIMD16Ext;
         else if (dim % 4 == 0)
@@ -377,6 +511,7 @@ class InnerProductSpace : public SpaceInterface<float> {
             fstdistfunc_ = InnerProductDistanceSIMD16ExtResiduals;
         else if (dim > 4)
             fstdistfunc_ = InnerProductDistanceSIMD4ExtResiduals;
+    #endif
 #endif
         dim_ = dim;
         data_size_ = dim * sizeof(float);
