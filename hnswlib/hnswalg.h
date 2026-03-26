@@ -19,6 +19,7 @@ namespace hnswlib {
 typedef unsigned int tableint;
 constexpr tableint kInvalidInternalId = std::numeric_limits<tableint>::max();
 typedef unsigned int linklistsizeint;
+constexpr size_t SERIALIZATION_VERSION = std::numeric_limits<size_t>::max();  // decrement by one with each incompatible binary change to serialed index
 
 template<typename dist_t>
 class HierarchicalNSW : public AlgorithmInterface<dist_t> {
@@ -699,6 +700,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     size_t indexFileSize() const {
         size_t size = 0;
+        size += sizeof(SERIALIZATION_VERSION);
         size += sizeof(offsetLevel0_);
         size += sizeof(max_elements_);
         size += sizeof(cur_element_count);
@@ -713,6 +715,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size += sizeof(M_);
         size += sizeof(mult_);
         size += sizeof(ef_construction_);
+        size += sizeof(ef_);
 
         size += cur_element_count * size_data_per_element_;
 
@@ -725,6 +728,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     Status saveIndexNoExceptions(std::ostream &output) {
+        writeBinaryPOD(output, SERIALIZATION_VERSION);
         writeBinaryPOD(output, offsetLevel0_);
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
@@ -770,6 +774,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         input.seekg(0, input.end);
         std::streampos total_filesize = input.tellg();
         input.seekg(0, input.beg);
+
+        size_t loadedBinaryVersion{0};
+        readBinaryPOD(input, loadedBinaryVersion);
+        if (loadedBinaryVersion != SERIALIZATION_VERSION)
+            HNSWLIB_THROW_RUNTIME_ERROR("Index load failed due to incompatible serialization format.");
 
         readBinaryPOD(input, offsetLevel0_);
         readBinaryPOD(input, max_elements_);
@@ -839,7 +848,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return Status("Not enough memory: loadIndex failed to allocate linklists");
         element_levels_ = std::vector<int>(max_elements);
         revSize_ = 1.0 / mult_;
-        ef_ = 10;
+
         for (size_t i = 0; i < cur_element_count; i++) {
             label_lookup_[getExternalLabel(i)] = i;
             unsigned int linkListSize;
