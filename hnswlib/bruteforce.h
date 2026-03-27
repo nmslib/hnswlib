@@ -33,6 +33,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             size_per_element_(0),
             data_size_(0),
             dist_func_param_(nullptr) {
+        (void)s; // silence unused variable warnings.
     }
 
 
@@ -66,6 +67,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
 
 
     Status addPointNoExceptions(const void *datapoint, labeltype label, bool replace_deleted = false) override {
+        (void)replace_deleted; // silence unused variable warning.
         int idx;
         {
             std::unique_lock<std::mutex> lock(index_lock);
@@ -114,7 +116,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         assert(k <= cur_element_count);
         std::priority_queue<std::pair<dist_t, labeltype >> topResults;
         dist_t lastdist = std::numeric_limits<dist_t>::max();
-        for (int i = 0; i < cur_element_count; i++) {
+        for (size_t i = 0; i < cur_element_count; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             if (dist <= lastdist || topResults.size() < k) {
                 labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));

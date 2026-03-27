@@ -164,6 +164,7 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         }
 
     void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) override {
+        (void)label; // silence unused variable warnings.
         DOCIDTYPE doc_id = space_.get_doc_id(datapoint);
         if (doc_counter_[doc_id] == 0) {
             curr_num_docs_ += 1;
@@ -173,6 +174,8 @@ class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     }
 
     void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) override {
+        (void)label; // silence unused variable warnings.
+        (void)dist;
         DOCIDTYPE doc_id = space_.get_doc_id(datapoint);
         doc_counter_[doc_id] -= 1;
         if (doc_counter_[doc_id] == 0) {
@@ -232,10 +235,16 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
     }
 
     void add_point_to_result(labeltype label, const void *datapoint, dist_t dist) override {
+        (void)label; // silence unused variable warnings;
+        (void)datapoint;
+        (void)dist;
         curr_num_items_ += 1;
     }
 
     void remove_point_from_result(labeltype label, const void *datapoint, dist_t dist) override {
+        (void)label; // silence unused variable warnings;
+        (void)datapoint;
+        (void)dist;
         curr_num_items_ -= 1;
     }
 
