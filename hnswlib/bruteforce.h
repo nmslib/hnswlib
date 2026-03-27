@@ -4,6 +4,7 @@
 #include <mutex>
 #include <algorithm>
 #include <assert.h>
+#include "hnswlib.h"
 
 namespace hnswlib {
 template<typename dist_t>
@@ -60,6 +61,11 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         free(data_);
     }
 
+    inline labeltype getExternalLabel(size_t internal_id) const {
+        labeltype return_label;
+        memcpy(&return_label, data_ + internal_id * size_per_element_ + data_size_, sizeof(labeltype));
+        return return_label;
+    }
 
     void addPoint(const void *datapoint, labeltype label, bool replace_deleted = false) {
         int idx;
@@ -94,7 +100,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         dict_external_to_internal.erase(found);
 
         size_t cur_c = found->second;
-        labeltype label = *((labeltype*)(data_ + size_per_element_ * (cur_element_count-1) + data_size_));
+        labeltype label = getExternalLabel(cur_element_count - 1);
         dict_external_to_internal[label] = cur_c;
         memcpy(data_ + size_per_element_ * cur_c,
                 data_ + size_per_element_ * (cur_element_count-1),
@@ -110,7 +116,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         if (cur_element_count == 0) return topResults;
         for (int i = 0; i < k; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
-            labeltype label = *((labeltype*) (data_ + size_per_element_ * i + data_size_));
+            labeltype label = getExternalLabel(i);
             if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                 topResults.emplace(dist, label);
             }
@@ -119,7 +125,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         for (int i = k; i < cur_element_count; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             if (dist <= lastdist) {
-                labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
+                labeltype label = getExternalLabel(i);
                 if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                     topResults.emplace(dist, label);
                 }
