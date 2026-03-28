@@ -383,13 +383,13 @@ class Index {
 
         memset(link_list_npy, 0, link_npy_size);
 
-        memcpy(data_level0_npy, appr_alg->data_level0_memory_, level0_npy_size);
+        appr_alg->data_level0_memory_.copyTo(data_level0_npy, level0_npy_size);
         memcpy(element_levels_npy, appr_alg->element_levels_.data(), appr_alg->element_levels_.size() * sizeof(int));
 
         for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
-            size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
+            size_t linkListSize = appr_alg->size_links_per_element_ * appr_alg->element_levels_[i];
             if (linkListSize) {
-                memcpy(link_list_npy + link_npy_offsets[i], appr_alg->linkLists_[i], linkListSize);
+                memcpy(link_list_npy + link_npy_offsets[i], appr_alg->getLinkListPtr(i), linkListSize);
             }
         }
 
@@ -576,18 +576,19 @@ class Index {
                 link_npy_size += linkListSize;
         }
 
-        memcpy(appr_alg->data_level0_memory_, data_level0_npy.data(), data_level0_npy.nbytes());
+        appr_alg->data_level0_memory_.copyFrom(data_level0_npy.data(), data_level0_npy.nbytes());
 
         for (size_t i = 0; i < appr_alg->max_elements_; i++) {
             size_t linkListSize = appr_alg->element_levels_[i] > 0 ? appr_alg->size_links_per_element_ * appr_alg->element_levels_[i] : 0;
             if (linkListSize == 0) {
-                appr_alg->linkLists_[i] = nullptr;
+                appr_alg->setLinkListPtr(i, nullptr);
             } else {
-                appr_alg->linkLists_[i] = (char*)malloc(linkListSize);
-                if (appr_alg->linkLists_[i] == nullptr)
+                char* linkListPtr = reinterpret_cast<char*>(malloc(linkListSize));
+                if (linkListPtr == nullptr)
                     HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate linklist");
+                appr_alg->setLinkListPtr(i, linkListPtr);
 
-                memcpy(appr_alg->linkLists_[i], link_list_npy.data() + link_npy_offsets[i], linkListSize);
+                memcpy(linkListPtr, link_list_npy.data() + link_npy_offsets[i], linkListSize);
             }
         }
 

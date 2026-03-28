@@ -26,6 +26,11 @@
 #endif
 #endif
 
+#include <assert.h>
+
+#include <memory>
+#include <type_traits>
+
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -356,7 +361,219 @@ class AlgorithmInterface {
     }
 };
 
+namespace internal {
+
+struct FreeDeleter {
+    void operator()(void* ptr) const {
+        std::free(ptr);
+    }
+};
+
+using MallocUniqueCharArrayPtr = std::unique_ptr<char[], FreeDeleter>;
+
+// Allocates the given number of bytes as a special kind of a unique pointer.
+// Does not initialize the memory.
+MallocUniqueCharArrayPtr makeUniqueCharArray(size_t n_bytes) {
+    char* raw_ptr = static_cast<char*>(malloc(n_bytes));
+    return MallocUniqueCharArrayPtr(raw_ptr);
+}
+
+}  // namespace internal
+
+// Manages a large, array-like data structure by allocating memory in smaller,
+// fixed-size blocks called "chunks." This class provides a flat, array-like
+// view over a large collection of elements without needing a single, massive
+// contiguous memory allocation.
+//
+// It provides random access via `operator[]`, which internally maps an index
+// to the correct chunk and the element's offset within it. The size of the
+// elements and the number of elements per chunk are configured at construction.
+//
+// The class is non-copyable to prevent expensive deep copies but is movable for
+// efficient transfers of ownership. The template parameter `ElementPointerType`
+// specifies the pointer type used to access elements, e.g. `char*` if pointer
+// arithmetics are required, or `void*` if the result would be immediately cast
+// into another pointer type.
+template <typename ElementPointerType>
+class ChunkedArray {
+ public:
+    static_assert(std::is_pointer<ElementPointerType>::value,
+                  "Template parameter ElementPointerType must be a pointer.");
+    ChunkedArray()
+        : element_byte_size_(0),
+          elements_per_chunk_(0),
+          element_count_(0),
+          chunk_padding_bytes_(0) {
+    }
+
+    ChunkedArray(size_t element_byte_size,
+                 size_t elements_per_chunk,
+                 size_t element_count,
+                 size_t chunk_padding_bytes) :
+        element_byte_size_(element_byte_size),
+        elements_per_chunk_(elements_per_chunk),
+        element_count_(0),
+        chunk_padding_bytes_(chunk_padding_bytes) {
+        resize(element_count);
+    }
+
+    ChunkedArray(const ChunkedArray& other) = delete;
+    ChunkedArray& operator=(const ChunkedArray& other) = delete;
+
+    ChunkedArray(ChunkedArray&& other) noexcept {
+        swap(other);
+    }
+
+    ChunkedArray& operator=(ChunkedArray&& other) noexcept {
+        if (this != &other) {
+            swap(other);
+        }
+        return *this;
+    }
+    
+    void swap(ChunkedArray& other) noexcept {
+        std::swap(element_byte_size_, other.element_byte_size_);
+        std::swap(elements_per_chunk_, other.elements_per_chunk_);
+        std::swap(element_count_, other.element_count_);
+        std::swap(chunks_, other.chunks_);
+        std::swap(chunk_padding_bytes_, other.chunk_padding_bytes_);
+    }
+
+    ~ChunkedArray() {
+    }
+
+    size_t getCapacity() const {
+        return element_count_;
+    }
+
+    size_t getSizePerElement() const {
+        return element_byte_size_;
+    }
+
+    size_t getSizePerChunk() const {
+        return elements_per_chunk_ * element_byte_size_;
+    }
+
+    ElementPointerType operator[](size_t i) const {
+#ifndef NDEBUG
+        if (i >= getCapacity()) {
+            HNSWERR << "Chunked array index out of range: i="  << i
+                    << ", capacity=" << getCapacity() << std::endl;
+        }
+        assert(i < getCapacity());
+#endif
+        if (i >= getCapacity()) return nullptr;
+        size_t chunk_index = i / elements_per_chunk_;
+        size_t index_in_chunk = i % elements_per_chunk_;
+        return reinterpret_cast<ElementPointerType>(
+            chunks_[chunk_index].get() + element_byte_size_ * index_in_chunk
+        );
+    }
+
+    void clear() {
+        chunks_.clear();
+        element_count_ = 0;
+    }
+
+    void resize(size_t new_element_count) {
+        size_t chunk_count = getChunkCount(element_count_);
+        size_t new_chunk_count = getChunkCount(new_element_count);
+
+        chunks_.resize(new_chunk_count);
+        for (size_t i = chunk_count; i < new_chunk_count; i++) {
+            chunks_[i] = ::hnswlib::internal::makeUniqueCharArray(
+                getSizePerChunk() + chunk_padding_bytes_);
+        }
+
+        element_count_ = new_element_count;
+    }
+
+    void writeToStream(std::ostream& output, size_t num_elements_to_write) {
+        assert(num_elements_to_write <= element_count_);
+        size_t num_chunks_to_write = getChunkCount(num_elements_to_write);
+        size_t last_chunk_bytes = getLastChunkBytes(num_elements_to_write);
+        for (size_t i = 0; i < num_chunks_to_write; ++i) {
+            output.write(
+                chunks_[i].get(),
+                i + 1 == num_chunks_to_write ? last_chunk_bytes
+                                             : getSizePerChunk());
+        }
+    }
+
+    void readFromStream(std::istream& input, size_t num_elements_to_read) {
+        assert(num_elements_to_read <= element_count_);
+        size_t num_chunks_to_read = getChunkCount(num_elements_to_read);
+        size_t last_chunk_bytes = getLastChunkBytes(num_elements_to_read);
+        for (size_t i = 0; i < num_chunks_to_read; ++i) {
+            input.read(
+                chunks_[i].get(),
+                i + 1 == num_chunks_to_read ? last_chunk_bytes
+                                            : getSizePerChunk());
+        }
+    }
+
+    void copyTo(char* destination, size_t num_bytes) {
+        size_t chunk_index = 0;
+        size_t bytes_per_chunk = getSizePerChunk();
+        while (num_bytes > 0) {
+            size_t cur_size = std::min(bytes_per_chunk, num_bytes);
+            memcpy(destination, chunks_[chunk_index].get(), cur_size);
+            num_bytes -= cur_size;
+            destination += cur_size;
+        }
+    }
+
+    void copyFrom(const char* source, size_t num_bytes) {
+        size_t chunk_index = 0;
+        size_t bytes_per_chunk = getSizePerChunk();
+        while (num_bytes > 0) {
+            size_t cur_size = std::min(bytes_per_chunk, num_bytes);
+            memcpy(chunks_[chunk_index].get(), source, cur_size);
+            num_bytes -= cur_size;
+            source += cur_size;
+        }
+    }
+
+ private:
+    size_t getChunkCount(size_t element_count) const {
+        return (element_count + elements_per_chunk_ - 1) / elements_per_chunk_;
+    }
+
+    // Returns the byte size of the last chunk if pretend the element count is
+    // the given number.
+    size_t getLastChunkBytes(size_t element_count) {
+        size_t last_chunk_num_elements = element_count % elements_per_chunk_;
+        if (last_chunk_num_elements == 0) {
+            // Last chunk is whole.
+            last_chunk_num_elements = elements_per_chunk_;
+        }
+        return last_chunk_num_elements * element_byte_size_;
+    }
+
+    size_t element_byte_size_;
+    size_t elements_per_chunk_;
+    size_t element_count_;
+    std::deque<internal::MallocUniqueCharArrayPtr> chunks_;
+    size_t chunk_padding_bytes_;
+};
+
 }  // namespace hnswlib
+
+#if defined(USE_SSE) && HNSWLIB_USE_PREFETCH
+#if HNSWLIB_DEBUG_PREFETCH
+// This mode is used to find prefetch statements causing range check errors in
+// tests. We only print line numbers, which makes the output compact enough to
+// catch range check errors in some tests.
+#define HNSWLIB_MM_PREFETCH(address, hint) do { \
+    std::cout << __LINE__ << " "; \
+    _mm_prefetch(address, hint); \
+} while (0)
+#else
+#define HNSWLIB_MM_PREFETCH(address, hint) _mm_prefetch(address, hint)
+#endif
+#else
+#define HNSWLIB_MM_PREFETCH(address, hint)
+#endif
 
 #include "space_l2.h"
 #include "space_ip.h"
