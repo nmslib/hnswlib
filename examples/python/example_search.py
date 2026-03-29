@@ -15,7 +15,7 @@ data = np.float32(np.random.random((num_elements, dim)))
 ids = np.arange(num_elements)
 
 # Declaring index
-p = hnswlib.Index(space='l2', dim=dim)  # possible options are l2, cosine or ip
+p = hnswlib.Index(space='ip', dim=dim)  # possible options are l2, cosine or ip
 
 # Initializing index - the maximum number of elements should be known beforehand
 p.init_index(max_elements=num_elements, ef_construction=200, M=16)

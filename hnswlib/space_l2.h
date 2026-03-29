@@ -244,6 +244,10 @@ class L2Space : public SpaceInterface<float> {
     DISTFUNC<float> get_dist_func() {
         return fstdistfunc_;
     }
+// #if defined(USE_AMX)
+//     AMXDISTFUNC<float> get_amx_dist_func() {
+//     }
+// #endif
 
     void *get_dist_func_param() {
         return &dim_;

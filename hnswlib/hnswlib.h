@@ -20,6 +20,13 @@
 #endif
 #endif
 
+// #ifdef __AMX_BF16__
+// #define USE_AMX
+// #endif
+
+// #define USE_AMX
+#define BF16_SUPPORT
+
 #if defined(USE_AVX) || defined(USE_SSE)
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -114,6 +121,14 @@ static bool AVX512Capable() {
     }
     return HW_AVX512F && avx512Supported;
 }
+
+static bool AMXCapable()
+{
+  unsigned int eax, ebx, ecx, edx;
+  if (!__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx))
+    return false;
+  return (edx & (1 << 24)) && (edx & (1 << 25)); // Check for AMX-TILE and AMX-BF16
+}
 #endif
 
 #include <queue>
@@ -170,6 +185,12 @@ static void readBinaryPOD(std::istream &in, T &podRef) {
 template<typename MTYPE>
 using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
 
+#if defined(USE_AMX)
+template<typename MTYPE>
+using AMXDISTFUNC = MTYPE(*)(const void **, const void *, const void *, size_t, size_t,float*);
+#endif
+
+
 template<typename MTYPE>
 class SpaceInterface {
  public:
@@ -177,6 +198,12 @@ class SpaceInterface {
     virtual size_t get_data_size() = 0;
 
     virtual DISTFUNC<MTYPE> get_dist_func() = 0;
+
+#if defined(USE_AMX)
+    virtual AMXDISTFUNC<MTYPE> get_amx_dist_func() {
+      return 0; // TODO
+    };
+#endif
 
     virtual void *get_dist_func_param() = 0;
 

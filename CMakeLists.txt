@@ -6,6 +6,7 @@ project(hnswlib
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
+SET(AMXEnable false)
 add_library(hnswlib INTERFACE)
 add_library(hnswlib::hnswlib ALIAS hnswlib)
 
@@ -48,11 +49,39 @@ if(HNSWLIB_EXAMPLES)
         endif()
       endif()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      SET( CMAKE_CXX_FLAGS  "-Ofast -lrt -std=c++11 -DHAVE_CXX0X -march=native -fpic -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0" )
+      SET( CMAKE_CXX_FLAGS  "-Ofast -g -lrt -std=c++11 -DHAVE_CXX0X -march=native -fpic -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0 " )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
       SET( CMAKE_CXX_FLAGS  "/O2 -DHAVE_CXX0X /W1 /openmp /EHsc" )
     endif()
 
+if(AMXEnable)
+    set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
+    # 添加需要测试的编译器选项
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mamx-bf16")
+    
+    # 测试代码片段
+    set(SOURCE_CODE "
+    #if !defined(__AMX_BF16__)
+    #error \"AMX not supported\"
+    #endif
+    int main() { return 0; }
+    ")
+
+    check_cxx_source_compiles("${SOURCE_CODE}" HAS_AMX_SUPPORT)
+
+    if(HAS_AMX_SUPPORT)
+        message(STATUS "Compiler supports AMX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP} -mamx-bf16")
+        add_compile_definitions(USE_AMX=1)
+    else()
+        message(STATUS "Compiler does NOT support AMX")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
+    endif()
+endif()
+
+
+    # 恢复CMAKE_REQUIRED_FLAGS的原始值
+    
     # examples
     add_executable(example_search examples/cpp/example_search.cpp)
     target_link_libraries(example_search hnswlib)
@@ -71,6 +100,10 @@ if(HNSWLIB_EXAMPLES)
 
     add_executable(example_mt_search examples/cpp/example_mt_search.cpp)
     target_link_libraries(example_mt_search hnswlib)
+
+    
+    add_executable(example_mt_search_bf16 examples/cpp/example_mt_search_bf16.cpp)
+    target_link_libraries(example_mt_search_bf16 hnswlib)
 
     add_executable(example_mt_filter examples/cpp/example_mt_filter.cpp)
     target_link_libraries(example_mt_filter hnswlib)

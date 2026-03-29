@@ -57,7 +57,10 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
     DISTFUNC<float> get_dist_func() override {
         return fstdistfunc_;
     }
-
+// #if defined(USE_AMX)
+//     AMXDISTFUNC<float> get_amx_dist_func() {
+//     }
+// #endif
     void *get_dist_func_param() override {
         return &dim_;
     }

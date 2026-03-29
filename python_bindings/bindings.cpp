@@ -159,6 +159,7 @@ class Index {
     hnswlib::labeltype cur_l;
     hnswlib::HierarchicalNSW<dist_t>* appr_alg;
     hnswlib::SpaceInterface<float>* l2space;
+    //hnswlib::SpaceInterface<float>* bf16space;
 
 
     Index(const std::string &space_name, const int dim) : space_name(space_name), dim(dim) {
@@ -166,9 +167,21 @@ class Index {
         if (space_name == "l2") {
             l2space = new hnswlib::L2Space(dim);
         } else if (space_name == "ip") {
-            l2space = new hnswlib::InnerProductSpace(dim);
+#if defined(BF16_SUPPORT)
+          //exit(0);
+          l2space = new hnswlib::Bf16InnerProductSpace(dim);
+#else
+          l2space = new hnswlib::InnerProductSpace(dim);
+#endif
+            
+
         } else if (space_name == "cosine") {
+#if defined(BF16_SUPPORT)
+          //exit(0);
+            l2space = new hnswlib::Bf16InnerProductSpace(dim);
+#else
             l2space = new hnswlib::InnerProductSpace(dim);
+#endif
             normalize = true;
         } else {
             throw std::runtime_error("Space name must be one of l2, ip, or cosine.");
@@ -184,6 +197,7 @@ class Index {
 
     ~Index() {
         delete l2space;
+        //delete bf16space;
         if (appr_alg)
             delete appr_alg;
     }
@@ -238,70 +252,97 @@ class Index {
     }
 
 
+
     void normalize_vector(float* data, float* norm_array) {
         float norm = 0.0f;
         for (int i = 0; i < dim; i++)
             norm += data[i] * data[i];
         norm = 1.0f / (sqrtf(norm) + 1e-30f);
-        for (int i = 0; i < dim; i++)
-            norm_array[i] = data[i] * norm;
-    }
+#ifdef BF16_SUPPORT
 
+        uint16_t * bf_data=(uint16_t*)norm_array;
+        for(int i=0;i<dim;i++){
+          float tmp=data[i] * norm;
+          uint32_t *int32_data =(uint32_t *) &tmp;
+          bf_data[i]=*int32_data >> 16;
+        }
+#else
+        for (int i = 0; i < dim; i++){
+          norm_array[i] = data[i] * norm;
+        }
+#endif
+
+    }
 
     void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false) {
-        py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
-        auto buffer = items.request();
-        if (num_threads <= 0)
-            num_threads = num_threads_default;
 
-        size_t rows, features;
-        get_input_array_shapes(buffer, &rows, &features);
+      py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
+      auto buffer = items.request();
+      if (num_threads <= 0)
+          num_threads = num_threads_default;
 
-        if (features != dim)
-            throw std::runtime_error("Wrong dimensionality of the vectors");
+      size_t rows, features;
+      get_input_array_shapes(buffer, &rows, &features);
 
-        // avoid using threads when the number of additions is small:
-        if (rows <= num_threads * 4) {
-            num_threads = 1;
-        }
+      if (features != dim)
+          throw std::runtime_error("Wrong dimensionality of the vectors");
 
-        std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
+      // avoid using threads when the number of additions is small:
+      if (rows <= num_threads * 4) {
+          num_threads = 1;
+      }
 
-        {
-            int start = 0;
-            if (!ep_added) {
-                size_t id = ids.size() ? ids.at(0) : (cur_l);
-                float* vector_data = (float*)items.data(0);
-                std::vector<float> norm_array(dim);
-                if (normalize) {
-                    normalize_vector(vector_data, norm_array.data());
-                    vector_data = norm_array.data();
-                }
-                appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
-                start = 1;
-                ep_added = true;
-            }
+      std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
-            py::gil_scoped_release l;
-            if (normalize == false) {
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
-                    });
-            } else {
-                std::vector<float> norm_array(num_threads * dim);
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
-                    // normalize vector:
-                    size_t start_idx = threadId * dim;
-                    normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
+      {
+/*#if defined(BF16_SUPPORT)
+          for(int i=0;i<rows;i++){
+              float* vector_data = (float*)items.data(i);
+              uint16_t *bf_data = (uint16_t* ) vector_data;
+              for(int j=0;j<dim;j++){
+                float tmp=vector_data[j];
+                uint32_t *int32_data =(uint32_t *) &tmp;
+                bf_data[j]=*int32_data >> 16;
+              }
+          }
+#endif*/
+          int start = 0;
+          if (!ep_added) {
+              size_t id = ids.size() ? ids.at(0) : (cur_l);
 
-                    size_t id = ids.size() ? ids.at(row) : (cur_l + row);
-                    appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
-                    });
-            }
-            cur_l += rows;
-        }
-    }
+              float* vector_data = (float*)items.data(0);
+              std::vector<float> norm_array(dim);
+              if (normalize) {
+                  normalize_vector(vector_data, norm_array.data());
+                  vector_data = norm_array.data();
+              }
+
+
+              appr_alg->addPoint((void*)vector_data, (size_t)id, replace_deleted);
+              start = 1;
+              ep_added = true;
+          }
+
+          py::gil_scoped_release l;
+          if (normalize == false) {
+              ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                  size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                  appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
+                  });
+          } else {
+              std::vector<float> norm_array(num_threads * dim);
+              ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                  // normalize vector:
+                  size_t start_idx = threadId * dim;
+                  normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
+
+                  size_t id = ids.size() ? ids.at(row) : (cur_l + row);
+                  appr_alg->addPoint((void*)(norm_array.data() + start_idx), (size_t)id, replace_deleted);
+                  });
+          }
+          cur_l += rows;
+      }
+  }
 
 
     py::object getData(py::object ids_ = py::none(), std::string return_type = "numpy") {
