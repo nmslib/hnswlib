@@ -217,8 +217,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    inline labeltype *getExternalLabeLp(tableint internal_id) const {
-        return (labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_);
+    inline char *getExternalLabeLp(tableint internal_id) const {
+        return data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_;
     }
 
 
