@@ -100,6 +100,9 @@ if(HNSWLIB_EXAMPLES)
     add_executable(multiThread_replace_test tests/cpp/multiThread_replace_test.cpp)
     target_link_libraries(multiThread_replace_test hnswlib)
 
+    add_executable(memory_usage_test tests/cpp/memory_usage_test.cpp)
+    target_link_libraries(memory_usage_test hnswlib)
+
     add_executable(main tests/cpp/main.cpp tests/cpp/sift_1b.cpp)
     target_link_libraries(main hnswlib)
 endif()

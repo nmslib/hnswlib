@@ -47,3 +47,20 @@ class RandomSelfTestCase(unittest.TestCase):
         self.assertEqual(p.ef_construction, 100)
         self.assertEqual(p.max_elements, num_elements)
         self.assertEqual(p.element_count, num_elements)
+
+    def testMemoryUsage(self):
+        dim = 8
+        num_elements = 1000
+        data = np.float32(np.random.random((num_elements, dim)))
+
+        p = hnswlib.Index(space='l2', dim=dim)
+        p.init_index(max_elements=num_elements, ef_construction=100, M=16)
+
+        usage_before = p.get_memory_usage()
+        p.add_items(data)
+        usage_after = p.get_memory_usage()
+
+        self.assertGreater(usage_before, 0)
+        self.assertGreater(usage_after, 0)
+        self.assertGreaterEqual(usage_after, usage_before)
+        self.assertGreaterEqual(usage_after, p.index_file_size())

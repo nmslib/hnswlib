@@ -104,6 +104,8 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 
 * `get_current_count()` - returns the current number of element stored in the index
 
+* `get_memory_usage()` - returns approximate bytes used by the in-memory graph
+
 Read-only properties of `hnswlib.Index` class:
 
 * `space` - name of the space (can be one of "l2", "ip", or "cosine"). 

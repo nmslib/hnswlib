@@ -682,6 +682,19 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return size;
     }
 
+    size_t getMemoryUsage() const {
+        size_t size = 0;
+        size += max_elements_ * size_data_per_element_;
+        size += max_elements_ * sizeof(void *);
+        size += element_levels_.size() * sizeof(int);
+        for (size_t i = 0; i < cur_element_count; i++) {
+            if (element_levels_[i] > 0) {
+                size += size_links_per_element_ * element_levels_[i] + 1;
+            }
+        }
+        return size;
+    }
+
     void saveIndex(const std::string &location) {
         std::ofstream output(location, std::ios::binary);
 
