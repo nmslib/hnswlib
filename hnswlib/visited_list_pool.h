@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string.h>
 #include <deque>
+#include <unordered_set> // Added for document ID tracking
 
 namespace hnswlib {
 typedef unsigned short int vl_type;
@@ -12,6 +13,7 @@ class VisitedList {
     vl_type curV;
     vl_type *mass;
     unsigned int numelements;
+    std::unordered_set<int> seen_doc_ids; // Track seen document IDs
 
     VisitedList(int numelements1) {
         curV = -1;
@@ -25,10 +27,20 @@ class VisitedList {
             memset(mass, 0, sizeof(vl_type) * numelements);
             curV++;
         }
+        seen_doc_ids.clear(); // Reset seen document IDs
+    }
+
+    void mark_seen_doc(int doc_id) {
+        seen_doc_ids.insert(doc_id);
+    }
+
+    bool is_doc_seen(int doc_id) const {
+        return seen_doc_ids.count(doc_id) > 0;
     }
 
     ~VisitedList() { delete[] mass; }
 };
+
 ///////////////////////////////////////////////////////////
 //
 // Class for multi-threaded pool-management of VisitedLists
@@ -50,7 +62,7 @@ class VisitedListPool {
     VisitedList *getFreeVisitedList() {
         VisitedList *rez;
         {
-            std::unique_lock <std::mutex> lock(poolguard);
+            std::unique_lock<std::mutex> lock(poolguard);
             if (pool.size() > 0) {
                 rez = pool.front();
                 pool.pop_front();
@@ -63,7 +75,7 @@ class VisitedListPool {
     }
 
     void releaseVisitedList(VisitedList *vl) {
-        std::unique_lock <std::mutex> lock(poolguard);
+        std::unique_lock<std::mutex> lock(poolguard);
         pool.push_front(vl);
     }
 
