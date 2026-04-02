@@ -62,7 +62,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 * `init_index(max_elements, M = 16, ef_construction = 200, random_seed = 100, allow_replace_deleted = False)` initializes the index from with no elements. 
     * `max_elements` defines the maximum number of elements that can be stored in the structure(can be increased/shrunk).
     * `ef_construction` defines a construction time/accuracy trade-off (see [ALGO_PARAMS.md](ALGO_PARAMS.md)).
-    * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
+    * `M` defines the maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `allow_replace_deleted` enables replacing of deleted elements with new added ones.
     
 * `add_items(data, ids, num_threads = -1, replace_deleted = False)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
