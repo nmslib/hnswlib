@@ -25,6 +25,37 @@ install(EXPORT hnswlibTargets
     NAMESPACE hnswlib::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hnswlib)
 
+# pkg-config / pkgconf support
+option(HNSWLIB_PKG_CONFIG "Build pkg-config manifest" ON)
+if(HNSWLIB_PKG_CONFIG)
+
+    function(JOIN_PATHS joined_path first_path_segment)
+        set(temp_path "${first_path_segment}")
+        foreach(current_segment IN LISTS ARGN)
+            if(NOT ("${current_segment}" STREQUAL ""))
+                if(IS_ABSOLUTE "${current_segment}")
+                    set(temp_path "${current_segment}")
+                else()
+                    set(temp_path "${temp_path}/${current_segment}")
+                endif()
+            endif()
+        endforeach()
+        set(${joined_path} "${temp_path}" PARENT_SCOPE)
+    endfunction()
+
+    JOIN_PATHS(libdir_for_pc_file "\${exec_prefix}" "${CMAKE_INSTALL_LIBDIR}")
+    JOIN_PATHS(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+
+    configure_file(
+        "libhnswlib.pc.in"
+        "libhnswlib.pc"
+        @ONLY)
+
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libhnswlib.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+
+endif()
+
 # Examples and tests
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     option(HNSWLIB_EXAMPLES "Build examples and tests." ON)

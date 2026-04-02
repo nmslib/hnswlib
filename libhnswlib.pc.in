@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@libdir_for_pc_file@
+includedir=@includedir_for_pc_file@
+
+Name: lib@CMAKE_PROJECT_NAME@
+Description: Header-only C++/python library for fast approximate nearest neighbors.
+Version: 
+URL: https://github.com/nmslib/hnswlib
+Libs: -L${libdir}
+Cflags: -I${includedir}
+
