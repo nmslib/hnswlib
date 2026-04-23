@@ -1,8 +1,3 @@
-/* NEON vectorized distance calculation is supported.
- *
- * Copyright 2026 Huawei Technologies Co., Ltd.
- */
-
 #pragma once
 #include "hnswlib.h"
 #ifdef USE_NEON

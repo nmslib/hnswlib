@@ -1,7 +1,3 @@
-/*
- * Copyright 2026 Huawei Technologies Co., Ltd.
- */
-
 #include <cstring>
 #include <vector>
 #include <cmath>
