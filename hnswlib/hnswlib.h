@@ -157,13 +157,13 @@ class pairGreater {
     }
 };
 
-template<typename T>
-static void writeBinaryPOD(std::ostream &out, const T &podRef) {
+template<typename stream_t, typename T>
+static void writeBinaryPOD(stream_t &out, const T &podRef) {
     out.write((char *) &podRef, sizeof(T));
 }
 
-template<typename T>
-static void readBinaryPOD(std::istream &in, T &podRef) {
+template<typename stream_t, typename T>
+static void readBinaryPOD(stream_t &in, T &podRef) {
     in.read((char *) &podRef, sizeof(T));
 }
 
