@@ -5,10 +5,13 @@ namespace hnswlib {
 
 static float
 InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
-    size_t qty = *((size_t *) qty_ptr);
-    float res = 0;
-    for (unsigned i = 0; i < qty; i++) {
-        res += ((float *) pVect1)[i] * ((float *) pVect2)[i];
+    const float *vec1 = (const float *) pVect1;
+    const float *vec2 = (const float *) pVect2;
+    const size_t qty = *((const size_t *) qty_ptr);
+
+    float res = 0.0f;
+    for (size_t i = 0; i < qty; i++) {
+       res += vec1[i] * vec2[i];
     }
     return res;
 }
