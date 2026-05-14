@@ -5,10 +5,13 @@ namespace hnswlib {
 
 static float
 InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
-    size_t qty = *((size_t *) qty_ptr);
-    float res = 0;
-    for (unsigned i = 0; i < qty; i++) {
-        res += ((float *) pVect1)[i] * ((float *) pVect2)[i];
+    const float *vec1 = (const float *) pVect1;
+    const float *vec2 = (const float *) pVect2;
+    const size_t qty = *((const size_t *) qty_ptr);
+
+    float res = 0.0f;
+    for (size_t i = 0; i < qty; i++) {
+       res += vec1[i] * vec2[i];
     }
     return res;
 }
@@ -158,7 +161,7 @@ InnerProductSIMD16ExtAVX512(const void *pVect1v, const void *pVect2v, const void
     __m512 sum512 = _mm512_set1_ps(0);
 
     size_t loop = qty16 / 4;
-
+    
     while (loop--) {
         __m512 v1 = _mm512_loadu_ps(pVect1);
         __m512 v2 = _mm512_loadu_ps(pVect2);
