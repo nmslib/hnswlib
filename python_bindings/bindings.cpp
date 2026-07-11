@@ -917,6 +917,15 @@ class Index {
             // highest inbound count. Returns true if `o` was connected.
             auto try_connect = [&](hnswlib::tableint o, hnswlib::tableint anchor) -> bool {
                 if (anchor == o) return false;
+                // Bounds guard (mirrors the inbound-counting loop's own
+                // `if ((size_t)data[j] < n)` check above): `anchor` is read
+                // out of a link list and could in principle be corrupted
+                // (e.g. a production index with damage beyond simple
+                // orphans -- an invalid-id connection from a torn write).
+                // get_linklist0(anchor) indexes data_level0_memory_ by
+                // anchor unconditionally; an out-of-range anchor would
+                // write outside cur_element_count. Fail safe: skip it.
+                if ((size_t) anchor >= n) return false;
 
                 hnswlib::linklistsizeint *ll_anchor = appr_alg->get_linklist0(anchor);
                 int sz_anchor = appr_alg->getListCount(ll_anchor);
@@ -937,6 +946,12 @@ class Index {
                 int victim_inbound = 0;
                 for (int j = 0; j < sz_anchor; j++) {
                     hnswlib::tableint cand = data_anchor[j];
+                    // Same guard: `cand` is read out of anchor's link list
+                    // and could be an out-of-range id; `inbound[cand]` would
+                    // otherwise be undefined behavior (out-of-range
+                    // std::vector::operator[]). Skip invalid candidates
+                    // rather than crash or corrupt memory.
+                    if ((size_t) cand >= n) continue;
                     if (inbound[cand] > 1 && inbound[cand] > victim_inbound) {
                         victim_inbound = inbound[cand];
                         victim_idx = j;
