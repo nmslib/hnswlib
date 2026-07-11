@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -808,6 +809,226 @@ class Index {
             "errors"_a = error_list
         );
     }
+
+
+    py::dict repairOrphans() {
+        /**
+         * Deterministic repair of zero-inbound ("orphan") HNSW nodes.
+         * See Story #1358 / spike #1330 (docs/research/hnsw-temporal-orphans-1330.md).
+         *
+         * For each orphan, forces a back-edge from its own existing level-0
+         * neighbors (the same neighbor set chosen by getNeighborsByHeuristic2
+         * at insertion time), guaranteeing inclusion even where the original
+         * construction's heuristic later pruned it out of every neighbor's
+         * list.
+         *
+         * SAFE EVICTION (Messi Rule 13/anti-silent-failure -- do not trade
+         * one orphan for another): if a neighbor's link list is already at
+         * maxM0_, repair only evicts an existing entry whose CURRENT total
+         * inbound-connection count is strictly greater than 1 -- i.e. an
+         * entry that has at least one OTHER inbound edge and therefore
+         * cannot become a new orphan as a result of the eviction. An
+         * earlier "evict the farthest-by-distance" design was measured to
+         * thrash indefinitely (113k+ evictions, never converging) because
+         * in a near-tie cluster ALL pairwise distances are nearly equal,
+         * giving no stable "weakest" signal -- ties keep flipping which
+         * node looks farthest from one pass to the next. The inbound-count
+         * guard is a structural (not distance-based) safety criterion that
+         * is immune to that instability: eviction is skipped (try the next
+         * anchor instead) whenever no safe candidate exists at the current
+         * anchor.
+         *
+         * Repair iterates in bounded passes (at most cur_element_count + 1
+         * -- a provable termination bound, Messi Rule 14), re-scanning
+         * live inbound counts after every pass, until convergence or until
+         * a pass makes no further progress (a genuinely stuck residual,
+         * reported via `valid: false` rather than silently accepted).
+         *
+         * Returns a dict with:
+         *   - orphans_before: int - orphan count on the first scan
+         *   - orphans_after: int - orphan count on the final scan
+         *   - repaired_count: int - orphans_before - orphans_after
+         *   - passes_used: int - number of repair passes actually run
+         *   - forced_evictions: int - number of safe weakest-edge evictions performed
+         *   - valid: bool - whether orphans_after == 0
+         */
+        if (!appr_alg) {
+            return py::dict(
+                "orphans_before"_a = (size_t)0,
+                "orphans_after"_a = (size_t)0,
+                "repaired_count"_a = (size_t)0,
+                "passes_used"_a = (size_t)0,
+                "forced_evictions"_a = (size_t)0,
+                "valid"_a = false
+            );
+        }
+
+        const size_t n = appr_alg->cur_element_count;
+
+        if (n <= 1) {
+            return py::dict(
+                "orphans_before"_a = (size_t)0,
+                "orphans_after"_a = (size_t)0,
+                "repaired_count"_a = (size_t)0,
+                "passes_used"_a = (size_t)0,
+                "forced_evictions"_a = (size_t)0,
+                "valid"_a = true
+            );
+        }
+
+        const size_t maxM0 = appr_alg->maxM0_;
+        const size_t max_passes = n + 1;
+
+        std::vector<int> inbound(n, 0);
+        for (size_t i = 0; i < n; i++) {
+            for (int l = 0; l <= appr_alg->element_levels_[i]; l++) {
+                hnswlib::linklistsizeint *ll = appr_alg->get_linklist_at_level((hnswlib::tableint)i, l);
+                int size = appr_alg->getListCount(ll);
+                hnswlib::tableint *data = (hnswlib::tableint *) (ll + 1);
+                for (int j = 0; j < size; j++) {
+                    if ((size_t)data[j] < n) {
+                        inbound[data[j]]++;
+                    }
+                }
+            }
+        }
+
+        size_t orphans_before = 0;
+        for (size_t i = 0; i < n; i++) {
+            if (inbound[i] == 0) orphans_before++;
+        }
+
+        size_t forced_evictions = 0;
+        size_t passes_used = 0;
+
+        for (size_t pass = 0; pass < max_passes; pass++) {
+            std::vector<hnswlib::tableint> orphans;
+            for (size_t i = 0; i < n; i++) {
+                if (inbound[i] == 0) orphans.push_back((hnswlib::tableint) i);
+            }
+            if (orphans.empty()) break;
+
+            passes_used = pass + 1;
+            bool progress = false;
+
+            // Attempts to connect `o` into `anchor`'s level-0 list: appends
+            // if there is room, otherwise evicts a SAFE candidate (current
+            // inbound > 1, so eviction cannot create a new orphan) with the
+            // highest inbound count. Returns true if `o` was connected.
+            auto try_connect = [&](hnswlib::tableint o, hnswlib::tableint anchor) -> bool {
+                if (anchor == o) return false;
+
+                hnswlib::linklistsizeint *ll_anchor = appr_alg->get_linklist0(anchor);
+                int sz_anchor = appr_alg->getListCount(ll_anchor);
+                hnswlib::tableint *data_anchor = (hnswlib::tableint *) (ll_anchor + 1);
+
+                for (int j = 0; j < sz_anchor; j++) {
+                    if (data_anchor[j] == o) return false;  // already present
+                }
+
+                if ((size_t) sz_anchor < maxM0) {
+                    data_anchor[sz_anchor] = o;
+                    appr_alg->setListCount(ll_anchor, sz_anchor + 1);
+                    inbound[o]++;
+                    return true;
+                }
+
+                int victim_idx = -1;
+                int victim_inbound = 0;
+                for (int j = 0; j < sz_anchor; j++) {
+                    hnswlib::tableint cand = data_anchor[j];
+                    if (inbound[cand] > 1 && inbound[cand] > victim_inbound) {
+                        victim_inbound = inbound[cand];
+                        victim_idx = j;
+                    }
+                }
+                if (victim_idx >= 0) {
+                    hnswlib::tableint victim = data_anchor[victim_idx];
+                    data_anchor[victim_idx] = o;
+                    inbound[victim]--;
+                    inbound[o]++;
+                    forced_evictions++;
+                    return true;
+                }
+                return false;  // no room, no safe eviction candidate here
+            };
+
+            for (hnswlib::tableint o : orphans) {
+                if (inbound[o] > 0) continue;  // fixed earlier this pass as a side effect
+
+                hnswlib::linklistsizeint *ll0_o = appr_alg->get_linklist0(o);
+                int sz0_o = appr_alg->getListCount(ll0_o);
+                hnswlib::tableint *data0_o = (hnswlib::tableint *) (ll0_o + 1);
+
+                bool connected = false;
+                for (int j = 0; j < sz0_o && !connected; j++) {
+                    connected = try_connect(o, data0_o[j]);
+                }
+
+                if (!connected) {
+                    // o's own local neighborhood offered no anchor with
+                    // room or a safe eviction candidate (a fragile
+                    // sub-clique lockup -- measured during Story #1358
+                    // calibration). Widen the search: a distance-sorted
+                    // scan of the WHOLE graph. Pigeonhole guarantee: total
+                    // inbound edges == total outbound edges == (roughly)
+                    // n * maxM0, far more than n, so some node somewhere
+                    // must have inbound > 1 (or room) -- this scan is
+                    // bounded O(n) and only runs for genuinely stuck
+                    // orphans (rare).
+                    std::vector<std::pair<dist_t, hnswlib::tableint>> by_distance;
+                    by_distance.reserve(n - 1);
+                    for (size_t k = 0; k < n; k++) {
+                        if ((hnswlib::tableint) k == o) continue;
+                        dist_t d = appr_alg->fstdistfunc_(
+                            appr_alg->getDataByInternalId(o),
+                            appr_alg->getDataByInternalId((hnswlib::tableint) k),
+                            appr_alg->dist_func_param_);
+                        by_distance.emplace_back(d, (hnswlib::tableint) k);
+                    }
+                    std::sort(by_distance.begin(), by_distance.end(),
+                        [](const std::pair<dist_t, hnswlib::tableint> &a,
+                           const std::pair<dist_t, hnswlib::tableint> &b) {
+                            return a.first < b.first;
+                        });
+
+                    for (auto &pr : by_distance) {
+                        if (try_connect(o, pr.second)) {
+                            connected = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (connected) {
+                    progress = true;
+                }
+            }
+
+            if (!progress) {
+                // Genuinely stuck: no orphan in this pass had any anchor
+                // with room or a safe eviction candidate. Stop rather than
+                // burn the remaining pass budget; the final scan below
+                // reports the true residual instead of silently pretending
+                // convergence.
+                break;
+            }
+        }
+
+        size_t orphans_after = 0;
+        for (size_t i = 0; i < n; i++) {
+            if (inbound[i] == 0) orphans_after++;
+        }
+
+        return py::dict(
+            "orphans_before"_a = orphans_before,
+            "orphans_after"_a = orphans_after,
+            "repaired_count"_a = orphans_before - orphans_after,
+            "passes_used"_a = passes_used,
+            "forced_evictions"_a = forced_evictions,
+            "valid"_a = (orphans_after == 0)
+        );
+    }
 };
 
 template<typename dist_t, typename data_t = float>
@@ -1047,6 +1268,19 @@ PYBIND11_PLUGIN(hnswlib) {
             "  - min_inbound: int - minimum inbound connections per node\n"
             "  - max_inbound: int - maximum inbound connections per node\n"
             "  - errors: list[str] - list of any errors found\n")
+        .def("repair_orphans", &Index<float>::repairOrphans,
+            "Deterministically repair zero-inbound (orphan) HNSW nodes.\n\n"
+            "Forces a back-edge from each orphan into its own existing\n"
+            "level-0 neighbors, evicting the weakest existing edge when a\n"
+            "neighbor's list is full. Idempotent and bounded (at most\n"
+            "cur_element_count + 1 passes).\n\n"
+            "Returns a dict with:\n"
+            "  - orphans_before: int - orphan count on the first scan\n"
+            "  - orphans_after: int - orphan count on the final scan\n"
+            "  - repaired_count: int - orphans_before - orphans_after\n"
+            "  - passes_used: int - number of repair passes actually run\n"
+            "  - forced_evictions: int - number of weakest-edge evictions performed\n"
+            "  - valid: bool - whether orphans_after == 0\n")
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
