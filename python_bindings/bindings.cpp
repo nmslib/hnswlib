@@ -1263,12 +1263,14 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("index_file_size", &Index<float>::indexFileSize)
-        .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
+        .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"),
+            py::call_guard<py::gil_scoped_release>())
         .def("load_index",
             &Index<float>::loadIndex,
             py::arg("path_to_index"),
             py::arg("max_elements") = 0,
-            py::arg("allow_replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false,
+            py::call_guard<py::gil_scoped_release>())
         .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
         .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
