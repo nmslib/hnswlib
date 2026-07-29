@@ -260,8 +260,10 @@ class Index {
         if (features != dim)
             throw std::runtime_error("Wrong dimensionality of the vectors");
 
-        // avoid using threads when the number of additions is small:
-        if (rows <= num_threads * 4) {
+        // Avoid using threads when the total scalar work is too small to
+        // amortize thread-launch overhead. Use rows * dim as a proxy for work,
+        // so high-dimensional vectors are still parallelized in small batches.
+        if (rows * features <= static_cast<size_t>(num_threads) * 64) {
             num_threads = 1;
         }
 
@@ -627,8 +629,11 @@ class Index {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
 
-            // avoid using threads when the number of searches is small:
-            if (rows <= num_threads * 4) {
+            // Avoid using threads when the total scalar work is too small to
+            // amortize thread-launch overhead. Use rows * dim as a proxy for
+            // work, so high-dimensional queries are still parallelized in small
+            // batches.
+            if (rows * features <= static_cast<size_t>(num_threads) * 64) {
                 num_threads = 1;
             }
 
