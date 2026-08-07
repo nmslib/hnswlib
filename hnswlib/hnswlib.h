@@ -343,14 +343,14 @@ class AlgorithmInterface {
         return final_vector;
     }
 
-    virtual void saveIndex(const std::string &location) {
+    virtual void saveIndex(const std::string &location) const {
         Status status = saveIndexNoExceptions(location);
         if (!status.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(status.message());
         }
     }
 
-    virtual Status saveIndexNoExceptions(const std::string &location) = 0;
+    virtual Status saveIndexNoExceptions(const std::string &location) const = 0;
 
     virtual ~AlgorithmInterface(){
     }
