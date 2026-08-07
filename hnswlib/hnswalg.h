@@ -724,7 +724,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return size;
     }
 
-    Status saveIndexNoExceptions(std::ostream &output) {
+    Status saveIndexNoExceptions(std::ostream &output) const {
         writeBinaryPOD(output, offsetLevel0_);
         writeBinaryPOD(output, max_elements_);
         writeBinaryPOD(output, cur_element_count);
@@ -752,7 +752,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
-    Status saveIndexNoExceptions(const std::string &location) override {
+    Status saveIndexNoExceptions(const std::string &location) const override {
         std::ofstream output(location, std::ios::binary);
         Status status = saveIndexNoExceptions(output);
         if (!status.ok()) {
