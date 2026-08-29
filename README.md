@@ -65,12 +65,13 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
     * `M` defines tha maximum number of outgoing connections in the graph ([ALGO_PARAMS.md](ALGO_PARAMS.md)).
     * `allow_replace_deleted` enables replacing of deleted elements with new added ones.
     
-* `add_items(data, ids, num_threads = -1, replace_deleted = False)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
+* `add_items(data, ids, num_threads = -1, replace_deleted = False, shuffle = True)` - inserts the `data`(numpy array of vectors, shape:`N*dim`) into the structure. 
     * `num_threads` sets the number of cpu threads to use (-1 means use default).
     * `ids` are optional N-size numpy array of integer labels for all elements in `data`. 
       - If index already has the elements with the same labels, their features will be updated. Note that update procedure is slower than insertion of a new element, but more memory- and query-efficient.
     * `replace_deleted` replaces deleted elements. Note it allows to save memory.
       - to use it `init_index` should be called with `allow_replace_deleted=True`
+    * `shuffle` inserts the rows of `data` in a random permutation instead of the order they appear in the array (see [ALGO_PARAMS.md](ALGO_PARAMS.md)). Labels are unaffected: only the order of insertion changes. Set `shuffle=False` to insert in array order.
     * Thread-safe with other `add_items` calls, but not with `knn_query`.
     
 * `mark_deleted(label)`  - marks the element as deleted, so it will be omitted from search results. Throws an exception if it is already deleted.
