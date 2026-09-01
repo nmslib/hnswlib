@@ -1470,7 +1470,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_t sz = top_candidates.size();
         result.resize(sz);
         while (!top_candidates.empty()) {
-            result[--sz] = top_candidates.top();
+            const std::pair<dist_t, tableint> top_candidate = top_candidates.top();
+            result[--sz] = std::pair<dist_t, labeltype>(
+                top_candidate.first, getExternalLabel(top_candidate.second));
             top_candidates.pop();
         }
 
