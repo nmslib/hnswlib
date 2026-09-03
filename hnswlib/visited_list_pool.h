@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string.h>
 #include <deque>
+#include <memory>
 
 namespace hnswlib {
 typedef unsigned short int vl_type;
@@ -28,6 +29,35 @@ class VisitedList {
     }
 
     ~VisitedList() { delete[] mass; }
+};
+
+class VisitedListPool;
+
+// Owns one VisitedList for the duration of a batch worker. Acquisition
+// prepares the first search generation; next() prepares each later search.
+class VisitedListLease {
+    VisitedListPool *pool_;
+    VisitedList *visited_list_;
+
+    VisitedListLease(VisitedListPool *pool, VisitedList *visited_list)
+        : pool_(pool), visited_list_(visited_list) {}
+
+    friend class VisitedListPool;
+
+ public:
+    VisitedListLease(const VisitedListLease &) = delete;
+    VisitedListLease &operator=(const VisitedListLease &) = delete;
+
+    VisitedList *get() const {
+        return visited_list_;
+    }
+
+    VisitedList *next() {
+        visited_list_->reset();
+        return visited_list_;
+    }
+
+    ~VisitedListLease();
 };
 ///////////////////////////////////////////////////////////
 //
@@ -67,6 +97,10 @@ class VisitedListPool {
         pool.push_front(vl);
     }
 
+    std::unique_ptr<VisitedListLease> getFreeVisitedListLease() {
+        return std::unique_ptr<VisitedListLease>(new VisitedListLease(this, getFreeVisitedList()));
+    }
+
     ~VisitedListPool() {
         while (pool.size()) {
             VisitedList *rez = pool.front();
@@ -75,4 +109,8 @@ class VisitedListPool {
         }
     }
 };
+
+inline VisitedListLease::~VisitedListLease() {
+    pool_->releaseVisitedList(visited_list_);
+}
 }  // namespace hnswlib

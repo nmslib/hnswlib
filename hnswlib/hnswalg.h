@@ -337,13 +337,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     // bare_bone_search means there is no check for deletions and stop condition is ignored in return of extra performance
     template <bool bare_bone_search = true, bool collect_metrics = false>
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
-    searchBaseLayerST(
+    searchBaseLayerSTWithVisitedList(
         tableint ep_id,
         const void *data_point,
         size_t ef,
+        VisitedList *vl,
         BaseFilterFunctor* isIdAllowed = nullptr,
         BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
-        VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
 
@@ -470,6 +470,21 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
+        return top_candidates;
+    }
+
+
+    template <bool bare_bone_search = true, bool collect_metrics = false>
+    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
+    searchBaseLayerST(
+        tableint ep_id,
+        const void *data_point,
+        size_t ef,
+        BaseFilterFunctor* isIdAllowed = nullptr,
+        BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
+        VisitedList *vl = visited_list_pool_->getFreeVisitedList();
+        auto top_candidates = searchBaseLayerSTWithVisitedList<bare_bone_search, collect_metrics>(
+            ep_id, data_point, ef, vl, isIdAllowed, stop_condition);
         visited_list_pool_->releaseVisitedList(vl);
         return top_candidates;
     }
@@ -1353,11 +1368,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     using DistanceLabelPriorityQueue = typename AlgorithmInterface<dist_t>::DistanceLabelPriorityQueue;
 
-    virtual StatusOr<DistanceLabelPriorityQueue>
-    searchKnnNoExceptions(
+ private:
+    StatusOr<DistanceLabelPriorityQueue> searchKnnInternalNoExceptions(
             const void *query_data,
             size_t k,
-            BaseFilterFunctor* isIdAllowed = nullptr) const override {
+            BaseFilterFunctor* isIdAllowed,
+            VisitedList *visited_list) const {
         std::priority_queue<std::pair<dist_t, labeltype >> result;
         if (cur_element_count == 0) return result;
 
@@ -1394,11 +1410,21 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         bool bare_bone_search = !num_deleted_ && !isIdAllowed;
         if (bare_bone_search) {
-            top_candidates = searchBaseLayerST<true>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
+            if (visited_list) {
+                top_candidates = searchBaseLayerSTWithVisitedList<true>(
+                        currObj, query_data, std::max(ef_, k), visited_list, isIdAllowed);
+            } else {
+                top_candidates = searchBaseLayerST<true>(
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
+            }
         } else {
-            top_candidates = searchBaseLayerST<false>(
-                    currObj, query_data, std::max(ef_, k), isIdAllowed);
+            if (visited_list) {
+                top_candidates = searchBaseLayerSTWithVisitedList<false>(
+                        currObj, query_data, std::max(ef_, k), visited_list, isIdAllowed);
+            } else {
+                top_candidates = searchBaseLayerST<false>(
+                        currObj, query_data, std::max(ef_, k), isIdAllowed);
+            }
         }
 
         while (top_candidates.size() > k) {
@@ -1410,6 +1436,40 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             top_candidates.pop();
         }
         return result;
+    }
+
+ public:
+    virtual StatusOr<DistanceLabelPriorityQueue>
+    searchKnnNoExceptions(
+            const void *query_data,
+            size_t k,
+            BaseFilterFunctor* isIdAllowed = nullptr) const override {
+        return searchKnnInternalNoExceptions(query_data, k, isIdAllowed, nullptr);
+    }
+
+
+    DistanceLabelPriorityQueue searchKnnWithVisitedList(
+            const void *query_data,
+            size_t k,
+            VisitedList *visited_list,
+            BaseFilterFunctor* isIdAllowed = nullptr) const {
+        auto result = searchKnnWithVisitedListNoExceptions(query_data, k, visited_list, isIdAllowed);
+        if (!result.ok()) {
+            HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
+        }
+        return std::move(result.value());
+    }
+
+
+    StatusOr<DistanceLabelPriorityQueue> searchKnnWithVisitedListNoExceptions(
+            const void *query_data,
+            size_t k,
+            VisitedList *visited_list,
+            BaseFilterFunctor* isIdAllowed = nullptr) const {
+        if (visited_list == nullptr) {
+            return Status("searchKnnWithVisitedList requires an initialized VisitedList");
+        }
+        return searchKnnInternalNoExceptions(query_data, k, isIdAllowed, visited_list);
     }
 
     using DistanceLabelVector = typename AlgorithmInterface<dist_t>::DistanceLabelVector;
