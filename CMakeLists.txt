@@ -14,7 +14,8 @@ set(HNSWLIB_TARGETS_REQUIRING_EXCEPTIONS
     example_mt_replace_deleted
     example_mt_search
     multiThread_replace_test
-    test_updates)
+    test_updates
+    visited_list_pool_test)
 
 set(EXAMPLE_NAMES
     example_epsilon_search
@@ -35,6 +36,7 @@ set(TEST_NAMES
     resize_test
     searchKnnCloserFirst_test
     searchKnnWithFilter_test
+    visited_list_pool_test
     )
 
 function(add_cxx_flags)
