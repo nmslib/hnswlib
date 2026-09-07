@@ -732,6 +732,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (max_elements < cur_element_count)
             max_elements = max_elements_;
         max_elements_ = max_elements;
+
+        if (max_elements_ < cur_element_count) {
+            throw std::runtime_error("Index seems to be corrupted or unsupported");
+        }
+
         readBinaryPOD(input, size_data_per_element_);
         readBinaryPOD(input, label_offset_);
         readBinaryPOD(input, offsetData_);
