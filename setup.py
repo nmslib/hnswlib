@@ -118,9 +118,12 @@ class BuildExt(build_ext):
                             print(f'flag: {m1_flag} is not available')
                 else:
                     print(f'flag: {BuildExt.compiler_flag_native} is available')
+            # Enable exceptions.
+            opts.append("-fexceptions")
         elif ct == 'msvc':
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
-
+            # Enable exceptions.
+            opts.append('/EHsc')
         for ext in self.extensions:
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(BuildExt.link_opts.get(ct, []))

@@ -51,9 +51,8 @@ int main() {
         hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon2, min_num_candidates, max_num_candidates);
         std::vector<std::pair<float, hnswlib::labeltype>> result_hnsw =
             alg_hnsw->searchStopConditionClosest(query_data, stop_condition);
-        
+
         // check that returned results are in epsilon region
-        size_t num_vectors = result_hnsw.size();
         std::unordered_set<hnswlib::labeltype> hnsw_labels;
         for (auto pair: result_hnsw) {
             float dist = pair.first;
@@ -63,7 +62,7 @@ int main() {
         }
         std::priority_queue<std::pair<float, hnswlib::labeltype>> result_brute =
             alg_brute->searchKnn(query_data, max_elements);
-        
+
         // check recall
         std::unordered_set<hnswlib::labeltype> gt_labels;
         while (!result_brute.empty()) {
@@ -95,9 +94,8 @@ int main() {
     int min_candidates_small = 500;
     for (size_t i = 0; i < max_elements; i++) {
         hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(epsilon2_small, min_candidates_small, max_num_candidates);
-        std::vector<std::pair<float, hnswlib::labeltype>> result = 
+        std::vector<std::pair<float, hnswlib::labeltype>> result =
             alg_hnsw->searchStopConditionClosest(alg_hnsw->getDataByInternalId(i), stop_condition);
-        size_t num_vectors = result.size();
         // get closest distance
         float dist = -1;
         if (!result.empty()) {

@@ -69,7 +69,7 @@ int main() {
     int num_threads = 20;       // Number of threads for operations with index
 
     // Initing index with allow_replace_deleted=true
-    int seed = 100; 
+    int seed = 100;
     hnswlib::L2Space space(dim);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, max_elements, M, ef_construction, seed, true);
 

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <queue>
 #include <chrono>
+#include <utility>
 #include "../../hnswlib/hnswlib.h"
 
 
@@ -155,7 +156,6 @@ get_gt(
     vector<std::priority_queue<std::pair<int, labeltype>>> &answers,
     size_t k) {
     (vector<std::priority_queue<std::pair<int, labeltype >>>(qsize)).swap(answers);
-    DISTFUNC<int> fstdistfunc_ = l2space.get_dist_func();
     cout << qsize << "\n";
     for (int i = 0; i < qsize; i++) {
         for (int j = 0; j < k; j++) {

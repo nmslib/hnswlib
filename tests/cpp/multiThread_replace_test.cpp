@@ -112,7 +112,7 @@ int main() {
 
         delete alg_hnsw;
     }
-    
+
     std::cout << "Finish" << std::endl;
 
     delete[] batch1;
