@@ -58,61 +58,30 @@ static uint64_t xgetbv(unsigned int index) {
 
 // Adapted from https://github.com/Mysticial/FeatureDetector
 #define _XCR_XFEATURE_ENABLED_MASK  0
-
 static bool AVXCapable() {
     int cpuInfo[4];
-
-    // CPU support
     cpuid(cpuInfo, 0, 0);
-    int nIds = cpuInfo[0];
+    if (cpuInfo[0] < 1) return false;
 
-    bool HW_AVX = false;
-    if (nIds >= 0x00000001) {
-        cpuid(cpuInfo, 0x00000001, 0);
-        HW_AVX = (cpuInfo[2] & ((int)1 << 28)) != 0;
-    }
-
-    // OS support
     cpuid(cpuInfo, 1, 0);
-
-    bool osUsesXSAVE_XRSTORE = (cpuInfo[2] & (1 << 27)) != 0;
-    bool cpuAVXSuport = (cpuInfo[2] & (1 << 28)) != 0;
-
-    bool avxSupported = false;
-    if (osUsesXSAVE_XRSTORE && cpuAVXSuport) {
-        uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
-        avxSupported = (xcrFeatureMask & 0x6) == 0x6;
-    }
-    return HW_AVX && avxSupported;
+    bool hasAVX = (cpuInfo[2] & (1 << 28)) != 0;
+    bool hasOSXSAVE = (cpuInfo[2] & (1 << 27)) != 0;
+    if (!hasAVX || !hasOSXSAVE) return false;
+  
+    return (xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0x6) == 0x6;
 }
 
 static bool AVX512Capable() {
     if (!AVXCapable()) return false;
 
     int cpuInfo[4];
-
-    // CPU support
     cpuid(cpuInfo, 0, 0);
-    int nIds = cpuInfo[0];
+    if (cpuInfo[0] < 7) return false;
 
-    bool HW_AVX512F = false;
-    if (nIds >= 0x00000007) {  //  AVX512 Foundation
-        cpuid(cpuInfo, 0x00000007, 0);
-        HW_AVX512F = (cpuInfo[1] & ((int)1 << 16)) != 0;
-    }
+    cpuid(cpuInfo, 7, 0);
+    if ((cpuInfo[1] & (1 << 16)) == 0) return false;
 
-    // OS support
-    cpuid(cpuInfo, 1, 0);
-
-    bool osUsesXSAVE_XRSTORE = (cpuInfo[2] & (1 << 27)) != 0;
-    bool cpuAVXSuport = (cpuInfo[2] & (1 << 28)) != 0;
-
-    bool avx512Supported = false;
-    if (osUsesXSAVE_XRSTORE && cpuAVXSuport) {
-        uint64_t xcrFeatureMask = xgetbv(_XCR_XFEATURE_ENABLED_MASK);
-        avx512Supported = (xcrFeatureMask & 0xe6) == 0xe6;
-    }
-    return HW_AVX512F && avx512Supported;
+    return (xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0xe6) == 0xe6;
 }
 #endif
 
