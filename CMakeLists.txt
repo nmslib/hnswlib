@@ -32,6 +32,7 @@ set(TEST_NAMES
     multiThread_replace_test
     multiThreadLoad_test
     multivector_search_test
+    no_exceptions_api_test
     resize_test
     searchKnnCloserFirst_test
     searchKnnWithFilter_test

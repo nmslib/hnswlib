@@ -143,14 +143,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
 
     Status saveIndexNoExceptions(const std::string &location) override {
         std::ofstream output(location, std::ios::binary);
-
-        Status status = saveIndexNoExceptions(output);
-        if (!status.ok()) {
-            HNSWLIB_THROW_RUNTIME_ERROR(status.message());
-        }
-
-        output.close();
-        return OkStatus();
+        return saveIndexNoExceptions(output);
     }
 
 

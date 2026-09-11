@@ -1022,7 +1022,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // if there is no vacant place then add or update point
         // else add point to vacant place
         if (!is_vacant_place) {
-            addPointWithLevel(data_point, label, -1);
+            auto status_or_new_point = addPointWithLevel(data_point, label, -1);
+            if (!status_or_new_point.ok()) {
+                return status_or_new_point.status();
+            }
         } else {
             // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
