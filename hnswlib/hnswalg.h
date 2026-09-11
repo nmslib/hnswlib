@@ -194,6 +194,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
+    // Labels sit at a packed offset that may be misaligned for labeltype
+    // (size_links_level0_ is 4-mod-8). Load/store only via memcpy.
     inline labeltype getExternalLabel(tableint internal_id) const {
         labeltype return_label;
         memcpy(&return_label, (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), sizeof(labeltype));
@@ -214,11 +216,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     inline void setExternalLabel(tableint internal_id, labeltype label) const {
         memcpy((data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), &label, sizeof(labeltype));
-    }
-
-
-    inline labeltype *getExternalLabeLp(tableint internal_id) const {
-        return (labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_);
     }
 
 
@@ -1281,7 +1278,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         memset(data_level0_memory_ + cur_c * size_data_per_element_ + offsetLevel0_, 0, size_data_per_element_);
 
         // Initialisation of the data and label
-        memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
+        setExternalLabel(cur_c, label);
         memcpy(getDataByInternalId(cur_c), data_point, data_size_);
 
         if (curlevel) {
