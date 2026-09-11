@@ -737,13 +737,24 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
+
         output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing level 0 memory block");
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
             writeBinaryPOD(output, linkListSize);
-            if (linkListSize)
+            if (linkListSize) {
                 output.write(linkLists_[i], linkListSize);
+            }
+            if (!output.good()) {
+                return Status("Failed writing link list elements");
+            }
         }
         return OkStatus();
     }

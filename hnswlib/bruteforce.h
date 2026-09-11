@@ -135,8 +135,14 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, maxelements_);
         writeBinaryPOD(output, size_per_element_);
         writeBinaryPOD(output, cur_element_count);
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
 
         output.write(data_, maxelements_ * size_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing vector data");
+        }
         return OkStatus();
     }
 
