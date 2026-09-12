@@ -5,9 +5,11 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **version 0.10.0**
 
-* Optional no-exceptions C++ API: `*NoExceptions` methods return `Status` / `StatusOr` so the headers can be compiled with `-fno-exceptions` (`-DHNSWLIB_ENABLE_EXCEPTIONS=OFF`). Throwing methods remain the default. (#619, #678)
+* Optional no-exceptions C++ API: `*NoExceptions` methods return `Status` / `StatusOr` so the headers can be compiled with `-fno-exceptions` (`-DHNSWLIB_ENABLE_EXCEPTIONS=OFF`). Throwing methods remain the default. (#619, #678) by [@michaelbautin](https://github.com/michaelbautin)
 * Stream `saveIndex` / `loadIndex` over `std::ostream` / `std::istream`, plus `getInternalIdByLabel`
 * CI covers exceptions on/off, Clang / GCC / MSVC, and ASAN / UBSAN
+* Fixed Clang UBSan misaligned label store in addPoint
+* Report addPoint capacity and stream write errors via Status
 
 **version 0.9.0**
 
