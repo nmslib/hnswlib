@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -328,8 +329,16 @@ class Index {
         }
 
         std::vector<std::vector<data_t>> data;
-        for (auto id : ids) {
-            data.push_back(appr_alg->template getDataByLabel<data_t>(id));
+        {
+            // Pure C++ work only (no Python objects touched) -- safe to
+            // release the GIL for the (potentially large) copy loop, same
+            // pattern as knnQuery_return_numpy() above. The GIL is
+            // reacquired when this scope ends, before any py::cast/
+            // py::array_t construction below.
+            py::gil_scoped_release release_for_copy_loop;
+            for (auto id : ids) {
+                data.push_back(appr_alg->template getDataByLabel<data_t>(id));
+            }
         }
         if (return_type == "list") {
             return py::cast(data);
@@ -722,6 +731,351 @@ class Index {
     size_t getCurrentCount() const {
         return appr_alg->cur_element_count;
     }
+
+
+    py::dict checkIntegrity() {
+        /**
+         * Python-friendly integrity check that returns detailed results
+         * instead of crashing on assert failures.
+         *
+         * Returns a dict with:
+         *   - valid: bool - whether integrity check passed
+         *   - connections_checked: int - total connections verified
+         *   - min_inbound: int - minimum inbound connections per node
+         *   - max_inbound: int - maximum inbound connections per node
+         *   - errors: list[str] - list of any errors found
+         */
+        if (!appr_alg) {
+            return py::dict(
+                "valid"_a = false,
+                "connections_checked"_a = 0,
+                "min_inbound"_a = 0,
+                "max_inbound"_a = 0,
+                "errors"_a = py::list(py::cast(std::vector<std::string>{"Index not initialized"}))
+            );
+        }
+
+        std::vector<std::string> errors;
+        int connections_checked = 0;
+        std::vector<int> inbound_connections_num(appr_alg->cur_element_count, 0);
+        int min_inbound = 0, max_inbound = 0;
+
+        {
+            // Pure C++ scan only (no Python objects touched) -- safe to
+            // release the GIL for the (potentially large) connection scan,
+            // same pattern as knnQuery_return_numpy()/getData() above. The
+            // GIL is reacquired when this scope ends, before any
+            // py::list/py::dict construction below.
+            py::gil_scoped_release release_for_scan;
+            for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
+                for (int l = 0; l <= appr_alg->element_levels_[i]; l++) {
+                    hnswlib::linklistsizeint *ll_cur = appr_alg->get_linklist_at_level(i, l);
+                    int size = appr_alg->getListCount(ll_cur);
+                    hnswlib::tableint *data = (hnswlib::tableint *) (ll_cur + 1);
+                    std::unordered_set<hnswlib::tableint> s;
+
+                    for (int j = 0; j < size; j++) {
+                        // Check: connection points to valid element
+                        if (data[j] >= appr_alg->cur_element_count) {
+                            errors.push_back("Element " + std::to_string(i) + " at level " +
+                                std::to_string(l) + " has invalid connection to " + std::to_string(data[j]));
+                        }
+                        // Check: no self-loops
+                        if (data[j] == i) {
+                            errors.push_back("Element " + std::to_string(i) + " at level " +
+                                std::to_string(l) + " has self-loop");
+                        }
+                        // Track for duplicate check
+                        if (s.find(data[j]) != s.end()) {
+                            errors.push_back("Element " + std::to_string(i) + " at level " +
+                                std::to_string(l) + " has duplicate connection to " + std::to_string(data[j]));
+                        }
+                        s.insert(data[j]);
+                        if (data[j] < appr_alg->cur_element_count) {
+                            inbound_connections_num[data[j]]++;
+                        }
+                        connections_checked++;
+                    }
+                }
+            }
+
+            // Check for orphan nodes (no inbound connections)
+            if (appr_alg->cur_element_count > 1) {
+                min_inbound = inbound_connections_num[0];
+                max_inbound = inbound_connections_num[0];
+                for (size_t i = 0; i < appr_alg->cur_element_count; i++) {
+                    if (inbound_connections_num[i] == 0) {
+                        errors.push_back("Element " + std::to_string(i) + " has no inbound connections (orphan)");
+                    }
+                    min_inbound = std::min(inbound_connections_num[i], min_inbound);
+                    max_inbound = std::max(inbound_connections_num[i], max_inbound);
+                }
+            }
+        }
+
+        py::list error_list;
+        for (const auto& err : errors) {
+            error_list.append(err);
+        }
+
+        return py::dict(
+            "valid"_a = errors.empty(),
+            "connections_checked"_a = connections_checked,
+            "element_count"_a = (size_t)appr_alg->cur_element_count,
+            "min_inbound"_a = min_inbound,
+            "max_inbound"_a = max_inbound,
+            "errors"_a = error_list
+        );
+    }
+
+
+    py::dict repairOrphans() {
+        /**
+         * Deterministic repair of zero-inbound ("orphan") HNSW nodes.
+         * See Story #1358 / spike #1330 (docs/research/hnsw-temporal-orphans-1330.md).
+         *
+         * For each orphan, forces a back-edge from its own existing level-0
+         * neighbors (the same neighbor set chosen by getNeighborsByHeuristic2
+         * at insertion time), guaranteeing inclusion even where the original
+         * construction's heuristic later pruned it out of every neighbor's
+         * list.
+         *
+         * SAFE EVICTION (Messi Rule 13/anti-silent-failure -- do not trade
+         * one orphan for another): if a neighbor's link list is already at
+         * maxM0_, repair only evicts an existing entry whose CURRENT total
+         * inbound-connection count is strictly greater than 1 -- i.e. an
+         * entry that has at least one OTHER inbound edge and therefore
+         * cannot become a new orphan as a result of the eviction. An
+         * earlier "evict the farthest-by-distance" design was measured to
+         * thrash indefinitely (113k+ evictions, never converging) because
+         * in a near-tie cluster ALL pairwise distances are nearly equal,
+         * giving no stable "weakest" signal -- ties keep flipping which
+         * node looks farthest from one pass to the next. The inbound-count
+         * guard is a structural (not distance-based) safety criterion that
+         * is immune to that instability: eviction is skipped (try the next
+         * anchor instead) whenever no safe candidate exists at the current
+         * anchor.
+         *
+         * Repair iterates in bounded passes (at most cur_element_count + 1
+         * -- a provable termination bound, Messi Rule 14), re-scanning
+         * live inbound counts after every pass, until convergence or until
+         * a pass makes no further progress (a genuinely stuck residual,
+         * reported via `valid: false` rather than silently accepted).
+         *
+         * Returns a dict with:
+         *   - orphans_before: int - orphan count on the first scan
+         *   - orphans_after: int - orphan count on the final scan
+         *   - repaired_count: int - orphans_before - orphans_after
+         *   - passes_used: int - number of repair passes actually run
+         *   - forced_evictions: int - number of safe weakest-edge evictions performed
+         *   - valid: bool - whether orphans_after == 0
+         */
+        if (!appr_alg) {
+            return py::dict(
+                "orphans_before"_a = (size_t)0,
+                "orphans_after"_a = (size_t)0,
+                "repaired_count"_a = (size_t)0,
+                "passes_used"_a = (size_t)0,
+                "forced_evictions"_a = (size_t)0,
+                "valid"_a = false
+            );
+        }
+
+        const size_t n = appr_alg->cur_element_count;
+
+        if (n <= 1) {
+            return py::dict(
+                "orphans_before"_a = (size_t)0,
+                "orphans_after"_a = (size_t)0,
+                "repaired_count"_a = (size_t)0,
+                "passes_used"_a = (size_t)0,
+                "forced_evictions"_a = (size_t)0,
+                "valid"_a = true
+            );
+        }
+
+        size_t orphans_before = 0;
+        size_t forced_evictions = 0;
+        size_t passes_used = 0;
+        size_t orphans_after = 0;
+
+        {
+            // Pure C++ scan-and-repair only (no Python objects touched) --
+            // safe to release the GIL for the (potentially long-running)
+            // repair loop, same pattern as knnQuery_return_numpy()/
+            // getData()/checkIntegrity() above. The GIL is reacquired when
+            // this scope ends, before the final py::dict construction below.
+            // NOTE: orphans_before/forced_evictions/passes_used/orphans_after
+            // are the OUTER variables declared just above (and returned by
+            // the py::dict below) -- deliberately NOT redeclared here, so
+            // the increments/assignments in this block write directly into
+            // them rather than into a shadowed, discarded local copy.
+            py::gil_scoped_release release_for_repair;
+
+            const size_t maxM0 = appr_alg->maxM0_;
+            const size_t max_passes = n + 1;
+
+            std::vector<int> inbound(n, 0);
+            for (size_t i = 0; i < n; i++) {
+                for (int l = 0; l <= appr_alg->element_levels_[i]; l++) {
+                    hnswlib::linklistsizeint *ll = appr_alg->get_linklist_at_level((hnswlib::tableint)i, l);
+                    int size = appr_alg->getListCount(ll);
+                    hnswlib::tableint *data = (hnswlib::tableint *) (ll + 1);
+                    for (int j = 0; j < size; j++) {
+                        if ((size_t)data[j] < n) {
+                            inbound[data[j]]++;
+                        }
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < n; i++) {
+                if (inbound[i] == 0) orphans_before++;
+            }
+
+            for (size_t pass = 0; pass < max_passes; pass++) {
+                std::vector<hnswlib::tableint> orphans;
+                for (size_t i = 0; i < n; i++) {
+                    if (inbound[i] == 0) orphans.push_back((hnswlib::tableint) i);
+                }
+                if (orphans.empty()) break;
+
+                passes_used = pass + 1;
+                bool progress = false;
+
+                // Attempts to connect `o` into `anchor`'s level-0 list: appends
+                // if there is room, otherwise evicts a SAFE candidate (current
+                // inbound > 1, so eviction cannot create a new orphan) with the
+                // highest inbound count. Returns true if `o` was connected.
+                auto try_connect = [&](hnswlib::tableint o, hnswlib::tableint anchor) -> bool {
+                    if (anchor == o) return false;
+                    // Bounds guard (mirrors the inbound-counting loop's own
+                    // `if ((size_t)data[j] < n)` check above): `anchor` is read
+                    // out of a link list and could in principle be corrupted
+                    // (e.g. a production index with damage beyond simple
+                    // orphans -- an invalid-id connection from a torn write).
+                    // get_linklist0(anchor) indexes data_level0_memory_ by
+                    // anchor unconditionally; an out-of-range anchor would
+                    // write outside cur_element_count. Fail safe: skip it.
+                    if ((size_t) anchor >= n) return false;
+
+                    hnswlib::linklistsizeint *ll_anchor = appr_alg->get_linklist0(anchor);
+                    int sz_anchor = appr_alg->getListCount(ll_anchor);
+                    hnswlib::tableint *data_anchor = (hnswlib::tableint *) (ll_anchor + 1);
+
+                    for (int j = 0; j < sz_anchor; j++) {
+                        if (data_anchor[j] == o) return false;  // already present
+                    }
+
+                    if ((size_t) sz_anchor < maxM0) {
+                        data_anchor[sz_anchor] = o;
+                        appr_alg->setListCount(ll_anchor, sz_anchor + 1);
+                        inbound[o]++;
+                        return true;
+                    }
+
+                    int victim_idx = -1;
+                    int victim_inbound = 0;
+                    for (int j = 0; j < sz_anchor; j++) {
+                        hnswlib::tableint cand = data_anchor[j];
+                        // Same guard: `cand` is read out of anchor's link list
+                        // and could be an out-of-range id; `inbound[cand]` would
+                        // otherwise be undefined behavior (out-of-range
+                        // std::vector::operator[]). Skip invalid candidates
+                        // rather than crash or corrupt memory.
+                        if ((size_t) cand >= n) continue;
+                        if (inbound[cand] > 1 && inbound[cand] > victim_inbound) {
+                            victim_inbound = inbound[cand];
+                            victim_idx = j;
+                        }
+                    }
+                    if (victim_idx >= 0) {
+                        hnswlib::tableint victim = data_anchor[victim_idx];
+                        data_anchor[victim_idx] = o;
+                        inbound[victim]--;
+                        inbound[o]++;
+                        forced_evictions++;
+                        return true;
+                    }
+                    return false;  // no room, no safe eviction candidate here
+                };
+
+                for (hnswlib::tableint o : orphans) {
+                    if (inbound[o] > 0) continue;  // fixed earlier this pass as a side effect
+
+                    hnswlib::linklistsizeint *ll0_o = appr_alg->get_linklist0(o);
+                    int sz0_o = appr_alg->getListCount(ll0_o);
+                    hnswlib::tableint *data0_o = (hnswlib::tableint *) (ll0_o + 1);
+
+                    bool connected = false;
+                    for (int j = 0; j < sz0_o && !connected; j++) {
+                        connected = try_connect(o, data0_o[j]);
+                    }
+
+                    if (!connected) {
+                        // o's own local neighborhood offered no anchor with
+                        // room or a safe eviction candidate (a fragile
+                        // sub-clique lockup -- measured during Story #1358
+                        // calibration). Widen the search: a distance-sorted
+                        // scan of the WHOLE graph. Pigeonhole guarantee: total
+                        // inbound edges == total outbound edges == (roughly)
+                        // n * maxM0, far more than n, so some node somewhere
+                        // must have inbound > 1 (or room) -- this scan is
+                        // bounded O(n) and only runs for genuinely stuck
+                        // orphans (rare).
+                        std::vector<std::pair<dist_t, hnswlib::tableint>> by_distance;
+                        by_distance.reserve(n - 1);
+                        for (size_t k = 0; k < n; k++) {
+                            if ((hnswlib::tableint) k == o) continue;
+                            dist_t d = appr_alg->fstdistfunc_(
+                                appr_alg->getDataByInternalId(o),
+                                appr_alg->getDataByInternalId((hnswlib::tableint) k),
+                                appr_alg->dist_func_param_);
+                            by_distance.emplace_back(d, (hnswlib::tableint) k);
+                        }
+                        std::sort(by_distance.begin(), by_distance.end(),
+                            [](const std::pair<dist_t, hnswlib::tableint> &a,
+                               const std::pair<dist_t, hnswlib::tableint> &b) {
+                                return a.first < b.first;
+                            });
+
+                        for (auto &pr : by_distance) {
+                            if (try_connect(o, pr.second)) {
+                                connected = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (connected) {
+                        progress = true;
+                    }
+                }
+
+                if (!progress) {
+                    // Genuinely stuck: no orphan in this pass had any anchor
+                    // with room or a safe eviction candidate. Stop rather than
+                    // burn the remaining pass budget; the final scan below
+                    // reports the true residual instead of silently pretending
+                    // convergence.
+                    break;
+                }
+            }
+
+            for (size_t i = 0; i < n; i++) {
+                if (inbound[i] == 0) orphans_after++;
+            }
+        }
+
+        return py::dict(
+            "orphans_before"_a = orphans_before,
+            "orphans_after"_a = orphans_after,
+            "repaired_count"_a = orphans_before - orphans_after,
+            "passes_used"_a = passes_used,
+            "forced_evictions"_a = forced_evictions,
+            "valid"_a = (orphans_after == 0)
+        );
+    }
 };
 
 template<typename dist_t, typename data_t = float>
@@ -946,7 +1300,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("M") = 16,
             py::arg("ef_construction") = 200,
             py::arg("random_seed") = 100,
-            py::arg("allow_replace_deleted") = false)
+            py::arg("allow_replace_deleted") = false,
+            py::call_guard<py::gil_scoped_release>())
         .def("knn_query",
             &Index<float>::knnQuery_return_numpy,
             py::arg("data"),
@@ -960,21 +1315,47 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("num_threads") = -1,
             py::arg("replace_deleted") = false)
         .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
-        .def("get_ids_list", &Index<float>::getIdsList)
+        .def("get_ids_list", &Index<float>::getIdsList, py::call_guard<py::gil_scoped_release>())
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
         .def("set_num_threads", &Index<float>::set_num_threads, py::arg("num_threads"))
         .def("index_file_size", &Index<float>::indexFileSize)
-        .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"))
+        .def("save_index", &Index<float>::saveIndex, py::arg("path_to_index"),
+            py::call_guard<py::gil_scoped_release>())
         .def("load_index",
             &Index<float>::loadIndex,
             py::arg("path_to_index"),
             py::arg("max_elements") = 0,
-            py::arg("allow_replace_deleted") = false)
-        .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"))
+            py::arg("allow_replace_deleted") = false,
+            py::call_guard<py::gil_scoped_release>())
+        .def("mark_deleted", &Index<float>::markDeleted, py::arg("label"),
+            py::call_guard<py::gil_scoped_release>())
         .def("unmark_deleted", &Index<float>::unmarkDeleted, py::arg("label"))
-        .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"))
+        .def("resize_index", &Index<float>::resizeIndex, py::arg("new_size"),
+            py::call_guard<py::gil_scoped_release>())
         .def("get_max_elements", &Index<float>::getMaxElements)
         .def("get_current_count", &Index<float>::getCurrentCount)
+        .def("check_integrity", &Index<float>::checkIntegrity,
+            "Check index integrity and return detailed results.\n\n"
+            "Returns a dict with:\n"
+            "  - valid: bool - whether integrity check passed\n"
+            "  - connections_checked: int - total connections verified\n"
+            "  - element_count: int - number of elements in index\n"
+            "  - min_inbound: int - minimum inbound connections per node\n"
+            "  - max_inbound: int - maximum inbound connections per node\n"
+            "  - errors: list[str] - list of any errors found\n")
+        .def("repair_orphans", &Index<float>::repairOrphans,
+            "Deterministically repair zero-inbound (orphan) HNSW nodes.\n\n"
+            "Forces a back-edge from each orphan into its own existing\n"
+            "level-0 neighbors, evicting the weakest existing edge when a\n"
+            "neighbor's list is full. Idempotent and bounded (at most\n"
+            "cur_element_count + 1 passes).\n\n"
+            "Returns a dict with:\n"
+            "  - orphans_before: int - orphan count on the first scan\n"
+            "  - orphans_after: int - orphan count on the final scan\n"
+            "  - repaired_count: int - orphans_before - orphans_after\n"
+            "  - passes_used: int - number of repair passes actually run\n"
+            "  - forced_evictions: int - number of weakest-edge evictions performed\n"
+            "  - valid: bool - whether orphans_after == 0\n")
         .def_readonly("space", &Index<float>::space_name)
         .def_readonly("dim", &Index<float>::dim)
         .def_readwrite("num_threads", &Index<float>::num_threads_default)
@@ -1026,8 +1407,10 @@ PYBIND11_PLUGIN(hnswlib) {
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
         .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
         .def("set_num_threads", &BFIndex<float>::set_num_threads, py::arg("num_threads"))
-        .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
-        .def("load_index", &BFIndex<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements") = 0)
+        .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"),
+            py::call_guard<py::gil_scoped_release>())
+        .def("load_index", &BFIndex<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements") = 0,
+            py::call_guard<py::gil_scoped_release>())
         .def("__repr__", [](const BFIndex<float> &a) {
             return "<hnswlib.BFIndex(space='" + a.space_name + "', dim="+std::to_string(a.dim)+")>";
         })
