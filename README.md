@@ -274,15 +274,9 @@ or you can install via pip:
 `pip install hnswlib`
 
 
-### For developers 
-Contributions are highly welcome!
+### For developers
 
-Please make pull requests against the `develop` branch.
-
-When making changes please run tests (and please add a test to `tests/python` in case there is new functionality):
-```bash
-python -m unittest discover --start-directory tests/python --pattern "bindings_test*.py"
-```
+Contributions are welcome. Open pull requests against `develop` — workflow, tests, and review checklist are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 
 ### Other implementations
