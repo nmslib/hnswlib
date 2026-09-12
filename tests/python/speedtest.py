@@ -55,11 +55,10 @@ for _ in range(1):
         tt=time.time()-t0
         times.append(tt)
         recall=np.sum(labels.reshape(-1)==np.arange(len(qdata)))/len(qdata)
-        print(f"{tt} seconds, recall= {recall}")    
-        
+        print(f"{tt} seconds, recall= {recall}")
+
 str_out=f"{np.mean(times)}, {np.median(times)}, {np.std(times)}, {construction_time}, {recall}, {name}"
 print(str_out)
 with open (f"log2_{dim}_t{threads}.txt","a") as f:
     f.write(str_out+"\n")
     f.flush()
-

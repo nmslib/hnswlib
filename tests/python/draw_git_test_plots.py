@@ -14,11 +14,11 @@ def plot_data_from_file(file_path):
 
     # Create a subplot for each column
     fig, axes = plt.subplots(num_columns, 1, figsize=(10, 6 * num_columns))
-    
+
     # In case there is only one column, axes will not be an array, so we convert it
     if num_columns == 1:
         axes = [axes]
-    
+
     for i, ax in enumerate(axes):
         idx=0
         ax.scatter(np.asarray(data.index,dtype=np.int64)%rep_size, data[i], label=f'Column {i+1}')

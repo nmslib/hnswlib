@@ -1,9 +1,13 @@
 #pragma once
+
+#include "hnswlib.h"
+
 #include <unordered_map>
 #include <fstream>
 #include <mutex>
 #include <algorithm>
 #include <assert.h>
+#include <iostream>
 
 namespace hnswlib {
 template<typename dist_t>
@@ -51,7 +55,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         size_per_element_ = data_size_ + sizeof(labeltype);
         data_ = (char *) malloc(maxElements * size_per_element_);
         if (data_ == nullptr)
-            throw std::runtime_error("Not enough memory: BruteforceSearch failed to allocate data");
+            HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: BruteforceSearch failed to allocate data");
         cur_element_count = 0;
     }
 
@@ -61,7 +65,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    void addPoint(const void *datapoint, labeltype label, bool replace_deleted = false) {
+    Status addPointNoExceptions(const void *datapoint, labeltype label, bool replace_deleted = false) override {
         int idx;
         {
             std::unique_lock<std::mutex> lock(index_lock);
@@ -71,7 +75,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
                 idx = search->second;
             } else {
                 if (cur_element_count >= maxelements_) {
-                    throw std::runtime_error("The number of elements exceeds the specified limit\n");
+                    return Status("The number of elements exceeds the specified limit");
                 }
                 idx = cur_element_count;
                 dict_external_to_internal[label] = idx;
@@ -80,6 +84,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         }
         memcpy(data_ + size_per_element_ * idx + data_size_, &label, sizeof(labeltype));
         memcpy(data_ + size_per_element_ * idx, datapoint, data_size_);
+        return OkStatus();
     }
 
 
@@ -103,8 +108,9 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    std::priority_queue<std::pair<dist_t, labeltype >>
-    searchKnn(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const {
+    using DistanceLabelPriorityQueue = typename AlgorithmInterface<dist_t>::DistanceLabelPriorityQueue;
+    StatusOr<DistanceLabelPriorityQueue>
+    searchKnnNoExceptions(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const override {
         assert(k <= cur_element_count);
         std::priority_queue<std::pair<dist_t, labeltype >> topResults;
         dist_t lastdist = std::numeric_limits<dist_t>::max();
@@ -125,24 +131,29 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    void saveIndex(const std::string &location) {
-        std::ofstream output(location, std::ios::binary);
-        std::streampos position;
-
+    Status saveIndexNoExceptions(std::ostream &output) {
         writeBinaryPOD(output, maxelements_);
         writeBinaryPOD(output, size_per_element_);
         writeBinaryPOD(output, cur_element_count);
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
 
         output.write(data_, maxelements_ * size_per_element_);
-
-        output.close();
+        if (!output.good()) {
+          return Status("Failed writing vector data");
+        }
+        return OkStatus();
     }
 
 
-    void loadIndex(const std::string &location, SpaceInterface<dist_t> *s) {
-        std::ifstream input(location, std::ios::binary);
-        std::streampos position;
+    Status saveIndexNoExceptions(const std::string &location) override {
+        std::ofstream output(location, std::ios::binary);
+        return saveIndexNoExceptions(output);
+    }
 
+
+    void loadIndex(std::istream &input, SpaceInterface<dist_t> *s) {
         readBinaryPOD(input, maxelements_);
         readBinaryPOD(input, size_per_element_);
         readBinaryPOD(input, cur_element_count);
@@ -153,9 +164,16 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         size_per_element_ = data_size_ + sizeof(labeltype);
         data_ = (char *) malloc(maxelements_ * size_per_element_);
         if (data_ == nullptr)
-            throw std::runtime_error("Not enough memory: loadIndex failed to allocate data");
+            HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate data");
 
         input.read(data_, maxelements_ * size_per_element_);
+    }
+
+
+    void loadIndex(const std::string &location, SpaceInterface<dist_t> *s) {
+        std::ifstream input(location, std::ios::binary);
+
+        loadIndex(input, s);
 
         input.close();
     }

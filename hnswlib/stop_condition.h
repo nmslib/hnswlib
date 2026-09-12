@@ -257,7 +257,7 @@ class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
         return flag_consider_candidate;
     }
 
-    bool should_remove_extra() {
+    bool should_remove_extra() override {
         bool flag_remove_extra = curr_num_items_ > max_num_candidates_;
         return flag_remove_extra;
     }

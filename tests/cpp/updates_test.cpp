@@ -26,7 +26,7 @@ class StopW {
  * only handles a subset of functionality (no reductions etc)
  * Process ids from start (inclusive) to end (EXCLUSIVE)
  *
- * The method is borrowed from nmslib 
+ * The method is borrowed from nmslib
  */
 template<class Function>
 inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn) {

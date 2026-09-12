@@ -63,7 +63,7 @@ int main() {
         }
         std::cout << "Query #" << i << "\n";
         hnswlib::MultiVectorSearchStopCondition<docidtype, dist_t> stop_condition(space, num_docs, ef_collection);
-        std::vector<std::pair<float, hnswlib::labeltype>> result = 
+        std::vector<std::pair<float, hnswlib::labeltype>> result =
             alg_hnsw->searchStopConditionClosest(query_data, stop_condition);
         size_t num_vectors = result.size();
 

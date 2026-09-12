@@ -16,15 +16,15 @@ for idx, commit in enumerate(commits):
     print(idx, commit.hash, name)
 
 for commit in commits:
-    commit_time = commit.author_date.strftime("%Y-%m-%d %H:%M:%S") 
+    commit_time = commit.author_date.strftime("%Y-%m-%d %H:%M:%S")
     author_name = commit.author.name
     name = "auth:"+author_name+"_"+commit_time+"_msg:"+commit.msg.replace('\n', ' ').replace('\r', ' ').replace(",", ";")
     print("\nProcessing", commit.hash, name)
-    
+
     if os.path.exists("build"):
         shutil.rmtree("build")
     os.system(f"git checkout {commit.hash}")
-    
+
     # Checking we have actually switched the branch:
     current_commit=list(Repository('.').traverse_commits())[-1]
     if current_commit.hash != commit.hash:
@@ -33,7 +33,7 @@ for commit in commits:
         print("git checkout failed!!!!")
         print("git checkout failed!!!!")
         continue
-    
+
     print("\n\n--------------------\n\n")
     ret = os.system("python -m pip install .")
     print("Install result:", ret)
@@ -52,4 +52,3 @@ for commit in commits:
     os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 4 -t 64')
     os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 128 -t 1')
     os.system(f'python {speedtest_copy_path} -n "{commit.hash[:4]}_{name}" -d 128 -t 64')
-
