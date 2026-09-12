@@ -135,22 +135,21 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, maxelements_);
         writeBinaryPOD(output, size_per_element_);
         writeBinaryPOD(output, cur_element_count);
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
 
         output.write(data_, maxelements_ * size_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing vector data");
+        }
         return OkStatus();
     }
 
 
     Status saveIndexNoExceptions(const std::string &location) override {
         std::ofstream output(location, std::ios::binary);
-
-        Status status = saveIndexNoExceptions(output);
-        if (!status.ok()) {
-            HNSWLIB_THROW_RUNTIME_ERROR(status.message());
-        }
-
-        output.close();
-        return OkStatus();
+        return saveIndexNoExceptions(output);
     }
 
 

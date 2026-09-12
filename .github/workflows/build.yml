@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu, windows, macos]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13.2"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -17,7 +17,7 @@ jobs:
 
       - name: Build and install
         run: python -m pip install .
-      
+
       - name: Test examples
         timeout-minutes: 15
         run: |
@@ -35,7 +35,6 @@ jobs:
           # Run the unittest tests
           python -m unittest discover -v --start-directory tests/python --pattern "bindings_test*.py"
         shell: bash
-  
   cpp:
     runs-on: ${{ matrix.os }}-latest
     strategy:
@@ -68,7 +67,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Build
         run: |
@@ -85,7 +84,7 @@ jobs:
               echo "Invalid compiler ${c_compiler} for OS ${RUNNER_OS}" >&2
               exit 1
             fi
-            cmake_cmd+=( 
+            cmake_cmd+=(
               -DCMAKE_BUILD_TYPE=RelWithDebInfo
               -DCMAKE_C_COMPILER=${c_compiler}
               -DCMAKE_CXX_COMPILER=${cxx_compiler}
@@ -125,7 +124,7 @@ jobs:
           cd tests/cpp/
           python update_gen_data.py
         shell: bash
-      
+
       - name: Test
         # Without sanitizers, 15 minutes might be sufficient.
         timeout-minutes: 30
@@ -140,3 +139,32 @@ jobs:
           ./test_updates
           ./test_updates update
         shell: bash
+
+  cpp17:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHNSWLIB_CXX_STANDARD=17 ..
+          cmake --build ./
+
+      - name: Prepare test data
+        run: |
+          pip install numpy
+          cd tests/cpp/
+          python update_gen_data.py
+
+      - name: Test
+        timeout-minutes: 30
+        run: |
+          cd build
+          ctest --build-config RelWithDebInfo
+          ./test_updates
+          ./test_updates update

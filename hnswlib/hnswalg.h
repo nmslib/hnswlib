@@ -194,6 +194,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
+    // Labels sit at a packed offset that may be misaligned for labeltype
+    // (size_links_level0_ is 4-mod-8). Load/store only via memcpy.
     inline labeltype getExternalLabel(tableint internal_id) const {
         labeltype return_label;
         memcpy(&return_label, (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), sizeof(labeltype));
@@ -214,11 +216,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     inline void setExternalLabel(tableint internal_id, labeltype label) const {
         memcpy((data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_), &label, sizeof(labeltype));
-    }
-
-
-    inline labeltype *getExternalLabeLp(tableint internal_id) const {
-        return (labeltype *) (data_level0_memory_ + internal_id * size_data_per_element_ + label_offset_);
     }
 
 
@@ -740,28 +737,39 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         writeBinaryPOD(output, mult_);
         writeBinaryPOD(output, ef_construction_);
 
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
+
         output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing level 0 memory block");
+        }
 
         for (size_t i = 0; i < cur_element_count; i++) {
             unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
             writeBinaryPOD(output, linkListSize);
-            if (linkListSize)
+            if (linkListSize) {
                 output.write(linkLists_[i], linkListSize);
+            }
+            if (!output.good()) {
+                return Status("Failed writing link list elements");
+            }
         }
         return OkStatus();
     }
-
 
     Status saveIndexNoExceptions(const std::string &location) override {
         std::ofstream output(location, std::ios::binary);
-        Status status = saveIndexNoExceptions(output);
+        return saveIndexNoExceptions(output);
+    }
+
+    void saveIndex(const std::string &location) override {
+        Status status = saveIndexNoExceptions(location);
         if (!status.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(status.message());
         }
-        output.close();
-        return OkStatus();
     }
-
 
     Status loadIndexNoExceptions(std::istream &input, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         clear();
@@ -1022,7 +1030,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // if there is no vacant place then add or update point
         // else add point to vacant place
         if (!is_vacant_place) {
-            addPointWithLevel(data_point, label, -1);
+            auto status_or_new_point = addPointWithLevel(data_point, label, -1);
+            if (!status_or_new_point.ok()) {
+                return status_or_new_point.status();
+            }
         } else {
             // we assume that there are no concurrent operations on deleted element
             labeltype label_replaced = getExternalLabel(internal_id_replaced);
@@ -1278,7 +1289,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         memset(data_level0_memory_ + cur_c * size_data_per_element_ + offsetLevel0_, 0, size_data_per_element_);
 
         // Initialisation of the data and label
-        memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
+        setExternalLabel(cur_c, label);
         memcpy(getDataByInternalId(cur_c), data_point, data_size_);
 
         if (curlevel) {

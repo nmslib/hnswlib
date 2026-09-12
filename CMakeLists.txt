@@ -32,6 +32,7 @@ set(TEST_NAMES
     multiThread_replace_test
     multiThreadLoad_test
     multivector_search_test
+    no_exceptions_api_test
     resize_test
     searchKnnCloserFirst_test
     searchKnnWithFilter_test
@@ -43,6 +44,27 @@ function(add_cxx_flags)
     endforeach()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
 endfunction()
+
+macro(add_cxx_flag_if_supported flag)
+    unset(TMP_FLAG_SUPPORTED CACHE)
+    check_cxx_compiler_flag("${flag}" TMP_FLAG_SUPPORTED)
+    if(TMP_FLAG_SUPPORTED)
+        add_cxx_flags("${flag}")
+        message(STATUS "Enabled flag: ${flag}")
+    endif()
+endmacro()
+
+macro(add_first_supported_cxx_flag)
+    foreach(candidate_flag IN ITEMS ${ARGN})
+        unset(TMP_FLAG_SUPPORTED CACHE)
+        check_cxx_compiler_flag("${candidate_flag}" TMP_FLAG_SUPPORTED)
+        if(TMP_FLAG_SUPPORTED)
+            add_cxx_flags("${candidate_flag}")
+            message(STATUS "Selected flag: ${candidate_flag}")
+            break()
+        endif()
+    endforeach()
+endmacro()
 
 # Adds an example or test target. The target name parameter is followed by
 # the list of source files. Automatically links with the hnswlib library.
@@ -93,7 +115,16 @@ option(ENABLE_UBSAN "Whether to enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_TSAN "Whether to enable ThreadSanitizer" OFF)
 option(ENABLE_MSAN "Whether to enable MemorySanitizer" OFF)
 
-set(CMAKE_CXX_STANDARD 11)
+# C++11 by default. Override: -DHNSWLIB_CXX_STANDARD=17 or HNSWLIB_CXX_STD.
+# Do not put -std=c++11 in CMAKE_CXX_FLAGS (that would cap C++17 consumers).
+if(NOT HNSWLIB_CXX_STANDARD)
+    if(DEFINED ENV{HNSWLIB_CXX_STD})
+        set(HNSWLIB_CXX_STANDARD $ENV{HNSWLIB_CXX_STD})
+    else()
+        set(HNSWLIB_CXX_STANDARD 11)
+    endif()
+endif()
+set(CMAKE_CXX_STANDARD ${HNSWLIB_CXX_STANDARD})
 
 add_library(hnswlib INTERFACE)
 add_library(hnswlib::hnswlib ALIAS hnswlib)
@@ -150,30 +181,25 @@ if(HNSWLIB_EXAMPLES)
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # We enable optimizations in all build types, even in Debug.
         add_cxx_flags(-O3 -ffast-math -openmp -ftree-vectorize)
-        check_cxx_compiler_flag("-march=native" COMPILER_SUPPORT_NATIVE_FLAG)
-        if(COMPILER_SUPPORT_NATIVE_FLAG)
+        add_first_supported_cxx_flag(-march=native -mcpu=apple-m1)
+
+        # Avoiding this compilation error in CI/CD:
+        # invalid feature combination: +avx10.1-256; will be promoted to
+        # avx10.1-512 [-Werror,-Winvalid-feature-combination]
+        add_cxx_flag_if_supported(-Wno-invalid-feature-combination)
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # We enable optimizations in all build types, even in Debug.
+        add_cxx_flags(-Ofast -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
+            add_cxx_flags(-mtune=native)
+            message("set -mtune=native flag")
+        else()
             add_cxx_flags(-march=native)
             message("set -march=native flag")
-        else()
-            check_cxx_compiler_flag("-mcpu=apple-m1" COMPILER_SUPPORT_M1_FLAG)
-            if(COMPILER_SUPPORT_M1_FLAG)
-                add_cxx_flags(-mcpu=apple-m1)
-                message("set -mcpu=apple-m1 flag")
-            endif()
         endif()
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      # We enable optimizations in all build types, even in Debug.
-      add_cxx_flags(-Ofast -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0)
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
-        add_cxx_flags(-mtune=native)
-        message("set -mtune=native flag")
-      else()
-        add_cxx_flags(-march=native)
-        message("set -march=native flag")
-      endif()
-      if(NOT APPLE)
-        add_cxx_flags(-lrt)
-      endif()
+        if(NOT APPLE)
+            add_cxx_flags(-lrt)
+        endif()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         if (NOT HNSWLIB_ENABLE_EXCEPTIONS)
             # Do not enable exceptions by default. We will enable them on a

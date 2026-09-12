@@ -8,7 +8,7 @@ import setuptools
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = '0.8.0'
+__version__ = '0.10.0'
 
 
 include_dirs = [
@@ -59,16 +59,23 @@ def has_flag(compiler, flagname):
 
 
 def cpp_flag(compiler):
-    """Return the -std=c++[11/14] compiler flag.
-    The c++14 is prefered over c++11 (when it is available).
+    """Return the -std=c++[11/14/17/20] flag for the Python extension.
+
+    Default is C++11. Set HNSWLIB_CXX_STD=14|17|20 to request a newer standard
+    (falls back toward C++11 if the compiler rejects it).
     """
-    if has_flag(compiler, '-std=c++14'):
-        return '-std=c++14'
-    elif has_flag(compiler, '-std=c++11'):
-        return '-std=c++11'
-    else:
-        raise RuntimeError('Unsupported compiler -- at least C++11 support '
-                           'is needed!')
+    std = os.environ.get('HNSWLIB_CXX_STD', '11')
+    flags = {
+        '20': ['-std=c++20', '-std=c++17', '-std=c++14', '-std=c++11'],
+        '17': ['-std=c++17', '-std=c++14', '-std=c++11'],
+        '14': ['-std=c++14', '-std=c++11'],
+        '11': ['-std=c++11'],
+    }.get(std, ['-std=c++11'])
+    for flag in flags:
+        if has_flag(compiler, flag):
+            return flag
+    raise RuntimeError('Unsupported compiler -- at least C++11 support '
+                       'is needed!')
 
 
 class BuildExt(build_ext):

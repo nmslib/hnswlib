@@ -3,6 +3,23 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **NEWS:**
 
+**version 0.10.0**
+
+* Optional no-exceptions C++ API: `*NoExceptions` methods return `Status` / `StatusOr` so the headers can be compiled with `-fno-exceptions` (`-DHNSWLIB_ENABLE_EXCEPTIONS=OFF`). Throwing methods remain the default. (#619, #678) by [@michaelbautin](https://github.com/michaelbautin)
+* Stream `saveIndex` / `loadIndex` over `std::ostream` / `std::istream`, plus `getInternalIdByLabel`
+* CI covers exceptions on/off, Clang / GCC / MSVC, and ASAN / UBSAN
+* Fixed Clang UBSan misaligned label store in addPoint
+* Report addPoint capacity and stream write errors via Status
+* CMake and Python bindings default to C++11 (`HNSWLIB_CXX_STANDARD` / `HNSWLIB_CXX_STD` to request 14/17)
+
+**version 0.9.0**
+
+* Fixed incorrect results in bruteforce search with filter (#514) by [@lukaszsmolinski](https://github.com/lukaszsmolinski)
+* Fixed missing normalization check in BFIndex (#514) by [@lukaszsmolinski](https://github.com/lukaszsmolinski)
+* Throw an exception when fewer than k elements are available (#514) by [@lukaszsmolinski](https://github.com/lukaszsmolinski)
+* Remove unused variable (#531) by [@lulyon](https://github.com/lulyon)
+* Change cosine similarity to distance in README by [@yurymalkov](https://github.com/yurymalkov)
+
 **version 0.8.0** 
 
 * Multi-vector document search and epsilon search (for now, only in C++)
@@ -235,6 +252,7 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 #### C++ examples
 [See examples here](examples/cpp/EXAMPLES.md):
 * creating index, inserting elements, searching, serialization/deserialization
+* no-exceptions (`*NoExceptions`) variants of insert / search / I/O for `-fno-exceptions` builds
 * filtering during the search with a boolean function
 * deleting the elements and reusing the memory of the deleted elements for newly added elements
 * multithreaded usage

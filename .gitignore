@@ -13,3 +13,4 @@ var/
 *.pyc
 venv/
 tests/cpp/data/
+*.o
