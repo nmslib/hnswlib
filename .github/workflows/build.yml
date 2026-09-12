@@ -139,3 +139,33 @@ jobs:
           ./test_updates
           ./test_updates update
         shell: bash
+
+  # Prove headers stay valid when the *consumer* standard is C++17.
+  # Default examples/tests remain C++11 (see CMakeLists.txt).
+  cpp17:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build with C++17
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DHNSWLIB_CXX_STANDARD=17
+          cmake --build build --verbose
+          grep -E 'CMAKE_CXX_STANDARD:STRING=17' build/CMakeCache.txt
+
+      - name: Prepare test data
+        run: |
+          pip install numpy
+          python tests/cpp/update_gen_data.py
+
+      - name: Test
+        timeout-minutes: 30
+        run: |
+          ctest --test-dir build --build-config RelWithDebInfo
+          ./build/test_updates
+          ./build/test_updates update

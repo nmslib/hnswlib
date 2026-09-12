@@ -10,6 +10,7 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 * CI covers exceptions on/off, Clang / GCC / MSVC, and ASAN / UBSAN
 * Fixed Clang UBSan misaligned label store in addPoint
 * Report addPoint capacity and stream write errors via Status
+* CMake/Python default to C++11 and probe the compiler; request 14/17/20 via `HNSWLIB_CXX_STANDARD` / `HNSWLIB_CXX_STD`. Headers stay C++11-valid in C++17 translation units.
 
 **version 0.9.0**
 
@@ -39,7 +40,7 @@ Full list of changes: https://github.com/nmslib/hnswlib/pull/523
 
 
 ### Highlights:
-1) Lightweight, header-only, no dependencies other than C++ 11
+1) Lightweight, header-only, no dependencies other than C++ 11. Default CMake and Python builds use C++11 (override with `HNSWLIB_CXX_STANDARD` / `HNSWLIB_CXX_STD`). The same headers compile in C++17 translation units; the installed CMake target does not force `-std=c++11` on consumers.
 2) Interfaces for C++, Python, external support for Java and R (https://github.com/jlmelville/rcpphnsw).
 3) Has full support for incremental index construction and updating the elements (thanks to the contribution by Apoorv Sharma). Has support for element deletions 
 (by marking them in index, later can be replaced with other elements). Python index is picklable.

@@ -66,6 +66,67 @@ macro(add_first_supported_cxx_flag)
     endforeach()
 endmacro()
 
+# Probe whether the compiler accepts the given ISO C++ standard (11/14/17/20/23).
+# Does not inject -std= into CMAKE_CXX_FLAGS: CMake owns CMAKE_CXX_STANDARD.
+function(hnswlib_cxx_std_supported std result_var)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if("${std}" STREQUAL "11")
+            # MSVC has no /std:c++11. VS 2015+ compiles C++11 without a flag.
+            set(${result_var} TRUE PARENT_SCOPE)
+            return()
+        endif()
+        set(_hnswlib_std_flag "/std:c++${std}")
+    else()
+        set(_hnswlib_std_flag "-std=c++${std}")
+    endif()
+    set(_hnswlib_probe_var "_HNSWLIB_HAS_STD_${std}")
+    unset(${_hnswlib_probe_var} CACHE)
+    check_cxx_compiler_flag("${_hnswlib_std_flag}" ${_hnswlib_probe_var})
+    set(${result_var} ${${_hnswlib_probe_var}} PARENT_SCOPE)
+endfunction()
+
+# Pick the highest supported standard that is <= the request. Never below 11.
+function(hnswlib_pick_cxx_standard requested outvar)
+    if(NOT requested MATCHES "^(11|14|17|20|23)$")
+        message(FATAL_ERROR
+            "HNSWLIB_CXX_STANDARD must be one of 11, 14, 17, 20, 23 "
+            "(got '${requested}')")
+    endif()
+    foreach(candidate 23 20 17 14 11)
+        if(NOT candidate GREATER requested)
+            hnswlib_cxx_std_supported(${candidate} _hnswlib_std_ok)
+            if(_hnswlib_std_ok)
+                if(NOT candidate STREQUAL "${requested}")
+                    message(WARNING
+                        "Requested C++${requested} is not supported by this "
+                        "compiler; falling back to C++${candidate}")
+                endif()
+                set(${outvar} ${candidate} PARENT_SCOPE)
+                return()
+            endif()
+        endif()
+    endforeach()
+    message(FATAL_ERROR
+        "This compiler does not support C++11, which hnswlib requires")
+endfunction()
+
+# Default C++11. Honor (in order): -DHNSWLIB_CXX_STANDARD, HNSWLIB_CXX_STD env,
+# a CMAKE_CXX_STANDARD already set by a parent project. Never silently upgrade
+# to 14/17 just because the compiler has it.
+if(NOT DEFINED HNSWLIB_CXX_STANDARD)
+    if(DEFINED ENV{HNSWLIB_CXX_STD} AND NOT "$ENV{HNSWLIB_CXX_STD}" STREQUAL "")
+        set(_hnswlib_cxx_std_default "$ENV{HNSWLIB_CXX_STD}")
+    elseif(DEFINED CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD)
+        set(_hnswlib_cxx_std_default "${CMAKE_CXX_STANDARD}")
+    else()
+        set(_hnswlib_cxx_std_default 11)
+    endif()
+    set(HNSWLIB_CXX_STANDARD "${_hnswlib_cxx_std_default}" CACHE STRING
+        "C++ standard for hnswlib examples and tests (default 11). Headers stay C++11-valid.")
+    unset(_hnswlib_cxx_std_default)
+endif()
+set_property(CACHE HNSWLIB_CXX_STANDARD PROPERTY STRINGS 11 14 17 20 23)
+
 # Adds an example or test target. The target name parameter is followed by
 # the list of source files. Automatically links with the hnswlib library.
 # Also decides whether to enable exceptions when building the target.
@@ -115,10 +176,13 @@ option(ENABLE_UBSAN "Whether to enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_TSAN "Whether to enable ThreadSanitizer" OFF)
 option(ENABLE_MSAN "Whether to enable MemorySanitizer" OFF)
 
-set(CMAKE_CXX_STANDARD 11)
-
 add_library(hnswlib INTERFACE)
 add_library(hnswlib::hnswlib ALIAS hnswlib)
+
+# Minimum dialect only. Do not export -std=c++11: that would cap C++17 consumers.
+if(NOT CMAKE_VERSION VERSION_LESS 3.8)
+    target_compile_features(hnswlib INTERFACE cxx_std_11)
+endif()
 
 target_include_directories(hnswlib INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -166,6 +230,14 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
 set(CMAKE_CXX_FLAGS "")
 
 if(HNSWLIB_EXAMPLES)
+    hnswlib_pick_cxx_standard("${HNSWLIB_CXX_STANDARD}" HNSWLIB_CXX_STANDARD_SELECTED)
+    set(CMAKE_CXX_STANDARD "${HNSWLIB_CXX_STANDARD_SELECTED}")
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    message(STATUS
+        "hnswlib examples/tests C++ standard: ${HNSWLIB_CXX_STANDARD_SELECTED} "
+        "(requested ${HNSWLIB_CXX_STANDARD})")
+
     message("Building examples and tests")
     message("System architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
     enable_testing()

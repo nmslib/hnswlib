@@ -58,17 +58,66 @@ def has_flag(compiler, flagname):
     return True
 
 
+def _normalize_cxx_std(value):
+    """Return 11, 14, 17, 20, or 23 from env/user input like '17' or 'c++17'."""
+    text = str(value).strip().lower()
+    if text.startswith('gnu++'):
+        text = text[5:]
+    elif text.startswith('c++'):
+        text = text[3:]
+    allowed = ('11', '14', '17', '20', '23')
+    if text not in allowed:
+        raise RuntimeError(
+            'HNSWLIB_CXX_STD must be one of %s (got %r)'
+            % (', '.join(allowed), value))
+    return int(text)
+
+
+def requested_cxx_std():
+    """C++ standard requested for the Python extension. Default is 11."""
+    return _normalize_cxx_std(os.environ.get('HNSWLIB_CXX_STD', '11'))
+
+
+def _std_compile_flag(compiler, std):
+    """Compiler flag for ISO C++ `std`, or None if the compiler needs no flag."""
+    if compiler.compiler_type == 'msvc':
+        # MSVC has no /std:c++11; VS 2015+ is C++11 without an extra flag.
+        if std == 11:
+            return None
+        return '/std:c++%d' % std
+    return '-std=c++%d' % std
+
+
 def cpp_flag(compiler):
-    """Return the -std=c++[11/14] compiler flag.
-    The c++14 is prefered over c++11 (when it is available).
+    """Probe the flag for the requested C++ standard.
+
+    Default is C++11. Set HNSWLIB_CXX_STD=14|17|20|23 to request a newer
+    dialect. Falls back only downward if the compiler rejects the request.
+    Does not silently prefer C++14 when C++11 was requested.
     """
-    if has_flag(compiler, '-std=c++14'):
-        return '-std=c++14'
-    elif has_flag(compiler, '-std=c++11'):
-        return '-std=c++11'
-    else:
+    requested = requested_cxx_std()
+    chosen_std = None
+    chosen_flag = None
+    for std in (23, 20, 17, 14, 11):
+        if std > requested:
+            continue
+        flag = _std_compile_flag(compiler, std)
+        if flag is None or has_flag(compiler, flag):
+            chosen_std = std
+            chosen_flag = flag
+            break
+    if chosen_std is None:
         raise RuntimeError('Unsupported compiler -- at least C++11 support '
                            'is needed!')
+    if chosen_std != requested:
+        print('Requested C++%d is not supported; falling back to C++%d'
+              % (requested, chosen_std))
+    if chosen_flag is None:
+        print('hnswlib C++ standard: C++%d (compiler default, no extra flag)'
+              % chosen_std)
+    else:
+        print('hnswlib C++ standard: C++%d (%s)' % (chosen_std, chosen_flag))
+    return chosen_flag
 
 
 class BuildExt(build_ext):
@@ -98,7 +147,9 @@ class BuildExt(build_ext):
         opts = BuildExt.c_opts.get(ct, [])
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
-            opts.append(cpp_flag(self.compiler))
+            std_flag = cpp_flag(self.compiler)
+            if std_flag:
+                opts.append(std_flag)
             if has_flag(self.compiler, '-fvisibility=hidden'):
                 opts.append('-fvisibility=hidden')
             if not os.environ.get("HNSWLIB_NO_NATIVE"):
@@ -124,6 +175,9 @@ class BuildExt(build_ext):
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
             # Enable exceptions.
             opts.append('/EHsc')
+            std_flag = cpp_flag(self.compiler)
+            if std_flag:
+                opts.append(std_flag)
         for ext in self.extensions:
             ext.extra_compile_args.extend(opts)
             ext.extra_link_args.extend(BuildExt.link_opts.get(ct, []))
