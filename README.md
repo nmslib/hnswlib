@@ -11,6 +11,8 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 * Fixed Clang UBSan misaligned label store in addPoint
 * Report addPoint capacity and stream write errors via Status
 * CMake and Python bindings default to C++11 (`HNSWLIB_CXX_STANDARD` / `HNSWLIB_CXX_STD` to request 14/17)
+* Headers are written in the C++11 subset and remain valid when included from a C++17 (or later) translation unit; the CMake INTERFACE target does not export `-std=`
+* Runtime SIMD pick in the header-only spaces (`hnswlib.get_simd()` / `hnswlib::simd_name()` → `sse`/`avx`/`avx512`/`aarch64`). GCC/Clang emit AVX/AVX-512 via target attributes so a portable Python wheel still runs AVX on AVX hosts. Override with `HNSWLIB_SIMD`. Default build no longer passes `-march=native` (`HNSWLIB_NATIVE=1` for a machine-local compile).
 
 **version 0.9.0**
 
@@ -40,7 +42,7 @@ Full list of changes: https://github.com/nmslib/hnswlib/pull/523
 
 
 ### Highlights:
-1) Lightweight, header-only, no dependencies other than C++ 11
+1) Lightweight, header-only, no dependencies other than C++ 11. Headers stay valid in C++17 TUs; this repo’s tests default to C++11 (`HNSWLIB_CXX_STANDARD` / `HNSWLIB_CXX_STD` to request 14/17).
 2) Interfaces for C++, Python, external support for Java and R (https://github.com/jlmelville/rcpphnsw).
 3) Has full support for incremental index construction and updating the elements (thanks to the contribution by Apoorv Sharma). Has support for element deletions 
 (by marking them in index, later can be replaced with other elements). Python index is picklable.
@@ -65,6 +67,7 @@ Note that inner product is not an actual metric. An element can be closer to som
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
 #### API description
+* `hnswlib.get_simd()` returns the ISA selected at import (`sse`, `avx`, `avx512`, or `aarch64`). Set `HNSWLIB_SIMD` to force a lower-or-equal level (raises if the CPU cannot run it).
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
 
 `hnswlib.Index` methods:

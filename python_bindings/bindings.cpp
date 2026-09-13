@@ -934,6 +934,9 @@ class BFIndex {
 
 PYBIND11_PLUGIN(hnswlib) {
         py::module m("hnswlib");
+        m.def("get_simd", &hnswlib::simd_name,
+              "ISA selected at import: sse, avx, avx512, or aarch64. Override with HNSWLIB_SIMD.");
+        (void)hnswlib::simd_name();
 
         py::class_<Index<float>>(m, "Index")
         .def(py::init(&Index<float>::createFromParams), py::arg("params"))
