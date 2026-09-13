@@ -815,6 +815,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (max_elements < cur_element_count)
             max_elements = max_elements_;
         max_elements_ = max_elements;
+        if (max_elements_ < cur_element_count) {
+            return Status("Index seems to be corrupted or unsupported");
+        }
         readBinaryPOD(input, size_data_per_element_);
         readBinaryPOD(input, label_offset_);
         readBinaryPOD(input, offsetData_);
@@ -947,13 +950,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         char* data_ptrv = getDataByInternalId(internalId);
         size_t dim = *((size_t *) dist_func_param_);
-        std::vector<data_t> data;
         data_t* data_ptr = (data_t*) data_ptrv;
-        for (size_t i = 0; i < dim; i++) {
-            data.push_back(*data_ptr);
-            data_ptr += 1;
-        }
-        return data;
+        return std::vector<data_t>(data_ptr, data_ptr + dim);
     }
 
     void markDelete(labeltype label) {
