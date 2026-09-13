@@ -50,9 +50,7 @@ static uint64_t xgetbv(unsigned int index) {
 }
 #endif
 
-#if defined(USE_AVX512)
-#include <immintrin.h>
-#endif
+
 
 #if defined(__GNUC__)
 #define PORTABLE_ALIGN32 __attribute__((aligned(32)))
@@ -120,6 +118,39 @@ static bool AVX512Capable() {
     }
     return HW_AVX512F && avx512Supported;
 }
+
+// GCC/Clang: emit AVX / AVX-512 bodies via target attributes even when the TU
+// is compiled at SSE (Python wheels without -march=native). MSVC stays
+// compile-time (#ifdef __AVX__). C++ consumers that pass -mavx* are unchanged
+// (the attribute is a no-op if the TU already has that ISA).
+#if defined(__GNUC__) && !defined(_MSC_VER)
+#define HNSWLIB_HAVE_AVX_TARGET 1
+#define HNSWLIB_HAVE_AVX512_TARGET 1
+#if !defined(USE_AVX)
+#define HNSWLIB_TARGET_AVX __attribute__((target("avx")))
+#else
+#define HNSWLIB_TARGET_AVX
+#endif
+#if !defined(USE_AVX512)
+#define HNSWLIB_TARGET_AVX512 __attribute__((target("avx512f")))
+#else
+#define HNSWLIB_TARGET_AVX512
+#endif
+#else
+#define HNSWLIB_TARGET_AVX
+#define HNSWLIB_TARGET_AVX512
+#endif
+
+#if defined(USE_AVX) || defined(HNSWLIB_HAVE_AVX_TARGET)
+#define HNSWLIB_AVX_FUNCS 1
+#endif
+#if defined(USE_AVX512) || defined(HNSWLIB_HAVE_AVX512_TARGET)
+#define HNSWLIB_AVX512_FUNCS 1
+#endif
+
+#if defined(HNSWLIB_AVX512_FUNCS)
+#include <immintrin.h>
+#endif
 #endif
 
 #include <queue>
@@ -265,6 +296,103 @@ private:
     alignas(T) unsigned char storage_[sizeof(T)];
     bool has_value_;
 };
+
+// Runtime ISA used by L2Space / InnerProductSpace. Default: highest compiled
+// function that the CPU can run. HNSWLIB_SIMD=sse|avx|avx512 forces a
+// lower-or-equal level (throws if the CPU or this build cannot run it).
+enum SimdKind {
+    SIMD_SCALAR = 0,
+    SIMD_SSE = 1,
+    SIMD_AVX = 2,
+    SIMD_AVX512 = 3
+};
+
+inline SimdKind compiled_simd_kind() {
+#if defined(HNSWLIB_AVX512_FUNCS)
+    return SIMD_AVX512;
+#elif defined(HNSWLIB_AVX_FUNCS)
+    return SIMD_AVX;
+#elif defined(USE_SSE)
+    return SIMD_SSE;
+#else
+    return SIMD_SCALAR;
+#endif
+}
+
+inline SimdKind cpu_simd_kind() {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return SIMD_SCALAR;
+#elif defined(USE_SSE)
+    const SimdKind compiled = compiled_simd_kind();
+    if (compiled >= SIMD_AVX512 && AVX512Capable()) {
+        return SIMD_AVX512;
+    }
+    if (compiled >= SIMD_AVX && AVXCapable()) {
+        return SIMD_AVX;
+    }
+    return SIMD_SSE;
+#else
+    return SIMD_SCALAR;
+#endif
+}
+
+inline SimdKind parse_simd_env(const char *env, SimdKind have) {
+    if (env == NULL || env[0] == '\0') {
+        return have;
+    }
+#if defined(__aarch64__) || defined(_M_ARM64)
+    if (strcmp(env, "aarch64") == 0) {
+        return SIMD_SCALAR;
+    }
+    HNSWLIB_THROW_RUNTIME_ERROR(
+        strcmp(env, "sse") == 0 || strcmp(env, "avx") == 0 || strcmp(env, "avx512") == 0
+            ? "HNSWLIB_SIMD x86 values are not valid on this architecture"
+            : "HNSWLIB_SIMD must be one of sse|avx|avx512|aarch64");
+    return have;
+#else
+    SimdKind want;
+    if (strcmp(env, "sse") == 0) {
+        want = SIMD_SSE;
+    } else if (strcmp(env, "avx") == 0) {
+        want = SIMD_AVX;
+    } else if (strcmp(env, "avx512") == 0) {
+        want = SIMD_AVX512;
+    } else if (strcmp(env, "aarch64") == 0) {
+        HNSWLIB_THROW_RUNTIME_ERROR("HNSWLIB_SIMD=aarch64 is not valid on this CPU");
+        return have;
+    } else {
+        HNSWLIB_THROW_RUNTIME_ERROR("HNSWLIB_SIMD must be one of sse|avx|avx512|aarch64");
+        return have;
+    }
+    if (want > have) {
+        HNSWLIB_THROW_RUNTIME_ERROR("HNSWLIB_SIMD requests an ISA this CPU cannot run");
+    }
+    return want;
+#endif
+}
+
+inline SimdKind simd_kind() {
+    struct Once {
+        SimdKind value;
+        Once() : value(parse_simd_env(getenv("HNSWLIB_SIMD"), cpu_simd_kind())) {}
+    };
+    static Once once;
+    return once.value;
+}
+
+// "sse" | "avx" | "avx512" | "aarch64" | "scalar"
+inline const char* simd_name() {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return "aarch64";
+#else
+    switch (simd_kind()) {
+        case SIMD_AVX512: return "avx512";
+        case SIMD_AVX: return "avx";
+        case SIMD_SSE: return "sse";
+        default: return "scalar";
+    }
+#endif
+}
 
 typedef size_t labeltype;
 

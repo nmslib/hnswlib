@@ -26,16 +26,7 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
     MultiVectorL2Space(size_t dim) {
         fstdistfunc_ = L2Sqr;
 #if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
-    #if defined(USE_AVX512)
-        if (AVX512Capable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX512;
-        else if (AVXCapable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
-    #elif defined(USE_AVX)
-        if (AVXCapable())
-            L2SqrSIMD16Ext = L2SqrSIMD16ExtAVX;
-    #endif
-
+        select_l2_wide_kernel();
         if (dim % 16 == 0)
             fstdistfunc_ = L2SqrSIMD16Ext;
         else if (dim % 4 == 0)
@@ -85,27 +76,7 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
     MultiVectorInnerProductSpace(size_t dim) {
         fstdistfunc_ = InnerProductDistance;
 #if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
-    #if defined(USE_AVX512)
-        if (AVX512Capable()) {
-            InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX512;
-            InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX512;
-        } else if (AVXCapable()) {
-            InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
-            InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX;
-        }
-    #elif defined(USE_AVX)
-        if (AVXCapable()) {
-            InnerProductSIMD16Ext = InnerProductSIMD16ExtAVX;
-            InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtAVX;
-        }
-    #endif
-    #if defined(USE_AVX)
-        if (AVXCapable()) {
-            InnerProductSIMD4Ext = InnerProductSIMD4ExtAVX;
-            InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtAVX;
-        }
-    #endif
-
+        select_ip_kernels();
         if (dim % 16 == 0)
             fstdistfunc_ = InnerProductDistanceSIMD16Ext;
         else if (dim % 4 == 0)
