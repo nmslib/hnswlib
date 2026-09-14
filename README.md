@@ -3,8 +3,13 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **NEWS:**
 
-**version 0.10.0**
+**version 0.10.0rc2** (release candidate — not a stable PyPI upload)
 
+* Package version is `0.10.0rc2` (PEP 440); do not upload as final `0.10.0` yet. Supersedes v0.10.0-rc.1.
+* Stream `loadIndexNoExceptions` fails closed on an unopened/failed input without clearing a live index
+* `searchKnnCloserFirst` is `const` again; `addPoint(..., int level)` is restored so integer levels are not treated as `replace_deleted`
+* CMake no longer wipes caller `CMAKE_CXX_FLAGS` (including `add_subdirectory` / examples-off)
+* `StatusOr` stores T inline and moves the result; `*NoExceptions` stream writes return `Status` instead of throwing on write failure
 * Optional no-exceptions C++ API: `*NoExceptions` methods return `Status` / `StatusOr` so the headers can be compiled with `-fno-exceptions` (`-DHNSWLIB_ENABLE_EXCEPTIONS=OFF`). Throwing methods remain the default. (#619, #678) by [@michaelbautin](https://github.com/michaelbautin)
 * Stream `saveIndex` / `loadIndex` over `std::ostream` / `std::istream`, plus `getInternalIdByLabel`
 * CI covers exceptions on/off, Clang / GCC / MSVC, and ASAN / UBSAN
