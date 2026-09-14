@@ -8,7 +8,7 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 # PEP 440 RC. Do not drop the suffix until the stable PyPI release.
-__version__ = '0.10.0rc1'
+__version__ = '0.10.0rc2'
 
 
 include_dirs = [

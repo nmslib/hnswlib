@@ -3,9 +3,9 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **NEWS:**
 
-**version 0.10.0rc1** (release candidate — not a stable PyPI upload)
+**version 0.10.0rc2** (release candidate — not a stable PyPI upload)
 
-* Package version is `0.10.0rc1` (PEP 440); do not upload as final `0.10.0` yet
+* Package version is `0.10.0rc2` (PEP 440); do not upload as final `0.10.0` yet. Supersedes v0.10.0-rc.1.
 * Stream `loadIndexNoExceptions` fails closed on an unopened/failed input without clearing a live index
 * `searchKnnCloserFirst` is `const` again; `addPoint(..., int level)` is restored so integer levels are not treated as `replace_deleted`
 * CMake no longer wipes caller `CMAKE_CXX_FLAGS` (including `add_subdirectory` / examples-off)
