@@ -160,19 +160,21 @@ else()
     set(DISABLE_EXCEPTIONS_FLAGS -fno-exceptions)
 endif()
 
-# Turn on assertions in the RelWithDebInfo build type.
-foreach(NDEBUG_FLAG_STR IN ITEMS "/DNDEBUG" "/D NDEBUG" "-DNDEBUG")
-    string(REPLACE "${NDEBUG_FLAG_STR}" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO
-           "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-endforeach()
-string(STRIP "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}" CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
-    CACHE STRING "Flags for RelWithDebInfo configuration." FORCE)
+# RelWithDebInfo assertions apply only when this repo is the top-level
+# project. Forcing the cache from an add_subdirectory() would mutate the
+# parent build.
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    foreach(NDEBUG_FLAG_STR IN ITEMS "/DNDEBUG" "/D NDEBUG" "-DNDEBUG")
+        string(REPLACE "${NDEBUG_FLAG_STR}" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO
+               "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+    endforeach()
+    string(STRIP "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}" CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
+        CACHE STRING "Flags for RelWithDebInfo configuration." FORCE)
+endif()
 
-# Start with an empty value of CMAKE_CXX_FLAGS, not the value from the cache.
-# It will not override any "default" flags -- those will come from
-# per-build-type variables (CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}).
-set(CMAKE_CXX_FLAGS "")
+# Do not wipe or FORCE-write CMAKE_CXX_FLAGS. That erased caller-supplied
+# flags even when HNSWLIB_EXAMPLES=OFF (add_subdirectory consumers).
 
 if(HNSWLIB_EXAMPLES)
     message("Building examples and tests")
@@ -283,7 +285,6 @@ if(HNSWLIB_EXAMPLES)
     endforeach()
 endif()
 
-# Persist CMAKE_CXX_FLAGS in the cache for debuggability.
-string(STRIP "${CMAKE_CXX_FLAGS}" CMAKE_CXX_FLAGS)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}"
-    CACHE STRING "Flags used by the CXX compiler during all build types." FORCE)
+# Do not persist CMAKE_CXX_FLAGS into the CMake cache. A FORCE write from
+# this directory would overwrite the parent project's (or the user's
+# -DCMAKE_CXX_FLAGS=) value, including when examples are disabled.
