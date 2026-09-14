@@ -640,11 +640,21 @@ class Index {
             // Warning: search with a filter works slow in python in multithreaded mode. For best performance set num_threads=1
             CustomFilterFunctor idFilter(filter);
             CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
+            size_t visited_list_count = num_threads <= 0 ? std::thread::hardware_concurrency() : num_threads;
+            std::vector<std::unique_ptr<hnswlib::VisitedListLease>> visited_list_leases(visited_list_count);
 
             if (normalize == false) {
                 ParallelFor(0, rows, num_threads, [&](size_t row, size_t threadId) {
-                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)items.data(row), k, p_idFilter);
+                    hnswlib::VisitedList *visited_list;
+                    if (!visited_list_leases[threadId]) {
+                        visited_list_leases[threadId] = appr_alg->visited_list_pool_->getFreeVisitedListLease();
+                        visited_list = visited_list_leases[threadId]->get();
+                    } else {
+                        visited_list = visited_list_leases[threadId]->next();
+                    }
+                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result =
+                        appr_alg->searchKnnWithVisitedList(
+                            (void*)items.data(row), k, visited_list, p_idFilter);
                     if (result.size() != k)
                         HNSWLIB_THROW_RUNTIME_ERROR(
                             "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
@@ -663,8 +673,16 @@ class Index {
                     size_t start_idx = threadId * dim;
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
 
-                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result = appr_alg->searchKnn(
-                        (void*)(norm_array.data() + start_idx), k, p_idFilter);
+                    hnswlib::VisitedList *visited_list;
+                    if (!visited_list_leases[threadId]) {
+                        visited_list_leases[threadId] = appr_alg->visited_list_pool_->getFreeVisitedListLease();
+                        visited_list = visited_list_leases[threadId]->get();
+                    } else {
+                        visited_list = visited_list_leases[threadId]->next();
+                    }
+                    std::priority_queue<std::pair<dist_t, hnswlib::labeltype >> result =
+                        appr_alg->searchKnnWithVisitedList(
+                            (void*)(norm_array.data() + start_idx), k, visited_list, p_idFilter);
                     if (result.size() != k)
                         HNSWLIB_THROW_RUNTIME_ERROR(
                             "Cannot return the results in a contiguous 2D array. Probably ef or M is too small");
