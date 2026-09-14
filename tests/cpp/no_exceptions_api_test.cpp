@@ -1,5 +1,9 @@
 #include <cassert>
 #include <cstdio>
+#include <fstream>
+#include <ios>
+#include <ostream>
+#include <streambuf>
 #include <string>
 #include <vector>
 
@@ -44,10 +48,97 @@ void testBruteforceSaveIndexNoExceptionsDoesNotThrow() {
     std::remove(path);
 }
 
+void testLoadIndexNoExceptionsDoesNotClearOnUnopenedStream() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 1).ok());
+    assert(index.getCurrentElementCount() == 1);
+
+    std::ifstream missing("hnswlib_rc_review_missing_index.bin", std::ios::binary);
+    assert(!missing.is_open());
+    hnswlib::Status status = index.loadIndexNoExceptions(missing, &space);
+    assert(!status.ok());
+    assert(index.getCurrentElementCount() == 1);
+
+    // Default-constructed streams are often still good() on libc++; the loader
+    // must not treat "never opened" as an empty successful index.
+    std::ifstream never_opened;
+    hnswlib::Status status_unopened = index.loadIndexNoExceptions(never_opened, &space);
+    assert(!status_unopened.ok());
+    assert(index.getCurrentElementCount() == 1);
+
+    std::vector<float> restored = index.getDataByLabel<float>(1);
+    assert(restored.size() == static_cast<size_t>(dim));
+    assert(restored[0] == 1.0f);
+}
+
+class FailingBuf : public std::streambuf {
+ protected:
+    int overflow(int) override { return traits_type::eof(); }
+    std::streamsize xsputn(const char*, std::streamsize) override { return 0; }
+};
+
+void testSaveIndexNoExceptionsDoesNotThrowOnWriteFailure() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 1).ok());
+
+    FailingBuf buf;
+    std::ostream out(&buf);
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+    // The review case: write failure with iostream exceptions enabled must
+    // still return Status, not throw. Skipped when the TU is built with
+    // -fno-exceptions because enabling the mask would abort instead.
+    out.exceptions(std::ios::failbit | std::ios::badbit);
+#endif
+
+    hnswlib::Status status = index.saveIndexNoExceptions(out);
+    assert(!status.ok());
+}
+
+void testAddPointIntegerLevelIsNotReplaceDeleted() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+    std::vector<float> b(dim, 2.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(
+        &space, /*max_elements=*/8, /*M=*/16, /*ef_construction=*/16,
+        /*random_seed=*/100, /*allow_replace_deleted=*/false);
+    index.addPoint(a.data(), 1);
+    // Integer 3 is a graph level. Binding it to bool replace_deleted would
+    // throw because replacement is disabled.
+    index.addPoint(b.data(), 2, 3);
+    assert(index.getCurrentElementCount() == 2);
+}
+
+void testSearchKnnCloserFirstIsConst() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 8);
+    index.addPoint(a.data(), 1);
+    const hnswlib::HierarchicalNSW<float>& cref = index;
+    auto res = cref.searchKnnCloserFirst(a.data(), 1);
+    assert(res.size() == 1);
+    assert(res[0].second == 1);
+}
+
 }  // namespace
 
 int main() {
     testAddPointReportsCapacityErrorWhenReplaceHasNoVacancy();
     testBruteforceSaveIndexNoExceptionsDoesNotThrow();
+    testLoadIndexNoExceptionsDoesNotClearOnUnopenedStream();
+    testSaveIndexNoExceptionsDoesNotThrowOnWriteFailure();
+    testAddPointIntegerLevelIsNotReplaceDeleted();
+    testSearchKnnCloserFirstIsConst();
     return 0;
 }

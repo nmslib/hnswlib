@@ -139,28 +139,40 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
 
 
     Status saveIndexNoExceptions(std::ostream &output) {
-        writeBinaryPOD(output, maxelements_);
-        writeBinaryPOD(output, size_per_element_);
-        writeBinaryPOD(output, cur_element_count);
-        if (!output.good()) {
-          return Status("Failed writing index metadata");
-        }
+        StreamExceptionsOff guard(output);
+        return invokeWithoutStreamThrow([&]() -> Status {
+            if (!output) {
+                return Status("Cannot save index: output stream is not open or in a failed state");
+            }
+            writeBinaryPOD(output, maxelements_);
+            writeBinaryPOD(output, size_per_element_);
+            writeBinaryPOD(output, cur_element_count);
+            if (!output.good()) {
+              return Status("Failed writing index metadata");
+            }
 
-        output.write(data_, maxelements_ * size_per_element_);
-        if (!output.good()) {
-          return Status("Failed writing vector data");
-        }
-        return OkStatus();
+            output.write(data_, maxelements_ * size_per_element_);
+            if (!output.good()) {
+              return Status("Failed writing vector data");
+            }
+            return OkStatus();
+        });
     }
 
 
     Status saveIndexNoExceptions(const std::string &location) override {
         std::ofstream output(location, std::ios::binary);
+        if (!output.is_open()) {
+            return Status("Cannot save index: failed to open output file");
+        }
         return saveIndexNoExceptions(output);
     }
 
 
     void loadIndex(std::istream &input, SpaceInterface<dist_t> *s) {
+        if (!input) {
+            HNSWLIB_THROW_RUNTIME_ERROR("Cannot load index: input stream is not open or not readable");
+        }
         readBinaryPOD(input, maxelements_);
         readBinaryPOD(input, size_per_element_);
         readBinaryPOD(input, cur_element_count);

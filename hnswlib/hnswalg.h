@@ -722,45 +722,54 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     Status saveIndexNoExceptions(std::ostream &output) {
-        writeBinaryPOD(output, offsetLevel0_);
-        writeBinaryPOD(output, max_elements_);
-        writeBinaryPOD(output, cur_element_count);
-        writeBinaryPOD(output, size_data_per_element_);
-        writeBinaryPOD(output, label_offset_);
-        writeBinaryPOD(output, offsetData_);
-        writeBinaryPOD(output, maxlevel_);
-        writeBinaryPOD(output, enterpoint_node_);
-        writeBinaryPOD(output, maxM_);
-
-        writeBinaryPOD(output, maxM0_);
-        writeBinaryPOD(output, M_);
-        writeBinaryPOD(output, mult_);
-        writeBinaryPOD(output, ef_construction_);
-
-        if (!output.good()) {
-          return Status("Failed writing index metadata");
-        }
-
-        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
-        if (!output.good()) {
-          return Status("Failed writing level 0 memory block");
-        }
-
-        for (size_t i = 0; i < cur_element_count; i++) {
-            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-            writeBinaryPOD(output, linkListSize);
-            if (linkListSize) {
-                output.write(linkLists_[i], linkListSize);
+        StreamExceptionsOff guard(output);
+        return invokeWithoutStreamThrow([&]() -> Status {
+            if (!output) {
+                return Status("Cannot save index: output stream is not open or in a failed state");
             }
+            writeBinaryPOD(output, offsetLevel0_);
+            writeBinaryPOD(output, max_elements_);
+            writeBinaryPOD(output, cur_element_count);
+            writeBinaryPOD(output, size_data_per_element_);
+            writeBinaryPOD(output, label_offset_);
+            writeBinaryPOD(output, offsetData_);
+            writeBinaryPOD(output, maxlevel_);
+            writeBinaryPOD(output, enterpoint_node_);
+            writeBinaryPOD(output, maxM_);
+
+            writeBinaryPOD(output, maxM0_);
+            writeBinaryPOD(output, M_);
+            writeBinaryPOD(output, mult_);
+            writeBinaryPOD(output, ef_construction_);
+
             if (!output.good()) {
-                return Status("Failed writing link list elements");
+              return Status("Failed writing index metadata");
             }
-        }
-        return OkStatus();
+
+            output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+            if (!output.good()) {
+              return Status("Failed writing level 0 memory block");
+            }
+
+            for (size_t i = 0; i < cur_element_count; i++) {
+                unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+                writeBinaryPOD(output, linkListSize);
+                if (linkListSize) {
+                    output.write(linkLists_[i], linkListSize);
+                }
+                if (!output.good()) {
+                    return Status("Failed writing link list elements");
+                }
+            }
+            return OkStatus();
+        });
     }
 
     Status saveIndexNoExceptions(const std::string &location) override {
         std::ofstream output(location, std::ios::binary);
+        if (!output.is_open()) {
+            return Status("Cannot save index: failed to open output file");
+        }
         return saveIndexNoExceptions(output);
     }
 
@@ -772,11 +781,31 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     Status loadIndexNoExceptions(std::istream &input, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
-        clear();
-        // get file size:
+        // Must not destroy the live index until the stream is known to be readable.
+        // An unopened / failed stream used to seek to -1, skip the empty-index
+        // corruption loop, and return OkStatus() after clear().
+        if (!input) {
+            return Status("Cannot load index: input stream is not open or not readable");
+        }
+
+        StreamExceptionsOff guard(input);
+        return invokeWithoutStreamThrow([&]() -> Status {
+        // Default-constructed ifstreams are often still good() on libc++.
+        // If we cannot peek a byte, there is no index to load — leave the
+        // live index untouched.
+        if (input.peek() == std::char_traits<char>::eof()) {
+            return Status("Cannot load index: input stream is not open or not readable");
+        }
+
+        // get file size before mutating the in-memory index:
         input.seekg(0, input.end);
         std::streampos total_filesize = input.tellg();
         input.seekg(0, input.beg);
+        if (!input || total_filesize < std::streampos(0)) {
+            return Status("Cannot load index: failed to determine stream size");
+        }
+
+        clear();
 
         readBinaryPOD(input, offsetLevel0_);
         readBinaryPOD(input, max_elements_);
@@ -800,6 +829,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         readBinaryPOD(input, M_);
         readBinaryPOD(input, mult_);
         readBinaryPOD(input, ef_construction_);
+        if (!input) {
+            return Status("Cannot load index: failed to read index header");
+        }
 
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
@@ -873,6 +905,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         return OkStatus();
+        });
     }
 
 
@@ -901,7 +934,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (!result.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
         }
-        return std::move(result.value());
+        return std::move(result).value();
     }
 
     template<typename data_t>
@@ -1053,6 +1086,21 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
         return OkStatus();
+    }
+
+    // Keep the bool addPoint from AlgorithmInterface visible. Without this,
+    // the integer-level overload below would hide it and `addPoint(p, id, 1)`
+    // would bind to replace_deleted=true.
+    using AlgorithmInterface<dist_t>::addPoint;
+
+    // Historic overload: insert at an explicit graph level.
+    // `addPoint(data, label, 1)` must not become replace_deleted=true.
+    tableint addPoint(const void *data_point, labeltype label, int level) {
+        auto result = addPointWithLevel(data_point, label, level);
+        if (!result.ok()) {
+            HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
+        }
+        return std::move(result).value();
     }
 
 
@@ -1432,7 +1480,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (!result.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
         }
-        return std::move(result.value());
+        return std::move(result).value();
     }
 
     StatusOr<DistanceLabelVector>

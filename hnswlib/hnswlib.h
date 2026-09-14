@@ -125,6 +125,8 @@ static bool AVX512Capable() {
 #include <queue>
 #include <vector>
 #include <iostream>
+#include <ios>
+#include <new>
 #include <utility>
 #include <string.h>
 #include <stdlib.h>
@@ -171,40 +173,97 @@ private:
 
 inline Status OkStatus() { return Status(); }
 
+// Result-or-error container. T is stored inline (no extra heap allocation
+// for the wrapper itself) and is move-constructed from the success path so
+// search / getDataByLabel do not copy the full result. T is not constructed
+// on error paths.
 template <typename T>
 class StatusOr {
 public:
-    // Default constructor
-    StatusOr() : status_(), value_() {}
+    StatusOr() : status_("StatusOr has no value"), has_value_(false) {}
 
-    // Constructor with a value
-    StatusOr(T value) : status_(), value_(value) {}
-
-    // Constructor with an error status
-    StatusOr(const char* error) : status_(error), value_() {}
-    StatusOr(Status status) : status_(status), value_() {}
-
-    // Returns true if the status is OK.
-    bool ok() const { return status_.ok(); }
-
-    // Returns the value if the status is OK, undefined behavior otherwise.
-    T&& value() {
-        return std::move(value_);
+    StatusOr(T value) : status_(), has_value_(false) {
+        new (storage()) T(std::move(value));
+        has_value_ = true;
     }
 
-    const T& value() const {
-        return value_;
+    StatusOr(const char* error)
+        : status_(error ? error : "StatusOr has no value"), has_value_(false) {}
+
+    StatusOr(Status status)
+        : status_(status.ok() ? Status("StatusOr has no value") : status),
+          has_value_(false) {}
+
+    StatusOr(const StatusOr& other)
+        : status_(other.status_), has_value_(false) {
+        if (other.has_value_) {
+            new (storage()) T(*other.storage());
+            has_value_ = true;
+        }
     }
 
-    T operator*() const {
-        return value();
+    StatusOr(StatusOr&& other)
+        : status_(other.status_), has_value_(false) {
+        if (other.has_value_) {
+            new (storage()) T(std::move(*other.storage()));
+            has_value_ = true;
+        }
     }
 
-    Status status() const { return status_; }
+    StatusOr& operator=(const StatusOr& other) {
+        if (this == &other) {
+            return *this;
+        }
+        destroy();
+        status_ = other.status_;
+        if (other.has_value_) {
+            new (storage()) T(*other.storage());
+            has_value_ = true;
+        }
+        return *this;
+    }
+
+    StatusOr& operator=(StatusOr&& other) {
+        if (this == &other) {
+            return *this;
+        }
+        destroy();
+        status_ = other.status_;
+        if (other.has_value_) {
+            new (storage()) T(std::move(*other.storage()));
+            has_value_ = true;
+        }
+        return *this;
+    }
+
+    ~StatusOr() { destroy(); }
+
+    bool ok() const { return status_.ok() && has_value_; }
+
+    T& value() & { return *storage(); }
+    const T& value() const & { return *storage(); }
+    T&& value() && { return std::move(*storage()); }
+
+    const T& operator*() const { return value(); }
+
+    Status status() const {
+        return ok() ? OkStatus() : (status_.ok() ? Status("StatusOr has no value") : status_);
+    }
 
 private:
+    T* storage() { return reinterpret_cast<T*>(storage_); }
+    const T* storage() const { return reinterpret_cast<const T*>(storage_); }
+
+    void destroy() {
+        if (has_value_) {
+            storage()->~T();
+            has_value_ = false;
+        }
+    }
+
     Status status_;
-    T value_;
+    alignas(T) unsigned char storage_[sizeof(T)];
+    bool has_value_;
 };
 
 // Runtime ISA used by L2Space / InnerProductSpace. Default: highest compiled
@@ -349,6 +408,41 @@ static void readBinaryPOD(std::istream &in, T &podRef) {
     in.read((char *) &podRef, sizeof(T));
 }
 
+// Temporarily disable iostream exceptions so *NoExceptions I/O reports
+// failures via Status instead of throwing std::ios_base::failure.
+class StreamExceptionsOff {
+ public:
+    explicit StreamExceptionsOff(std::ios& stream)
+        : stream_(stream), old_(stream.exceptions()) {
+        stream_.exceptions(std::ios::goodbit);
+    }
+
+    ~StreamExceptionsOff() {
+        // Restoring a mask that includes failbit/badbit throws if those bits
+        // are already set. Only restore when that would be safe.
+        if (!stream_.fail()) {
+            stream_.exceptions(old_);
+        }
+    }
+
+ private:
+    std::ios& stream_;
+    std::ios::iostate old_;
+};
+
+template <typename Fn>
+Status invokeWithoutStreamThrow(Fn&& fn) {
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+    try {
+        return fn();
+    } catch (const std::ios_base::failure&) {
+        return Status("Stream I/O failed");
+    }
+#else
+    return fn();
+#endif
+}
+
 template<typename MTYPE>
 using DISTFUNC = MTYPE(*)(const void *, const void *, const void *);
 
@@ -396,7 +490,7 @@ class AlgorithmInterface {
         if (!result.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
         }
-        return std::move(result.value());
+        return std::move(result).value();
     }
 
     virtual StatusOr<DistanceLabelPriorityQueue> searchKnnNoExceptions(
@@ -408,13 +502,13 @@ class AlgorithmInterface {
     virtual DistanceLabelVector searchKnnCloserFirst(
             const void* query_data,
             size_t k,
-            BaseFilterFunctor* isIdAllowed = nullptr) {
+            BaseFilterFunctor* isIdAllowed = nullptr) const {
         auto result =
             searchKnnCloserFirstNoExceptions(query_data, k, isIdAllowed);
         if (!result.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(result.status().message());
         }
-        return std::move(result.value());
+        return std::move(result).value();
     }
 
     virtual StatusOr<DistanceLabelVector> searchKnnCloserFirstNoExceptions(
