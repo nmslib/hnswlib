@@ -154,6 +154,8 @@ namespace hnswlib {
 
 // Lightweight Status. Empty message is OK. The error text is copied, so
 // callers may pass a stack buffer or a temporary std::string.c_str().
+// Copying may heap-allocate (typical messages exceed SSO). With
+// -fno-exceptions that allocate is fatal; pass string literals.
 class HNSWLIB_NODISCARD Status {
 public:
     Status() {}
