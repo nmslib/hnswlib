@@ -187,6 +187,9 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
 
         size_t data_size = s->get_data_size();
         size_t size_per_element = data_size + sizeof(labeltype);
+        if (file_size_per_element != size_per_element) {
+            return Status("Cannot load index: size_per_element does not match space");
+        }
         char *new_data = (char *) malloc(file_maxelements * size_per_element);
         if (new_data == nullptr)
             return Status("Not enough memory: loadIndex failed to allocate data");

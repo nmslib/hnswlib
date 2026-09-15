@@ -206,6 +206,23 @@ void testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure() {
     assert(index.cur_element_count == 1);
 }
 
+void testBruteforceLoadRejectsSizePerElementMismatch() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space4(dim);
+    hnswlib::BruteforceSearch<float> index(&space4, 8);
+    assert(index.addPointNoExceptions(a.data(), 10).ok());
+    std::ostringstream saved(std::ios::binary);
+    assert(index.saveIndexNoExceptions(saved).ok());
+
+    hnswlib::L2Space space8(8);
+    hnswlib::BruteforceSearch<float> loaded(&space8, 8);
+    std::istringstream in(saved.str(), std::ios::binary);
+    assert(!loaded.loadIndexNoExceptions(in, &space8).ok());
+    assert(loaded.cur_element_count == 0);
+}
+
 void testLoadRejectsCurCountGreaterThanMaxElements() {
     const int dim = 4;
     std::vector<float> a(dim, 1.0f);
@@ -283,6 +300,7 @@ int main() {
     testBruteforceLoadRebuildsLabelMap();
     testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
+    testBruteforceLoadRejectsSizePerElementMismatch();
     testLoadRejectsCurCountGreaterThanMaxElements();
     testClearResetsCapacitySoAddPointDoesNotWriteNull();
     testStatusCopiesStackMessage();
