@@ -791,8 +791,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
     Status loadIndexNoExceptions(std::istream &input, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
         // Must not destroy the live index until the file layout is known to be valid.
-        // An unopened / failed stream used to seek to -1, skip the empty-index
-        // corruption loop, and return OkStatus() after clear().
         if (!input) {
             return Status("Cannot load index: input stream is not open or not readable");
         }
