@@ -125,7 +125,6 @@ static bool AVX512Capable() {
 #include <queue>
 #include <vector>
 #include <iostream>
-#include <ios>
 #include <new>
 #include <utility>
 #include <string.h>
@@ -309,41 +308,6 @@ static void writeBinaryPOD(std::ostream &out, const T &podRef) {
 template<typename T>
 static void readBinaryPOD(std::istream &in, T &podRef) {
     in.read((char *) &podRef, sizeof(T));
-}
-
-// Temporarily disable iostream exceptions so *NoExceptions I/O reports
-// failures via Status instead of throwing std::ios_base::failure.
-class StreamExceptionsOff {
- public:
-    explicit StreamExceptionsOff(std::ios& stream)
-        : stream_(stream), old_(stream.exceptions()) {
-        stream_.exceptions(std::ios::goodbit);
-    }
-
-    ~StreamExceptionsOff() {
-        // Restoring a mask that includes failbit/badbit throws if those bits
-        // are already set. Only restore when that would be safe.
-        if (!stream_.fail()) {
-            stream_.exceptions(old_);
-        }
-    }
-
- private:
-    std::ios& stream_;
-    std::ios::iostate old_;
-};
-
-template <typename Fn>
-Status invokeWithoutStreamThrow(Fn&& fn) {
-#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
-    try {
-        return fn();
-    } catch (const std::ios_base::failure&) {
-        return Status("Stream I/O failed");
-    }
-#else
-    return fn();
-#endif
 }
 
 template<typename MTYPE>

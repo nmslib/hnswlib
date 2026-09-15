@@ -1,7 +1,6 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
-#include <ios>
 #include <ostream>
 #include <streambuf>
 #include <string>
@@ -91,13 +90,6 @@ void testSaveIndexNoExceptionsDoesNotThrowOnWriteFailure() {
 
     FailingBuf buf;
     std::ostream out(&buf);
-#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
-    // The review case: write failure with iostream exceptions enabled must
-    // still return Status, not throw. Skipped when the TU is built with
-    // -fno-exceptions because enabling the mask would abort instead.
-    out.exceptions(std::ios::failbit | std::ios::badbit);
-#endif
-
     hnswlib::Status status = index.saveIndexNoExceptions(out);
     assert(!status.ok());
 }

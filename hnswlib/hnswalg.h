@@ -722,47 +722,46 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     Status saveIndexNoExceptions(std::ostream &output) {
-        StreamExceptionsOff guard(output);
-        return invokeWithoutStreamThrow([&]() -> Status {
-            if (!output) {
-                return Status("Cannot save index: output stream is not open or in a failed state");
+        // *NoExceptions I/O checks stream state. Callers must leave the default
+        // iostream exception mask (goodbit); enabling failbit/badbit can throw.
+        if (!output) {
+            return Status("Cannot save index: output stream is not open or in a failed state");
+        }
+        writeBinaryPOD(output, offsetLevel0_);
+        writeBinaryPOD(output, max_elements_);
+        writeBinaryPOD(output, cur_element_count);
+        writeBinaryPOD(output, size_data_per_element_);
+        writeBinaryPOD(output, label_offset_);
+        writeBinaryPOD(output, offsetData_);
+        writeBinaryPOD(output, maxlevel_);
+        writeBinaryPOD(output, enterpoint_node_);
+        writeBinaryPOD(output, maxM_);
+
+        writeBinaryPOD(output, maxM0_);
+        writeBinaryPOD(output, M_);
+        writeBinaryPOD(output, mult_);
+        writeBinaryPOD(output, ef_construction_);
+
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
+
+        output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing level 0 memory block");
+        }
+
+        for (size_t i = 0; i < cur_element_count; i++) {
+            unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
+            writeBinaryPOD(output, linkListSize);
+            if (linkListSize) {
+                output.write(linkLists_[i], linkListSize);
             }
-            writeBinaryPOD(output, offsetLevel0_);
-            writeBinaryPOD(output, max_elements_);
-            writeBinaryPOD(output, cur_element_count);
-            writeBinaryPOD(output, size_data_per_element_);
-            writeBinaryPOD(output, label_offset_);
-            writeBinaryPOD(output, offsetData_);
-            writeBinaryPOD(output, maxlevel_);
-            writeBinaryPOD(output, enterpoint_node_);
-            writeBinaryPOD(output, maxM_);
-
-            writeBinaryPOD(output, maxM0_);
-            writeBinaryPOD(output, M_);
-            writeBinaryPOD(output, mult_);
-            writeBinaryPOD(output, ef_construction_);
-
             if (!output.good()) {
-              return Status("Failed writing index metadata");
+                return Status("Failed writing link list elements");
             }
-
-            output.write(data_level0_memory_, cur_element_count * size_data_per_element_);
-            if (!output.good()) {
-              return Status("Failed writing level 0 memory block");
-            }
-
-            for (size_t i = 0; i < cur_element_count; i++) {
-                unsigned int linkListSize = element_levels_[i] > 0 ? size_links_per_element_ * element_levels_[i] : 0;
-                writeBinaryPOD(output, linkListSize);
-                if (linkListSize) {
-                    output.write(linkLists_[i], linkListSize);
-                }
-                if (!output.good()) {
-                    return Status("Failed writing link list elements");
-                }
-            }
-            return OkStatus();
-        });
+        }
+        return OkStatus();
     }
 
     Status saveIndexNoExceptions(const std::string &location) override {
@@ -788,8 +787,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return Status("Cannot load index: input stream is not open or not readable");
         }
 
-        StreamExceptionsOff guard(input);
-        return invokeWithoutStreamThrow([&]() -> Status {
         // Default-constructed ifstreams are often still good() on libc++.
         // If we cannot peek a byte, there is no index to load — leave the
         // live index untouched.
@@ -902,7 +899,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         return OkStatus();
-        });
     }
 
 

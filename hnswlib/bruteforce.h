@@ -132,24 +132,23 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
 
 
     Status saveIndexNoExceptions(std::ostream &output) {
-        StreamExceptionsOff guard(output);
-        return invokeWithoutStreamThrow([&]() -> Status {
-            if (!output) {
-                return Status("Cannot save index: output stream is not open or in a failed state");
-            }
-            writeBinaryPOD(output, maxelements_);
-            writeBinaryPOD(output, size_per_element_);
-            writeBinaryPOD(output, cur_element_count);
-            if (!output.good()) {
-              return Status("Failed writing index metadata");
-            }
+        // *NoExceptions I/O checks stream state. Callers must leave the default
+        // iostream exception mask (goodbit); enabling failbit/badbit can throw.
+        if (!output) {
+            return Status("Cannot save index: output stream is not open or in a failed state");
+        }
+        writeBinaryPOD(output, maxelements_);
+        writeBinaryPOD(output, size_per_element_);
+        writeBinaryPOD(output, cur_element_count);
+        if (!output.good()) {
+          return Status("Failed writing index metadata");
+        }
 
-            output.write(data_, maxelements_ * size_per_element_);
-            if (!output.good()) {
-              return Status("Failed writing vector data");
-            }
-            return OkStatus();
-        });
+        output.write(data_, maxelements_ * size_per_element_);
+        if (!output.good()) {
+          return Status("Failed writing vector data");
+        }
+        return OkStatus();
     }
 
 
