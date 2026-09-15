@@ -126,6 +126,7 @@ static bool AVX512Capable() {
 #include <vector>
 #include <iostream>
 #include <new>
+#include <string>
 #include <utility>
 #include <string.h>
 #include <stdlib.h>
@@ -151,23 +152,28 @@ static bool AVX512Capable() {
 
 namespace hnswlib {
 
-// A lightweight Status class inspired by Abseil's Status class.
+// Lightweight Status. Empty message is OK. The error text is copied, so
+// callers may pass a stack buffer or a temporary std::string.c_str().
 class HNSWLIB_NODISCARD Status {
 public:
-    Status() : message_(nullptr) {}
+    Status() {}
 
-    // Constructor with an error message (nullptr is interpreted as OK status).
-    Status(const char* message) : message_(message) {}
+    // nullptr is interpreted as OK status.
+    Status(const char* message) {
+        if (message != nullptr) {
+            message_.assign(message);
+        }
+    }
 
-    // Returns true if the status is OK.
-    bool ok() const { return !message_; }
+    Status(std::string message) : message_(std::move(message)) {}
 
-    // Returns the error message, or nullptr if OK.
-    const char* message() const { return message_; }
+    bool ok() const { return message_.empty(); }
+
+    // nullptr if OK. Pointer is valid for the lifetime of *this.
+    const char* message() const { return ok() ? nullptr : message_.c_str(); }
 
 private:
-    // nullptr if OK, a message otherwise.
-    const char* message_;
+    std::string message_;
 };
 
 inline Status OkStatus() { return Status(); }

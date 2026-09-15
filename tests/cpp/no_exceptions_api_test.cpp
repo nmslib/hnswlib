@@ -205,6 +205,23 @@ void testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure() {
     assert(index.cur_element_count == 1);
 }
 
+void testStatusCopiesStackMessage() {
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "stack-%d", 7);
+    hnswlib::Status st(buf);
+    buf[0] = 'X';
+    assert(!st.ok());
+    assert(std::string(st.message()) == "stack-7");
+
+    hnswlib::Status ok;
+    assert(ok.ok());
+    assert(ok.message() == nullptr);
+
+    hnswlib::Status from_string(std::string("owned"));
+    assert(!from_string.ok());
+    assert(std::string(from_string.message()) == "owned");
+}
+
 void testSearchKnnCloserFirstIsConst() {
     const int dim = 4;
     std::vector<float> a(dim, 1.0f);
@@ -230,6 +247,7 @@ int main() {
     testBruteforceLoadRebuildsLabelMap();
     testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
+    testStatusCopiesStackMessage();
     testSearchKnnCloserFirstIsConst();
     return 0;
 }

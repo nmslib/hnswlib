@@ -104,7 +104,9 @@ function(add_example_or_test TARGET_NAME ...)
 endfunction()
 
 
-option(HNSWLIB_ENABLE_EXCEPTIONS "Whether to enable exceptions in hnswlib" ON)
+# Affects example/test executables in this repo only. The INTERFACE library
+# does not export -fno-exceptions / /EHsc; consumers set their own flags.
+option(HNSWLIB_ENABLE_EXCEPTIONS "Enable exceptions on hnswlib example/test targets" ON)
 if(HNSWLIB_ENABLE_EXCEPTIONS)
     message("Exceptions are enabled using HNSWLIB_ENABLE_EXCEPTIONS=ON (default)")
 else()
@@ -194,17 +196,8 @@ if(HNSWLIB_EXAMPLES)
             add_cxx_flags(-lrt)
         endif()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        if (NOT HNSWLIB_ENABLE_EXCEPTIONS)
-            # Do not enable exceptions by default. We will enable them on a
-            # case by case basis when needed.
-            foreach(config IN ITEMS Debug Release RelWithDebInfo MinSizeRel)
-                string(TOUPPER ${config} config_upper)
-                set(FLAGS_VAR "CMAKE_CXX_FLAGS_${config_upper}")
-                string(REPLACE "/EHsc" "" ${FLAGS_VAR} "${${FLAGS_VAR}}")
-                set(${FLAGS_VAR} "${${FLAGS_VAR}}" CACHE STRING
-                    "Flags for ${config} configuration." FORCE)
-            endforeach()
-        endif()
+        # Exception on/off is per target (add_example_or_test), not a cache
+        # mutation of CMAKE_CXX_FLAGS_<CONFIG> that would leak to a parent.
         add_cxx_flags(/O2 /W1 /openmp)
     endif()
     add_cxx_flags(-DHAVE_CXX0X)
