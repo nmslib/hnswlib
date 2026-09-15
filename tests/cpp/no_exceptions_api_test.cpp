@@ -176,10 +176,33 @@ void testBruteforceLoadRebuildsLabelMap() {
 
     hnswlib::BruteforceSearch<float> loaded(&space, 8);
     std::istringstream in(saved.str(), std::ios::binary);
-    loaded.loadIndex(in, &space);
+    assert(loaded.loadIndexNoExceptions(in, &space).ok());
     assert(loaded.cur_element_count == 2);
     assert(loaded.addPointNoExceptions(a2.data(), 10).ok());
     assert(loaded.cur_element_count == 2);
+}
+
+void testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::BruteforceSearch<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 10).ok());
+    assert(index.cur_element_count == 1);
+
+    std::ifstream missing("hnswlib_rc_review_missing_bf.bin", std::ios::binary);
+    assert(!missing.is_open());
+    assert(!index.loadIndexNoExceptions(missing, &space).ok());
+    assert(index.cur_element_count == 1);
+
+    std::ifstream never_opened;
+    assert(!index.loadIndexNoExceptions(never_opened, &space).ok());
+    assert(index.cur_element_count == 1);
+
+    std::istringstream truncated("HNSW", std::ios::binary);
+    assert(!index.loadIndexNoExceptions(truncated, &space).ok());
+    assert(index.cur_element_count == 1);
 }
 
 void testSearchKnnCloserFirstIsConst() {
@@ -205,6 +228,7 @@ int main() {
     testReloadDropsStaleLabelsAndDeletedSet();
     testCorruptLoadDoesNotClearLiveIndex();
     testBruteforceLoadRebuildsLabelMap();
+    testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
     testSearchKnnCloserFirstIsConst();
     return 0;
