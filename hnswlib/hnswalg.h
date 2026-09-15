@@ -162,7 +162,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         free(data_level0_memory_);
         data_level0_memory_ = nullptr;
         if (linkLists_) {
-            for (tableint i = 0; i < cur_element_count; i++) {
+            const size_t n = cur_element_count;
+            const size_t n_levels = element_levels_.size();
+            for (tableint i = 0; i < n && i < n_levels; i++) {
                 if (element_levels_[i] > 0)
                     free(linkLists_[i]);
             }
@@ -170,12 +172,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             linkLists_ = nullptr;
         }
         cur_element_count = 0;
+        max_elements_ = 0;
         num_deleted_ = 0;
         label_lookup_.clear();
         deleted_elements.clear();
+        element_levels_.clear();
         enterpoint_node_ = -1;
         maxlevel_ = -1;
         visited_list_pool_.reset(nullptr);
+        std::vector<std::mutex>().swap(link_list_locks_);
     }
 
 

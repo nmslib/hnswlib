@@ -205,6 +205,18 @@ void testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure() {
     assert(index.cur_element_count == 1);
 }
 
+void testClearResetsCapacitySoAddPointDoesNotWriteNull() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 1).ok());
+    index.clear();
+    hnswlib::Status status = index.addPointNoExceptions(a.data(), 1);
+    assert(!status.ok());
+}
+
 void testStatusCopiesStackMessage() {
     char buf[32];
     std::snprintf(buf, sizeof(buf), "stack-%d", 7);
@@ -247,6 +259,7 @@ int main() {
     testBruteforceLoadRebuildsLabelMap();
     testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
+    testClearResetsCapacitySoAddPointDoesNotWriteNull();
     testStatusCopiesStackMessage();
     testSearchKnnCloserFirstIsConst();
     return 0;
