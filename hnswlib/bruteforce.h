@@ -172,47 +172,44 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         if (!input) {
             return Status("Cannot load index: input stream is not open or not readable");
         }
-        StreamExceptionsOff guard(input);
-        return invokeWithoutStreamThrow([&]() -> Status {
-            size_t file_maxelements = 0;
-            size_t file_size_per_element = 0;
-            size_t file_cur_count = 0;
-            readBinaryPOD(input, file_maxelements);
-            readBinaryPOD(input, file_size_per_element);
-            readBinaryPOD(input, file_cur_count);
-            if (!input) {
-                return Status("Cannot load index: failed to read index header");
-            }
-            if (file_cur_count > file_maxelements) {
-                return Status("Cannot load index: cur_element_count exceeds maxelements");
-            }
+        size_t file_maxelements = 0;
+        size_t file_size_per_element = 0;
+        size_t file_cur_count = 0;
+        readBinaryPOD(input, file_maxelements);
+        readBinaryPOD(input, file_size_per_element);
+        readBinaryPOD(input, file_cur_count);
+        if (!input) {
+            return Status("Cannot load index: failed to read index header");
+        }
+        if (file_cur_count > file_maxelements) {
+            return Status("Cannot load index: cur_element_count exceeds maxelements");
+        }
 
-            size_t data_size = s->get_data_size();
-            size_t size_per_element = data_size + sizeof(labeltype);
-            char *new_data = (char *) malloc(file_maxelements * size_per_element);
-            if (new_data == nullptr)
-                return Status("Not enough memory: loadIndex failed to allocate data");
-            input.read(new_data, file_maxelements * size_per_element);
-            if (!input) {
-                free(new_data);
-                return Status("Cannot load index: failed to read vector data");
-            }
+        size_t data_size = s->get_data_size();
+        size_t size_per_element = data_size + sizeof(labeltype);
+        char *new_data = (char *) malloc(file_maxelements * size_per_element);
+        if (new_data == nullptr)
+            return Status("Not enough memory: loadIndex failed to allocate data");
+        input.read(new_data, file_maxelements * size_per_element);
+        if (!input) {
+            free(new_data);
+            return Status("Cannot load index: failed to read vector data");
+        }
 
-            free(data_);
-            data_ = new_data;
-            maxelements_ = file_maxelements;
-            cur_element_count = file_cur_count;
-            data_size_ = data_size;
-            size_per_element_ = size_per_element;
-            fstdistfunc_ = s->get_dist_func();
-            dist_func_param_ = s->get_dist_func_param();
+        free(data_);
+        data_ = new_data;
+        maxelements_ = file_maxelements;
+        cur_element_count = file_cur_count;
+        data_size_ = data_size;
+        size_per_element_ = size_per_element;
+        fstdistfunc_ = s->get_dist_func();
+        dist_func_param_ = s->get_dist_func_param();
 
-            dict_external_to_internal.clear();
-            for (size_t i = 0; i < cur_element_count; i++) {
-                dict_external_to_internal[getExternalLabel(i)] = i;
-            }
-            return OkStatus();
-        });
+        dict_external_to_internal.clear();
+        for (size_t i = 0; i < cur_element_count; i++) {
+            dict_external_to_internal[getExternalLabel(i)] = i;
+        }
+        return OkStatus();
     }
 
     Status loadIndexNoExceptions(const std::string &location, SpaceInterface<dist_t> *s) {
