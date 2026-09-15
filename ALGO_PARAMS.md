@@ -29,3 +29,5 @@ for M nearest neighbor search when ```ef``` =```ef_construction```: if the recal
 for improvement.
 * ```num_elements``` - defines the maximum number of elements in the index. The index can be extended by saving/loading (load_index
 function has a parameter which defines the new maximum number of elements).
+
+* ```shuffle``` - whether ```add_items``` inserts the rows of the batch in a random permutation (default) or in array order. On a collection that is stored in a meaningful order (e.g. sorted by document) inserting in that order may degrade the graph. Set ```shuffle=False``` if you need the insertion order preserved; labels are unaffected either way.

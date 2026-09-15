@@ -6,6 +6,9 @@
 #include "hnswlib.h"
 #include <thread>
 #include <atomic>
+#include <algorithm>
+#include <numeric>
+#include <random>
 #include <stdlib.h>
 #include <assert.h>
 
@@ -153,6 +156,7 @@ class Index {
     int dim;
     size_t seed;
     size_t default_ef;
+    std::mt19937 shuffle_rng;
 
     bool index_inited;
     bool ep_added;
@@ -179,6 +183,7 @@ class Index {
         ep_added = true;
         index_inited = false;
         num_threads_default = std::thread::hardware_concurrency();
+        shuffle_rng.seed(100);
 
         default_ef = 10;
     }
@@ -206,6 +211,7 @@ class Index {
         ep_added = false;
         appr_alg->ef_ = default_ef;
         seed = random_seed;
+        shuffle_rng.seed(random_seed);
     }
 
 
@@ -250,7 +256,8 @@ class Index {
     }
 
 
-    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false) {
+    void addItems(py::object input, py::object ids_ = py::none(), int num_threads = -1, bool replace_deleted = false,
+                  bool shuffle = true) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
         if (num_threads <= 0)
@@ -284,15 +291,27 @@ class Index {
                 ep_added = true;
             }
 
+            // HNSW is analysed as an average case over a random insertion order. A corpus
+            // stored in a meaningful order (by document, by cluster, by label) violates
+            // that, and may cost accuracy, so insert in a random permutation by
+            // default. Labels are unaffected: only the order of the addPoint calls
+            // changes, not which label each vector is given.
+            std::vector<size_t> order(rows - start);
+            std::iota(order.begin(), order.end(), start);
+            if (shuffle)
+                std::shuffle(order.begin(), order.end(), shuffle_rng);
+
             py::gil_scoped_release l;
             if (normalize == false) {
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                ParallelFor(0, order.size(), num_threads, [&](size_t i, size_t threadId) {
+                    size_t row = order[i];
                     size_t id = ids.size() ? ids.at(row) : (cur_l + row);
                     appr_alg->addPoint((void*)items.data(row), (size_t)id, replace_deleted);
                     });
             } else {
                 std::vector<float> norm_array(num_threads * dim);
-                ParallelFor(start, rows, num_threads, [&](size_t row, size_t threadId) {
+                ParallelFor(0, order.size(), num_threads, [&](size_t i, size_t threadId) {
+                    size_t row = order[i];
                     // normalize vector:
                     size_t start_idx = threadId * dim;
                     normalize_vector((float*)items.data(row), (norm_array.data() + start_idx));
@@ -958,7 +977,8 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("data"),
             py::arg("ids") = py::none(),
             py::arg("num_threads") = -1,
-            py::arg("replace_deleted") = false)
+            py::arg("replace_deleted") = false,
+            py::arg("shuffle") = true)
         .def("get_items", &Index<float>::getData, py::arg("ids") = py::none(), py::arg("return_type") = "numpy")
         .def("get_ids_list", &Index<float>::getIdsList)
         .def("set_ef", &Index<float>::set_ef, py::arg("ef"))
