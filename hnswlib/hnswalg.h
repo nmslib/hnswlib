@@ -1384,9 +1384,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (curlevel) {
             linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
             if (linkLists_[cur_c] == nullptr) {
+                // Upper-level list failed. Never leave element_levels_ > 0 with
+                // a null linkLists_[cur_c] (saveIndex would write from nullptr).
+                element_levels_[cur_c] = 0;
                 std::unique_lock<std::mutex> lock_table(label_lookup_lock);
-                label_lookup_.erase(label);
                 if (cur_element_count == cur_c + 1) {
+                    label_lookup_.erase(label);
                     cur_element_count--;
                 }
                 return Status("Not enough memory: addPoint failed to allocate linklist");
