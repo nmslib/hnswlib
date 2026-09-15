@@ -196,6 +196,22 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             return Status("Cannot load index: failed to read vector data");
         }
 
+        std::unordered_map<labeltype, size_t> new_dict;
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+        try {
+#endif
+        for (size_t i = 0; i < file_cur_count; i++) {
+            labeltype lab;
+            memcpy(&lab, new_data + i * size_per_element + data_size, sizeof(lab));
+            new_dict[lab] = i;
+        }
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+        } catch (const std::bad_alloc&) {
+            free(new_data);
+            return Status("Not enough memory: loadIndex failed to rebuild label map");
+        }
+#endif
+
         free(data_);
         data_ = new_data;
         maxelements_ = file_maxelements;
@@ -204,11 +220,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         size_per_element_ = size_per_element;
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
-
-        dict_external_to_internal.clear();
-        for (size_t i = 0; i < cur_element_count; i++) {
-            dict_external_to_internal[getExternalLabel(i)] = i;
-        }
+        dict_external_to_internal.swap(new_dict);
         return OkStatus();
     }
 

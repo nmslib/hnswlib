@@ -904,6 +904,9 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
         size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+        try {
+#endif
         std::vector<std::mutex>(max_elements).swap(link_list_locks_);
         std::vector<std::mutex>(MAX_LABEL_OPERATION_LOCKS).swap(label_op_locks_);
 
@@ -944,6 +947,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         return OkStatus();
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+        } catch (const std::bad_alloc&) {
+            clear();
+            return Status("Not enough memory: loadIndex failed to allocate");
+        }
+#endif
     }
 
 
