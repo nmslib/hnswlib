@@ -841,6 +841,12 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (!input) {
             return Status("Cannot load index: failed to read index header");
         }
+        if (file_cur_count > file_max_elements) {
+            return Status("Cannot load index: cur_element_count exceeds max_elements");
+        }
+        if (size_data_per_element == 0) {
+            return Status("Cannot load index: invalid size_data_per_element");
+        }
 
         size_t max_elements = max_elements_i;
         if (max_elements < file_cur_count)

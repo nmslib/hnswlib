@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <ostream>
 #include <sstream>
@@ -205,6 +206,29 @@ void testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure() {
     assert(index.cur_element_count == 1);
 }
 
+void testLoadRejectsCurCountGreaterThanMaxElements() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+    std::vector<float> b(dim, 2.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> saved(&space, 8);
+    assert(saved.addPointNoExceptions(a.data(), 1).ok());
+    assert(saved.addPointNoExceptions(b.data(), 2).ok());
+    std::ostringstream out(std::ios::binary);
+    assert(saved.saveIndexNoExceptions(out).ok());
+    std::string blob = out.str();
+    assert(blob.size() >= 2 * sizeof(size_t));
+    size_t patched_max = 1;
+    std::memcpy(&blob[sizeof(size_t)], &patched_max, sizeof(size_t));
+
+    hnswlib::HierarchicalNSW<float> live(&space, 8);
+    assert(live.addPointNoExceptions(a.data(), 9).ok());
+    std::istringstream in(blob, std::ios::binary);
+    assert(!live.loadIndexNoExceptions(in, &space).ok());
+    assert(live.getCurrentElementCount() == 1);
+}
+
 void testClearResetsCapacitySoAddPointDoesNotWriteNull() {
     const int dim = 4;
     std::vector<float> a(dim, 1.0f);
@@ -259,6 +283,7 @@ int main() {
     testBruteforceLoadRebuildsLabelMap();
     testBruteforceLoadIndexNoExceptionsDoesNotMutateOnFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
+    testLoadRejectsCurCountGreaterThanMaxElements();
     testClearResetsCapacitySoAddPointDoesNotWriteNull();
     testStatusCopiesStackMessage();
     testSearchKnnCloserFirstIsConst();
