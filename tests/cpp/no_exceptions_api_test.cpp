@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <fstream>
 #include <ostream>
+#include <sstream>
 #include <streambuf>
 #include <string>
 #include <vector>
@@ -110,6 +111,77 @@ void testAddPointIntegerLevelIsNotReplaceDeleted() {
     assert(index.getCurrentElementCount() == 2);
 }
 
+void testReloadDropsStaleLabelsAndDeletedSet() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+    std::vector<float> b(dim, 2.0f);
+    std::vector<float> c(dim, 3.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> live(
+        &space, /*max_elements=*/8, /*M=*/16, /*ef_construction=*/16,
+        /*random_seed=*/100, /*allow_replace_deleted=*/true);
+    assert(live.addPointNoExceptions(a.data(), 1).ok());
+    assert(live.addPointNoExceptions(b.data(), 2).ok());
+    live.markDelete(1);
+    assert(live.getDeletedCount() == 1);
+
+    hnswlib::HierarchicalNSW<float> replacement(&space, 8);
+    assert(replacement.addPointNoExceptions(c.data(), 10).ok());
+    std::ostringstream saved(std::ios::binary);
+    assert(replacement.saveIndexNoExceptions(saved).ok());
+
+    std::istringstream in(saved.str(), std::ios::binary);
+    assert(live.loadIndexNoExceptions(in, &space).ok());
+    assert(live.getCurrentElementCount() == 1);
+    assert(live.getDeletedCount() == 0);
+
+    auto missing = live.getDataByLabelNoExceptions<float>(2);
+    assert(!missing.ok());
+    std::vector<float> got = live.getDataByLabel<float>(10);
+    assert(got.size() == static_cast<size_t>(dim));
+    assert(got[0] == 3.0f);
+}
+
+void testCorruptLoadDoesNotClearLiveIndex() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 1).ok());
+
+    std::istringstream truncated("HNSW", std::ios::binary);
+    hnswlib::Status status = index.loadIndexNoExceptions(truncated, &space);
+    assert(!status.ok());
+    assert(index.getCurrentElementCount() == 1);
+    std::vector<float> restored = index.getDataByLabel<float>(1);
+    assert(restored[0] == 1.0f);
+}
+
+void testBruteforceLoadRebuildsLabelMap() {
+    const int dim = 4;
+    std::vector<float> a(dim, 1.0f);
+    std::vector<float> b(dim, 2.0f);
+    std::vector<float> a2(dim, 9.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::BruteforceSearch<float> index(&space, 8);
+    assert(index.addPointNoExceptions(a.data(), 10).ok());
+    assert(index.addPointNoExceptions(b.data(), 20).ok());
+    assert(index.cur_element_count == 2);
+
+    std::ostringstream saved(std::ios::binary);
+    assert(index.saveIndexNoExceptions(saved).ok());
+
+    hnswlib::BruteforceSearch<float> loaded(&space, 8);
+    std::istringstream in(saved.str(), std::ios::binary);
+    loaded.loadIndex(in, &space);
+    assert(loaded.cur_element_count == 2);
+    assert(loaded.addPointNoExceptions(a2.data(), 10).ok());
+    assert(loaded.cur_element_count == 2);
+}
+
 void testSearchKnnCloserFirstIsConst() {
     const int dim = 4;
     std::vector<float> a(dim, 1.0f);
@@ -130,6 +202,9 @@ int main() {
     testBruteforceSaveIndexNoExceptionsDoesNotThrow();
     testLoadIndexNoExceptionsDoesNotClearOnUnopenedStream();
     testSaveIndexNoExceptionsDoesNotThrowOnWriteFailure();
+    testReloadDropsStaleLabelsAndDeletedSet();
+    testCorruptLoadDoesNotClearLiveIndex();
+    testBruteforceLoadRebuildsLabelMap();
     testAddPointIntegerLevelIsNotReplaceDeleted();
     testSearchKnnCloserFirstIsConst();
     return 0;

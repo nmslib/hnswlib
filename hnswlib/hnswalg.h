@@ -161,15 +161,20 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     void clear() {
         free(data_level0_memory_);
         data_level0_memory_ = nullptr;
-        for (tableint i = 0; i < cur_element_count; i++) {
-            if (element_levels_[i] > 0)
-                free(linkLists_[i]);
-        }
         if (linkLists_) {
+            for (tableint i = 0; i < cur_element_count; i++) {
+                if (element_levels_[i] > 0)
+                    free(linkLists_[i]);
+            }
             free(linkLists_);
+            linkLists_ = nullptr;
         }
-        linkLists_ = nullptr;
         cur_element_count = 0;
+        num_deleted_ = 0;
+        label_lookup_.clear();
+        deleted_elements.clear();
+        enterpoint_node_ = -1;
+        maxlevel_ = -1;
         visited_list_pool_.reset(nullptr);
     }
 
@@ -780,7 +785,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     Status loadIndexNoExceptions(std::istream &input, SpaceInterface<dist_t> *s, size_t max_elements_i = 0) {
-        // Must not destroy the live index until the stream is known to be readable.
+        // Must not destroy the live index until the file layout is known to be valid.
         // An unopened / failed stream used to seek to -1, skip the empty-index
         // corruption loop, and return OkStatus() after clear().
         if (!input) {
@@ -794,7 +799,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return Status("Cannot load index: input stream is not open or not readable");
         }
 
-        // get file size before mutating the in-memory index:
         input.seekg(0, input.end);
         std::streampos total_filesize = input.tellg();
         input.seekg(0, input.beg);
@@ -802,40 +806,45 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             return Status("Cannot load index: failed to determine stream size");
         }
 
-        clear();
+        size_t offsetLevel0 = 0;
+        size_t file_max_elements = 0;
+        size_t file_cur_count = 0;
+        size_t size_data_per_element = 0;
+        size_t label_offset = 0;
+        size_t offsetData = 0;
+        int maxlevel = -1;
+        tableint enterpoint_node = static_cast<tableint>(-1);
+        size_t maxM = 0;
+        size_t maxM0 = 0;
+        size_t M = 0;
+        double mult = 0.0;
+        size_t ef_construction = 0;
 
-        readBinaryPOD(input, offsetLevel0_);
-        readBinaryPOD(input, max_elements_);
-        readBinaryPOD(input, cur_element_count);
-
-        size_t max_elements = max_elements_i;
-        if (max_elements < cur_element_count)
-            max_elements = max_elements_;
-        max_elements_ = max_elements;
-        readBinaryPOD(input, size_data_per_element_);
-        readBinaryPOD(input, label_offset_);
-        readBinaryPOD(input, offsetData_);
-        readBinaryPOD(input, maxlevel_);
-        readBinaryPOD(input, enterpoint_node_);
-
-        readBinaryPOD(input, maxM_);
-        readBinaryPOD(input, maxM0_);
-        readBinaryPOD(input, M_);
-        readBinaryPOD(input, mult_);
-        readBinaryPOD(input, ef_construction_);
+        readBinaryPOD(input, offsetLevel0);
+        readBinaryPOD(input, file_max_elements);
+        readBinaryPOD(input, file_cur_count);
+        readBinaryPOD(input, size_data_per_element);
+        readBinaryPOD(input, label_offset);
+        readBinaryPOD(input, offsetData);
+        readBinaryPOD(input, maxlevel);
+        readBinaryPOD(input, enterpoint_node);
+        readBinaryPOD(input, maxM);
+        readBinaryPOD(input, maxM0);
+        readBinaryPOD(input, M);
+        readBinaryPOD(input, mult);
+        readBinaryPOD(input, ef_construction);
         if (!input) {
             return Status("Cannot load index: failed to read index header");
         }
 
-        data_size_ = s->get_data_size();
-        fstdistfunc_ = s->get_dist_func();
-        dist_func_param_ = s->get_dist_func_param();
+        size_t max_elements = max_elements_i;
+        if (max_elements < file_cur_count)
+            max_elements = file_max_elements;
 
         auto pos = input.tellg();
 
-        /// Optional - check if index is ok:
-        input.seekg(cur_element_count * size_data_per_element_, input.cur);
-        for (size_t i = 0; i < cur_element_count; i++) {
+        input.seekg(file_cur_count * size_data_per_element, input.cur);
+        for (size_t i = 0; i < file_cur_count; i++) {
             if (input.tellg() < 0 || input.tellg() >= total_filesize) {
                 return Status("Index seems to be corrupted or unsupported");
             }
@@ -847,19 +856,39 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-        // throw exception if it either corrupted or old index
         if (input.tellg() != total_filesize)
             return Status("Index seems to be corrupted or unsupported");
 
         input.clear();
-        /// Optional check end
-
         input.seekg(pos, input.beg);
 
+        // Layout is valid. Replace the live index only now.
+        clear();
+
+        offsetLevel0_ = offsetLevel0;
+        max_elements_ = max_elements;
+        cur_element_count = file_cur_count;
+        size_data_per_element_ = size_data_per_element;
+        label_offset_ = label_offset;
+        offsetData_ = offsetData;
+        maxlevel_ = maxlevel;
+        enterpoint_node_ = enterpoint_node;
+        maxM_ = maxM;
+        maxM0_ = maxM0;
+        M_ = M;
+        mult_ = mult;
+        ef_construction_ = ef_construction;
+
+        data_size_ = s->get_data_size();
+        fstdistfunc_ = s->get_dist_func();
+        dist_func_param_ = s->get_dist_func_param();
+
         data_level0_memory_ = (char *) malloc(max_elements * size_data_per_element_);
-        if (data_level0_memory_ == nullptr)
+        if (data_level0_memory_ == nullptr) {
+            clear();
             return Status("Not enough memory: loadIndex failed to allocate level0");
-        input.read(data_level0_memory_, cur_element_count * size_data_per_element_);
+        }
+        input.read(data_level0_memory_, file_cur_count * size_data_per_element_);
 
         size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
 
@@ -870,12 +899,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         visited_list_pool_.reset(new VisitedListPool(1, max_elements));
 
         linkLists_ = (char **) malloc(sizeof(void *) * max_elements);
-        if (linkLists_ == nullptr)
+        if (linkLists_ == nullptr) {
+            clear();
             return Status("Not enough memory: loadIndex failed to allocate linklists");
+        }
+        memset(linkLists_, 0, sizeof(void *) * max_elements);
         element_levels_ = std::vector<int>(max_elements);
         revSize_ = 1.0 / mult_;
         ef_ = 10;
-        for (size_t i = 0; i < cur_element_count; i++) {
+        for (size_t i = 0; i < file_cur_count; i++) {
             label_lookup_[getExternalLabel(i)] = i;
             unsigned int linkListSize;
             readBinaryPOD(input, linkListSize);
@@ -885,13 +917,15 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             } else {
                 element_levels_[i] = linkListSize / size_links_per_element_;
                 linkLists_[i] = (char *) malloc(linkListSize);
-                if (linkLists_[i] == nullptr)
+                if (linkLists_[i] == nullptr) {
+                    clear();
                     return Status("Not enough memory: loadIndex failed to allocate linklist");
+                }
                 input.read(linkLists_[i], linkListSize);
             }
         }
 
-        for (size_t i = 0; i < cur_element_count; i++) {
+        for (size_t i = 0; i < file_cur_count; i++) {
             if (isMarkedDeleted(i)) {
                 num_deleted_ += 1;
                 if (allow_replace_deleted_) deleted_elements.insert(i);
@@ -1339,6 +1373,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         if (curlevel) {
             linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
             if (linkLists_[cur_c] == nullptr) {
+                std::unique_lock<std::mutex> lock_table(label_lookup_lock);
+                label_lookup_.erase(label);
+                if (cur_element_count == cur_c + 1) {
+                    cur_element_count--;
+                }
                 return Status("Not enough memory: addPoint failed to allocate linklist");
             }
             memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);

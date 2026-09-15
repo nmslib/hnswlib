@@ -64,6 +64,13 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         free(data_);
     }
 
+    // Labels sit at a packed offset; load via memcpy (nmslib/hnswlib#665).
+    inline labeltype getExternalLabel(size_t internal_id) const {
+        labeltype return_label;
+        memcpy(&return_label, data_ + internal_id * size_per_element_ + data_size_, sizeof(labeltype));
+        return return_label;
+    }
+
 
     Status addPointNoExceptions(const void *datapoint, labeltype label, bool replace_deleted = false) override {
         int idx;
@@ -99,7 +106,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         dict_external_to_internal.erase(found);
 
         size_t cur_c = found->second;
-        labeltype label = *((labeltype*)(data_ + size_per_element_ * (cur_element_count-1) + data_size_));
+        labeltype label = getExternalLabel(cur_element_count - 1);
         dict_external_to_internal[label] = cur_c;
         memcpy(data_ + size_per_element_ * cur_c,
                 data_ + size_per_element_ * (cur_element_count-1),
@@ -117,7 +124,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         for (int i = 0; i < cur_element_count; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
             if (dist <= lastdist || topResults.size() < k) {
-                labeltype label = *((labeltype *) (data_ + size_per_element_ * i + data_size_));
+                labeltype label = getExternalLabel(i);
                 if ((!isIdAllowed) || (*isIdAllowed)(label)) {
                     topResults.emplace(dist, label);
                     if (topResults.size() > k)
@@ -165,19 +172,43 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         if (!input) {
             HNSWLIB_THROW_RUNTIME_ERROR("Cannot load index: input stream is not open or not readable");
         }
-        readBinaryPOD(input, maxelements_);
-        readBinaryPOD(input, size_per_element_);
-        readBinaryPOD(input, cur_element_count);
+        size_t file_maxelements = 0;
+        size_t file_size_per_element = 0;
+        size_t file_cur_count = 0;
+        readBinaryPOD(input, file_maxelements);
+        readBinaryPOD(input, file_size_per_element);
+        readBinaryPOD(input, file_cur_count);
+        if (!input) {
+            HNSWLIB_THROW_RUNTIME_ERROR("Cannot load index: failed to read index header");
+        }
+        if (file_cur_count > file_maxelements) {
+            HNSWLIB_THROW_RUNTIME_ERROR("Cannot load index: cur_element_count exceeds maxelements");
+        }
 
-        data_size_ = s->get_data_size();
+        size_t data_size = s->get_data_size();
+        size_t size_per_element = data_size + sizeof(labeltype);
+        char *new_data = (char *) malloc(file_maxelements * size_per_element);
+        if (new_data == nullptr)
+            HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate data");
+        input.read(new_data, file_maxelements * size_per_element);
+        if (!input) {
+            free(new_data);
+            HNSWLIB_THROW_RUNTIME_ERROR("Cannot load index: failed to read vector data");
+        }
+
+        free(data_);
+        data_ = new_data;
+        maxelements_ = file_maxelements;
+        cur_element_count = file_cur_count;
+        data_size_ = data_size;
+        size_per_element_ = size_per_element;
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
-        size_per_element_ = data_size_ + sizeof(labeltype);
-        data_ = (char *) malloc(maxelements_ * size_per_element_);
-        if (data_ == nullptr)
-            HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate data");
 
-        input.read(data_, maxelements_ * size_per_element_);
+        dict_external_to_internal.clear();
+        for (size_t i = 0; i < cur_element_count; i++) {
+            dict_external_to_internal[getExternalLabel(i)] = i;
+        }
     }
 
 
