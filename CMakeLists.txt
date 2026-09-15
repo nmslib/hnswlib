@@ -147,7 +147,7 @@ endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(ENABLE_EXCEPTIONS_FLAGS /EHsc)
-    set(DISABLE_EXCEPTIONS_FLAGS /GR- /D_HAS_EXCEPTIONS=0)
+    set(DISABLE_EXCEPTIONS_FLAGS /EHs-c- /GR- /D_HAS_EXCEPTIONS=0)
 else()
     set(ENABLE_EXCEPTIONS_FLAGS -fexceptions)
     set(DISABLE_EXCEPTIONS_FLAGS -fno-exceptions)
@@ -196,8 +196,6 @@ if(HNSWLIB_EXAMPLES)
             add_cxx_flags(-lrt)
         endif()
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        # Exception on/off is per target (add_example_or_test), not a cache
-        # mutation of CMAKE_CXX_FLAGS_<CONFIG> that would leak to a parent.
         add_cxx_flags(/O2 /W1 /openmp)
     endif()
     add_cxx_flags(-DHAVE_CXX0X)
