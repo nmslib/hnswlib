@@ -25,7 +25,16 @@ class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
  public:
     MultiVectorL2Space(size_t dim) {
         fstdistfunc_ = L2Sqr;
-#if defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
+#if defined(USE_NEON)
+        if (dim > 0 && dim % 16 == 0)
+            fstdistfunc_ = L2SqrSIMD16ExtNEON;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = L2SqrSIMD4ExtNEON;
+        else if (dim > 16)
+            fstdistfunc_ = L2SqrSIMD16ExtResidualsNEON;
+        else if (dim > 4)
+            fstdistfunc_ = L2SqrSIMD4ExtResidualsNEON;
+#elif defined(USE_SSE) || defined(USE_AVX) || defined(USE_AVX512)
         select_l2_wide_kernel();
         if (dim % 16 == 0)
             fstdistfunc_ = L2SqrSIMD16Ext;
@@ -75,7 +84,16 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
  public:
     MultiVectorInnerProductSpace(size_t dim) {
         fstdistfunc_ = InnerProductDistance;
-#if defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
+#if defined(USE_NEON)
+        if (dim > 0 && dim % 16 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtNEON;
+        else if (dim % 4 == 0)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtNEON;
+        else if (dim > 16)
+            fstdistfunc_ = InnerProductDistanceSIMD16ExtResidualsNEON;
+        else if (dim > 4)
+            fstdistfunc_ = InnerProductDistanceSIMD4ExtResidualsNEON;
+#elif defined(USE_AVX) || defined(USE_SSE) || defined(USE_AVX512)
         select_ip_kernels();
         if (dim % 16 == 0)
             fstdistfunc_ = InnerProductDistanceSIMD16Ext;

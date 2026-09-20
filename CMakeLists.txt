@@ -133,6 +133,29 @@ target_include_directories(hnswlib INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
+# AArch64 NEON dot-product kernels (space_ip.h / space_l2.h): only active when
+# USE_NEON is defined; requires -march=armv8.2-a+dotprod on GCC/Clang for ARM.
+option(USE_NEON "Enable AArch64 NEON dot-product distance functions (defines USE_NEON)" OFF)
+
+set(HNSWLIB_IS_AARCH64 FALSE)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|AARCH64|arm64|ARM64)$")
+    set(HNSWLIB_IS_AARCH64 TRUE)
+endif()
+
+if(USE_NEON)
+    target_compile_definitions(hnswlib INTERFACE USE_NEON)
+    if(HNSWLIB_IS_AARCH64)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+            target_compile_options(hnswlib INTERFACE
+                $<$<COMPILE_LANGUAGE:CXX>:-march=armv8.2-a+dotprod>)
+        endif()
+    else()
+        message(WARNING
+            "USE_NEON is ON but CMAKE_SYSTEM_PROCESSOR is '${CMAKE_SYSTEM_PROCESSOR}' "
+            "(not AArch64). NEON code may not compile on this platform.")
+    endif()
+endif()
+
 # Install
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/hnswlib
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
@@ -183,7 +206,11 @@ if(HNSWLIB_EXAMPLES)
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # We enable optimizations in all build types, even in Debug.
         add_cxx_flags(-O3 -ffast-math -openmp -ftree-vectorize)
-        add_first_supported_cxx_flag(-march=native -mcpu=apple-m1)
+        # USE_NEON pulls -march=armv8.2-a+dotprod from the hnswlib INTERFACE;
+        # avoid -march=native here so it does not override dotprod.
+        if(NOT (USE_NEON AND HNSWLIB_IS_AARCH64))
+            add_first_supported_cxx_flag(-march=native -mcpu=apple-m1)
+        endif()
 
         # Avoiding this compilation error in CI/CD:
         # invalid feature combination: +avx10.1-256; will be promoted to
@@ -195,6 +222,9 @@ if(HNSWLIB_EXAMPLES)
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
             add_cxx_flags(-mtune=native)
             message("set -mtune=native flag")
+        elseif(USE_NEON AND HNSWLIB_IS_AARCH64)
+            # -march=armv8.2-a+dotprod comes from hnswlib INTERFACE when USE_NEON is ON.
+            message("Skipping -march=native on AArch64 with USE_NEON (using INTERFACE -march=armv8.2-a+dotprod)")
         else()
             add_cxx_flags(-march=native)
             message("set -march=native flag")
@@ -271,6 +301,11 @@ if(HNSWLIB_EXAMPLES)
 
     # This test deviates from the above pattern of naming test executables.
     add_example_or_test(test_updates tests/cpp/updates_test.cpp)
+
+    # NEON distance test: only when USE_NEON and AArch64 (NEON intrinsics required).
+    if(USE_NEON AND HNSWLIB_IS_AARCH64)
+        add_example_or_test(distance_calculation_neon_test tests/cpp/distance_calculation_neon.cpp)
+    endif()
 
     # For historical reasons, the "main" program links with sift_1b.cpp.
     add_example_or_test(main tests/cpp/main.cpp tests/cpp/sift_1b.cpp)
