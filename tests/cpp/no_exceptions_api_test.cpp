@@ -131,6 +131,55 @@ void testSearchKnnCloserFirstIsConst() {
     assert(res[0].second == 1);
 }
 
+void testLoadIndexRejectsMismatchedMaxElementsAndCurElementCount() {
+    const int dim = 4;
+    const char *path = "corrupted_header_mismatched_max_elements.bin";
+    std::vector<float> a(dim, 1.0f);
+    std::vector<float> b(dim, 2.0f);
+
+    hnswlib::L2Space space(dim);
+    hnswlib::HierarchicalNSW<float> index(&space, 4);
+    index.addPoint(a.data(), 1);
+    index.addPoint(b.data(), 2);
+    assert(index.getCurrentElementCount() == 2);
+
+    std::remove(path);
+    index.saveIndex(path);
+
+    // Corrupt the saved index by overwriting max_elements_ with 1 while cur_element_count is 2
+    // Header layout:
+    // offsetLevel0_ (size_t)
+    // max_elements_ (size_t)
+    // cur_element_count (size_t)
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    assert(file.is_open());
+    size_t offset_level0;
+    file.read(reinterpret_cast<char *>(&offset_level0), sizeof(size_t));
+    size_t corrupted_max_elements = 1;
+    file.write(reinterpret_cast<const char *>(&corrupted_max_elements), sizeof(size_t));
+    file.close();
+
+    // Verify loadIndexNoExceptions rejects the corrupted header
+    hnswlib::HierarchicalNSW<float> load_target(&space, 8);
+    std::ifstream corrupted_in(path, std::ios::binary);
+    hnswlib::Status status = load_target.loadIndexNoExceptions(corrupted_in, &space);
+    assert(!status.ok());
+    assert(std::string(status.message()) == "Index seems to be corrupted or unsupported");
+
+#if defined(__EXCEPTIONS) || _HAS_EXCEPTIONS == 1
+    bool threw = false;
+    try {
+        hnswlib::HierarchicalNSW<float> throwing_index(&space, path);
+    } catch (const std::runtime_error &e) {
+        threw = true;
+        assert(std::string(e.what()) == "Index seems to be corrupted or unsupported");
+    }
+    assert(threw);
+#endif
+
+    std::remove(path);
+}
+
 }  // namespace
 
 int main() {
@@ -140,5 +189,7 @@ int main() {
     testSaveIndexNoExceptionsDoesNotThrowOnWriteFailure();
     testAddPointIntegerLevelIsNotReplaceDeleted();
     testSearchKnnCloserFirstIsConst();
+    testLoadIndexRejectsMismatchedMaxElementsAndCurElementCount();
     return 0;
 }
+
