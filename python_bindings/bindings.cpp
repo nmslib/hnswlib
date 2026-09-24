@@ -224,7 +224,7 @@ class Index {
         return appr_alg->indexFileSize();
     }
 
-    void saveIndex(const std::string &path_to_index) {
+    void saveIndex(const std::string &path_to_index) const {
         appr_alg->saveIndex(path_to_index);
     }
 
@@ -833,7 +833,7 @@ class BFIndex {
     }
 
 
-    void saveIndex(const std::string &path_to_index) {
+    void saveIndex(const std::string &path_to_index) const {
         alg->saveIndex(path_to_index);
     }
 

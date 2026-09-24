@@ -721,7 +721,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return size;
     }
 
-    Status saveIndexNoExceptions(std::ostream &output) {
+    Status saveIndexNoExceptions(std::ostream &output) const {
         StreamExceptionsOff guard(output);
         return invokeWithoutStreamThrow([&]() -> Status {
             if (!output) {
@@ -765,7 +765,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         });
     }
 
-    Status saveIndexNoExceptions(const std::string &location) override {
+    Status saveIndexNoExceptions(const std::string &location) const override {
         std::ofstream output(location, std::ios::binary);
         if (!output.is_open()) {
             return Status("Cannot save index: failed to open output file");
@@ -773,7 +773,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return saveIndexNoExceptions(output);
     }
 
-    void saveIndex(const std::string &location) override {
+    void saveIndex(const std::string &location) const override {
         Status status = saveIndexNoExceptions(location);
         if (!status.ok()) {
             HNSWLIB_THROW_RUNTIME_ERROR(status.message());

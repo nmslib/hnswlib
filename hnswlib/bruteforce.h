@@ -138,7 +138,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    Status saveIndexNoExceptions(std::ostream &output) {
+    Status saveIndexNoExceptions(std::ostream &output) const {
         StreamExceptionsOff guard(output);
         return invokeWithoutStreamThrow([&]() -> Status {
             if (!output) {
@@ -160,7 +160,7 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
-    Status saveIndexNoExceptions(const std::string &location) override {
+    Status saveIndexNoExceptions(const std::string &location) const override {
         std::ofstream output(location, std::ios::binary);
         if (!output.is_open()) {
             return Status("Cannot save index: failed to open output file");
