@@ -4,7 +4,29 @@
 typedef unsigned int docidtype;
 typedef float dist_t;
 
+void TestSearchStopConditionReturnsExternalLabel() {
+    constexpr int kDim = 1;
+    constexpr size_t kMaxElements = 1;
+    constexpr hnswlib::labeltype kExternalLabel = 42;
+
+    float point[kDim] = {0.0f};
+
+    hnswlib::L2Space space(kDim);
+    hnswlib::HierarchicalNSW<dist_t> index(&space, kMaxElements);
+    index.addPoint(point, kExternalLabel);
+
+    hnswlib::EpsilonSearchStopCondition<dist_t> stop_condition(0.0f, 1, 1);
+    const std::vector<std::pair<dist_t, hnswlib::labeltype>> result =
+        index.searchStopConditionClosest(point, stop_condition);
+
+    assert(result.size() == 1);
+    assert(result.front().first == 0.0f);
+    assert(result.front().second == kExternalLabel);
+}
+
 int main() {
+    TestSearchStopConditionReturnsExternalLabel();
+
     int dim = 16;               // Dimension of the elements
     int max_elements = 10000;   // Maximum number of elements, should be known beforehand
     int M = 16;                 // Tightly connected with internal dimensionality of the data
