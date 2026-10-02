@@ -1,3 +1,5 @@
+#include <cmath>
+#include <limits>
 #include <iostream>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -244,9 +246,25 @@ class Index {
         float norm = 0.0f;
         for (int i = 0; i < dim; i++)
             norm += data[i] * data[i];
-        norm = 1.0f / (sqrtf(norm) + 1e-30f);
+
+        // Bound relative error from underflow across all dimensions.
+        const float min_norm = std::numeric_limits<float>::min() * dim;
+        if (norm > min_norm && std::isfinite(norm)) {
+            norm = 1.0f / sqrtf(norm);
+            for (int i = 0; i < dim; i++)
+                norm_array[i] = data[i] * norm;
+            return;
+        }
+
+        // Recompute tiny or overflowing norms in double; keep zero vectors zero.
+        double norm_double = 0.0;
+        for (int i = 0; i < dim; i++) {
+            double value = data[i];
+            norm_double += value * value;
+        }
+        norm_double = norm_double == 0.0 ? 0.0 : 1.0 / sqrt(norm_double);
         for (int i = 0; i < dim; i++)
-            norm_array[i] = data[i] * norm;
+            norm_array[i] = (float)(data[i] * norm_double);
     }
 
 
@@ -795,9 +813,25 @@ class BFIndex {
         float norm = 0.0f;
         for (int i = 0; i < dim; i++)
             norm += data[i] * data[i];
-        norm = 1.0f / (sqrtf(norm) + 1e-30f);
+
+        // Bound relative error from underflow across all dimensions.
+        const float min_norm = std::numeric_limits<float>::min() * dim;
+        if (norm > min_norm && std::isfinite(norm)) {
+            norm = 1.0f / sqrtf(norm);
+            for (int i = 0; i < dim; i++)
+                norm_array[i] = data[i] * norm;
+            return;
+        }
+
+        // Recompute tiny or overflowing norms in double; keep zero vectors zero.
+        double norm_double = 0.0;
+        for (int i = 0; i < dim; i++) {
+            double value = data[i];
+            norm_double += value * value;
+        }
+        norm_double = norm_double == 0.0 ? 0.0 : 1.0 / sqrt(norm_double);
         for (int i = 0; i < dim; i++)
-            norm_array[i] = data[i] * norm;
+            norm_array[i] = (float)(data[i] * norm_double);
     }
 
 
