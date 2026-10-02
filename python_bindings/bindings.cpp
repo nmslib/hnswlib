@@ -6,6 +6,7 @@
 #include "hnswlib.h"
 #include <thread>
 #include <atomic>
+#include <memory>
 #include <stdlib.h>
 #include <assert.h>
 
@@ -856,6 +857,8 @@ class BFIndex {
         const std::function<bool(hnswlib::labeltype)>& filter = nullptr) {
         py::array_t < dist_t, py::array::c_style | py::array::forcecast > items(input);
         auto buffer = items.request();
+        std::unique_ptr<hnswlib::labeltype[]> labels_owner;
+        std::unique_ptr<dist_t[]> distances_owner;
         hnswlib::labeltype *data_numpy_l;
         dist_t *data_numpy_d;
         size_t rows, features;
@@ -867,8 +870,10 @@ class BFIndex {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
 
-            data_numpy_l = new hnswlib::labeltype[rows * k];
-            data_numpy_d = new dist_t[rows * k];
+            labels_owner.reset(new hnswlib::labeltype[rows * k]);
+            data_numpy_l = labels_owner.get();
+            distances_owner.reset(new dist_t[rows * k]);
+            data_numpy_d = distances_owner.get();
 
             CustomFilterFunctor idFilter(filter);
             CustomFilterFunctor* p_idFilter = filter ? &idFilter : nullptr;
@@ -909,11 +914,13 @@ class BFIndex {
         }
 
         py::capsule free_when_done_l(data_numpy_l, [](void *f) {
-            delete[] f;
+            delete[] static_cast<hnswlib::labeltype*>(f);
         });
+        labels_owner.release();
         py::capsule free_when_done_d(data_numpy_d, [](void *f) {
-            delete[] f;
+            delete[] static_cast<dist_t*>(f);
         });
+        distances_owner.release();
 
 
         return py::make_tuple(

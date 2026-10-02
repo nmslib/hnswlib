@@ -71,6 +71,8 @@ Note that inner product is not an actual metric. An element can be closer to som
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
+For brute-force search, `BFIndex.knn_query` raises `RuntimeError` if a distance to an allowed label is NaN or infinite, including when finite coordinates overflow during distance calculation. Use smaller magnitudes to keep squared L2 distances within float32 range. Labels excluded by `filter` do not cause this error, and `k=0` returns empty results without evaluating distances. The C++ `BruteforceSearch<float>` and `BruteforceSearch<double>` APIs return an error `Status` through `searchKnnNoExceptions`; their throwing wrappers raise `std::runtime_error` when exceptions are enabled.
+
 #### API description
 * `hnswlib.get_simd()` returns the ISA selected at import (`sse`, `avx`, `avx512`, or `aarch64`). Set `HNSWLIB_SIMD` to force a lower-or-equal level (raises if the CPU cannot run it).
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.

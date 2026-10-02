@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <assert.h>
 #include <iostream>
+#include <cstdint>
+#include <cstring>
+#include <limits>
 
 namespace hnswlib {
 template<typename dist_t>
@@ -120,9 +123,18 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     searchKnnNoExceptions(const void *query_data, size_t k, BaseFilterFunctor* isIdAllowed = nullptr) const override {
         assert(k <= cur_element_count);
         std::priority_queue<std::pair<dist_t, labeltype >> topResults;
+        if (k == 0)
+            return topResults;
         dist_t lastdist = std::numeric_limits<dist_t>::max();
         for (int i = 0; i < cur_element_count; i++) {
             dist_t dist = fstdistfunc_(query_data, data_ + size_per_element_ * i, dist_func_param_);
+            if (!distanceIsFinite(dist)) {
+                labeltype label = getExternalLabel(i);
+                if (isIdAllowed && !(*isIdAllowed)(label))
+                    continue;
+                return Status("BruteforceSearch encountered a non-finite distance; "
+                              "check input values or rescale to avoid overflow");
+            }
             if (dist <= lastdist || topResults.size() < k) {
                 labeltype label = getExternalLabel(i);
                 if ((!isIdAllowed) || (*isIdAllowed)(label)) {
@@ -195,6 +207,31 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         loadIndex(input, s);
 
         input.close();
+    }
+
+ private:
+    template<typename T>
+    static bool distanceIsFinite(const T&) {
+        return true;
+    }
+
+    // Inspect the exponent bits: std::isfinite may be optimized away by fast-math.
+    static bool distanceIsFinite(float distance) {
+        static_assert(sizeof(float) == sizeof(std::uint32_t) &&
+                      std::numeric_limits<float>::is_iec559,
+                      "BruteforceSearch requires IEEE 754 binary32 floats");
+        std::uint32_t bits;
+        std::memcpy(&bits, &distance, sizeof(bits));
+        return (bits & 0x7f800000u) != 0x7f800000u;
+    }
+
+    static bool distanceIsFinite(double distance) {
+        static_assert(sizeof(double) == sizeof(std::uint64_t) &&
+                      std::numeric_limits<double>::is_iec559,
+                      "BruteforceSearch requires IEEE 754 binary64 doubles");
+        std::uint64_t bits;
+        std::memcpy(&bits, &distance, sizeof(bits));
+        return (bits & 0x7ff0000000000000ULL) != 0x7ff0000000000000ULL;
     }
 };
 }  // namespace hnswlib

@@ -28,6 +28,7 @@ set(EXAMPLE_NAMES
     )
 
 set(TEST_NAMES
+    bruteforce_numeric_range_test
     epsilon_search_test
     multiThread_replace_test
     multiThreadLoad_test
