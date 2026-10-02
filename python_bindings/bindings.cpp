@@ -1,3 +1,4 @@
+#include <cmath>
 #include <iostream>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
@@ -111,6 +112,17 @@ inline void get_input_array_shapes(const py::buffer_info& buffer, size_t* rows, 
         *rows = 1;
         *features = buffer.shape[0];
     }
+}
+
+
+inline void check_cosine_input(const py::buffer_info& buffer) {
+    const float* data = (const float*)buffer.ptr;
+    // An integer reduction allows vectorization of the finite-input path.
+    int all_finite = 1;
+    for (py::ssize_t i = 0; i < buffer.size; i++)
+        all_finite &= std::isfinite(data[i]);
+    if (!all_finite)
+        throw std::invalid_argument("Cosine vectors must contain only finite values");
 }
 
 
@@ -268,6 +280,9 @@ class Index {
         }
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
+
+        if (normalize)
+            check_cosine_input(buffer);
 
         {
             int start = 0;
@@ -629,6 +644,9 @@ class Index {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
 
+            if (normalize)
+                check_cosine_input(buffer);
+
             // avoid using threads when the number of searches is small:
             if (rows <= num_threads * 4) {
                 num_threads = 1;
@@ -812,6 +830,9 @@ class BFIndex {
 
         std::vector<size_t> ids = get_input_ids_and_check_shapes(ids_, rows);
 
+        if (normalize)
+            check_cosine_input(buffer);
+
         {
             for (size_t row = 0; row < rows; row++) {
                 size_t id = ids.size() ? ids.at(row) : cur_l + row;
@@ -866,6 +887,9 @@ class BFIndex {
         {
             py::gil_scoped_release l;
             get_input_array_shapes(buffer, &rows, &features);
+
+            if (normalize)
+                check_cosine_input(buffer);
 
             data_numpy_l = new hnswlib::labeltype[rows * k];
             data_numpy_d = new dist_t[rows * k];

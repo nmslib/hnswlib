@@ -71,6 +71,8 @@ Note that inner product is not an actual metric. An element can be closer to som
 
 For other spaces use the nmslib library https://github.com/nmslib/nmslib. 
 
+For cosine indexes (`Index` and `BFIndex`), `add_items` and `knn_query` reject NaN and infinity with a `ValueError` after conversion to float32. The whole batch is checked before insertion or search; an insertion batch rejected for non-finite values leaves the index unchanged.
+
 #### API description
 * `hnswlib.get_simd()` returns the ISA selected at import (`sse`, `avx`, `avx512`, or `aarch64`). Set `HNSWLIB_SIMD` to force a lower-or-equal level (raises if the CPU cannot run it).
 * `hnswlib.Index(space, dim)` creates a non-initialized index an HNSW in space `space` with integer dimension `dim`.
