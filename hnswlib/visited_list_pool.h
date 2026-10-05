@@ -1,8 +1,8 @@
 #pragma once
 
-#include <mutex>
+#include <memory>
 #include <string.h>
-#include <deque>
+#include <vector>
 
 namespace hnswlib {
 typedef unsigned short int vl_type;
@@ -36,43 +36,41 @@ class VisitedList {
 /////////////////////////////////////////////////////////
 
 class VisitedListPool {
-    std::deque<VisitedList *> pool;
-    std::mutex poolguard;
     int numelements;
 
- public:
-    VisitedListPool(int initmaxpools, int numelements1) {
-        numelements = numelements1;
-        for (int i = 0; i < initmaxpools; i++)
-            pool.push_front(new VisitedList(numelements));
+    struct PerThreadState {
+        std::vector<std::unique_ptr<VisitedList>> pool;
+    };
+
+    static PerThreadState& getThreadState() {
+        static thread_local PerThreadState state;
+        return state;
     }
 
+ public:
+    VisitedListPool(int /*initmaxpools*/, int numelements1) : numelements(numelements1) {}
+
     VisitedList *getFreeVisitedList() {
-        VisitedList *rez;
-        {
-            std::unique_lock <std::mutex> lock(poolguard);
-            if (pool.size() > 0) {
-                rez = pool.front();
-                pool.pop_front();
-            } else {
-                rez = new VisitedList(numelements);
+        auto& state = getThreadState();
+        if (!state.pool.empty()) {
+            std::unique_ptr<VisitedList> vl = std::move(state.pool.back());
+            state.pool.pop_back();
+            if (vl->numelements < static_cast<unsigned int>(numelements)) {
+                vl.reset(new VisitedList(numelements));
             }
+            vl->reset();
+            return vl.release();
         }
-        rez->reset();
-        return rez;
+        auto* vl = new VisitedList(numelements);
+        vl->reset();
+        return vl;
     }
 
     void releaseVisitedList(VisitedList *vl) {
-        std::unique_lock <std::mutex> lock(poolguard);
-        pool.push_front(vl);
+        if (!vl) return;
+        getThreadState().pool.emplace_back(vl);
     }
 
-    ~VisitedListPool() {
-        while (pool.size()) {
-            VisitedList *rez = pool.front();
-            pool.pop_front();
-            delete rez;
-        }
-    }
+    ~VisitedListPool() = default;
 };
 }  // namespace hnswlib
