@@ -230,6 +230,18 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         return (int) r;
     }
 
+    Status setSpaceNoExceptions(SpaceInterface<dist_t>* s) override {
+        if (!s) {
+            return Status("Space pointer cannot be null");
+        }
+        if (s->get_data_size() != data_size_) {
+            return Status("Cannot change space: vector data size mismatch");
+        }
+        fstdistfunc_ = s->get_dist_func();
+        dist_func_param_ = s->get_dist_func_param();
+        return OkStatus();
+    }
+
     size_t getMaxElements() {
         return max_elements_;
     }

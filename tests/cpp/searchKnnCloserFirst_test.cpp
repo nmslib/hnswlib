@@ -73,9 +73,47 @@ void test() {
 
 }  // namespace
 
+void test_set_space() {
+    int d = 4;
+    hnswlib::L2Space space(d);
+    hnswlib::HierarchicalNSW<float> alg_hnsw(&space, 10);
+    hnswlib::BruteforceSearch<float> alg_brute(&space, 10);
+
+    // 1. Success case with compatible space
+    hnswlib::L2Space space_copy(d);
+    assert(alg_hnsw.setSpaceNoExceptions(&space_copy).ok());
+    assert(alg_brute.setSpaceNoExceptions(&space_copy).ok());
+    alg_hnsw.setSpace(&space_copy);
+    alg_brute.setSpace(&space_copy);
+
+    // 2. Failure case with null pointer
+    assert(!alg_hnsw.setSpaceNoExceptions(nullptr).ok());
+    assert(!alg_brute.setSpaceNoExceptions(nullptr).ok());
+    bool caught_null = false;
+    try {
+        alg_hnsw.setSpace(nullptr);
+    } catch (const std::runtime_error&) {
+        caught_null = true;
+    }
+    assert(caught_null);
+
+    // 3. Failure case with dimension mismatch
+    hnswlib::L2Space space_wrong_dim(d * 2);
+    assert(!alg_hnsw.setSpaceNoExceptions(&space_wrong_dim).ok());
+    assert(!alg_brute.setSpaceNoExceptions(&space_wrong_dim).ok());
+    bool caught_dim = false;
+    try {
+        alg_hnsw.setSpace(&space_wrong_dim);
+    } catch (const std::runtime_error&) {
+        caught_dim = true;
+    }
+    assert(caught_dim);
+}
+
 int main() {
     std::cout << "Testing ..." << std::endl;
     test();
+    test_set_space();
     std::cout << "Test ok" << std::endl;
 
     return 0;

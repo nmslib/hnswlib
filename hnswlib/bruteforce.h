@@ -64,6 +64,18 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
         free(data_);
     }
 
+    Status setSpaceNoExceptions(SpaceInterface<dist_t>* s) override {
+        if (!s) {
+            return Status("Space pointer cannot be null");
+        }
+        if (s->get_data_size() != data_size_) {
+            return Status("Cannot change space: vector data size mismatch");
+        }
+        fstdistfunc_ = s->get_dist_func();
+        dist_func_param_ = s->get_dist_func_param();
+        return OkStatus();
+    }
+
     // Labels sit at a packed offset; load via memcpy (nmslib/hnswlib#665).
     inline labeltype getExternalLabel(size_t internal_id) const {
         labeltype return_label;

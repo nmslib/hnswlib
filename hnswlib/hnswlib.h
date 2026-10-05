@@ -534,6 +534,15 @@ class AlgorithmInterface {
         return final_vector;
     }
 
+    virtual Status setSpaceNoExceptions(SpaceInterface<dist_t>* s) = 0;
+
+    virtual void setSpace(SpaceInterface<dist_t>* s) {
+        auto status = setSpaceNoExceptions(s);
+        if (!status.ok()) {
+            HNSWLIB_THROW_RUNTIME_ERROR(status.message());
+        }
+    }
+
     virtual void saveIndex(const std::string &location) {
         Status status = saveIndexNoExceptions(location);
         if (!status.ok()) {
