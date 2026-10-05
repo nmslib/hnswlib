@@ -161,14 +161,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     void clear() {
         free(data_level0_memory_);
         data_level0_memory_ = nullptr;
-        for (tableint i = 0; i < cur_element_count; i++) {
-            if (element_levels_[i] > 0)
-                free(linkLists_[i]);
-        }
         if (linkLists_) {
+            for (tableint i = 0; i < cur_element_count && i < element_levels_.size(); i++) {
+                if (element_levels_[i] > 0)
+                    free(linkLists_[i]);
+            }
             free(linkLists_);
+            linkLists_ = nullptr;
         }
-        linkLists_ = nullptr;
         cur_element_count = 0;
         visited_list_pool_.reset(nullptr);
     }
@@ -836,6 +836,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         data_size_ = s->get_data_size();
         fstdistfunc_ = s->get_dist_func();
         dist_func_param_ = s->get_dist_func_param();
+
+        size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
+        if (size_data_per_element_ != size_links_level0_ + data_size_ + sizeof(labeltype)) {
+            return Status("Index seems to be corrupted or unsupported");
+        }
+        if (offsetData_ != size_links_level0_ || label_offset_ != size_links_level0_ + data_size_) {
+            return Status("Index seems to be corrupted or unsupported");
+        }
 
         auto pos = input.tellg();
 

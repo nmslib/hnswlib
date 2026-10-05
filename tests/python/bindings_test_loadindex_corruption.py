@@ -31,6 +31,22 @@ class LoadIndexCorruptionTestCase(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 fresh.load_index(path)
 
+    def test_mismatched_dimension_or_data_size_throws(self):
+        """Loading an index saved with dim=8 into an index initialized with dim=4 must fail."""
+        dim = 8
+        index = hnswlib.Index(space='l2', dim=dim)
+        index.init_index(max_elements=10, ef_construction=10, M=4)
+        data = np.float32(np.random.random((5, dim)))
+        index.add_items(data)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, 'index.bin')
+            index.save_index(path)
+
+            fresh = hnswlib.Index(space='l2', dim=4)
+            with self.assertRaises(RuntimeError):
+                fresh.load_index(path)
+
     def test_legitimate_index_loads(self):
         """A normal saved index still loads and searches correctly."""
         dim = 8

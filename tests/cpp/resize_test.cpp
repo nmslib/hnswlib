@@ -65,8 +65,33 @@ void TestRandomSelf() {
     std::cout << "Resize test completed successfully!" << std::endl;
 }
 
+void TestMismatchedDimensionThrows() {
+    constexpr int kDim = 16;
+    constexpr int kNumElements = 100;
+    hnswlib::L2Space space16(kDim);
+    hnswlib::HierarchicalNSW<float> index(&space16, kNumElements);
+    std::vector<float> data(kDim, 1.0f);
+    index.addPoint(data.data(), 0);
+
+    const std::string filename = "temp_test_dim_mismatch.bin";
+    index.saveIndex(filename);
+
+    hnswlib::L2Space space8(8);
+    hnswlib::HierarchicalNSW<float> wrong_index(&space8);
+    bool caught = false;
+    try {
+        wrong_index.loadIndex(filename, &space8);
+    } catch (const std::runtime_error&) {
+        caught = true;
+    }
+    std::remove(filename.c_str());
+    assert(caught && "Expected exception on dimension mismatch load");
+    std::cout << "Mismatched dimension test completed successfully!" << std::endl;
+}
+
 int main() {
   TestRandomSelf();
+  TestMismatchedDimensionThrows();
   std::cout << "\nAll test runs completed successfully!" << std::endl;
   return 0;
 }
