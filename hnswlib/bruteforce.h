@@ -103,9 +103,9 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             return;
         }
 
+        size_t cur_c = found->second;
         dict_external_to_internal.erase(found);
 
-        size_t cur_c = found->second;
         labeltype label = getExternalLabel(cur_element_count - 1);
         dict_external_to_internal[label] = cur_c;
         memcpy(data_ + size_per_element_ * cur_c,
