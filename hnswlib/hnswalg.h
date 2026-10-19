@@ -36,6 +36,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     size_t maxM0_{0};
     size_t ef_construction_{0};
     size_t ef_{ 0 };
+    bool allow_ef_below_k_ = false;  // see setAllowEfBelowK()
 
     double mult_{0.0}, revSize_{0.0};
     int maxlevel_{0};
@@ -187,6 +188,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
 
+    // Allows ef < k in searchKnn: ef candidates decide when to stop, the k nearest scored elements are returned.
+    // Results for ef >= k are unchanged. Must not be called concurrently with searches.
+    void setAllowEfBelowK(bool enable) {
+        allow_ef_below_k_ = enable;
+    }
+
+
     inline std::mutex& getLabelOpMutex(labeltype label) const {
         // calculate hash
         size_t lock_id = label & (MAX_LABEL_OPERATION_LOCKS - 1);
@@ -332,20 +340,23 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
 
     // bare_bone_search means there is no check for deletions and stop condition is ignored in return of extra performance
-    template <bool bare_bone_search = true, bool collect_metrics = false>
+    // separate_results means that the k nearest of all scored elements are returned instead of the ef candidates
+    template <bool bare_bone_search = true, bool collect_metrics = false, bool separate_results = false>
     std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
     searchBaseLayerST(
         tableint ep_id,
         const void *data_point,
         size_t ef,
         BaseFilterFunctor* isIdAllowed = nullptr,
-        BaseSearchStopCondition<dist_t>* stop_condition = nullptr) const {
+        BaseSearchStopCondition<dist_t>* stop_condition = nullptr,
+        size_t k = 0) const {
         VisitedList *vl = visited_list_pool_->getFreeVisitedList();
         vl_type *visited_array = vl->mass;
         vl_type visited_array_tag = vl->curV;
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidate_set;
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> results;
 
         dist_t lowerBound;
         if (bare_bone_search ||
@@ -354,6 +365,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             dist_t dist = fstdistfunc_(data_point, ep_data, dist_func_param_);
             lowerBound = dist;
             top_candidates.emplace(dist, ep_id);
+            if (separate_results)
+                results.emplace(dist, ep_id);
             if (!bare_bone_search && stop_condition) {
                 stop_condition->add_point_to_result(getExternalLabel(ep_id), ep_data, dist);
             }
@@ -418,6 +431,14 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
                     char *currObj1 = (getDataByInternalId(candidate_id));
                     dist_t dist = fstdistfunc_(data_point, currObj1, dist_func_param_);
 
+                    if (separate_results && (results.size() < k || dist < results.top().first) &&
+                        (bare_bone_search ||
+                         (!isMarkedDeleted(candidate_id) && ((!isIdAllowed) || (*isIdAllowed)(getExternalLabel(candidate_id)))))) {
+                        results.emplace(dist, candidate_id);
+                        if (results.size() > k)
+                            results.pop();
+                    }
+
                     bool flag_consider_candidate;
                     if (!bare_bone_search && stop_condition) {
                         flag_consider_candidate = stop_condition->should_consider_candidate(dist, lowerBound);
@@ -468,6 +489,8 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         }
 
         visited_list_pool_->releaseVisitedList(vl);
+        if (separate_results)
+            return results;
         return top_candidates;
     }
 
@@ -1450,7 +1473,13 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
 
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
         bool bare_bone_search = !num_deleted_ && !isIdAllowed;
-        if (bare_bone_search) {
+        if (allow_ef_below_k_ && ef_ < k) {
+            size_t ef = std::max(ef_, (size_t) 1);
+            if (bare_bone_search)
+                top_candidates = searchBaseLayerST<true, false, true>(currObj, query_data, ef, isIdAllowed, nullptr, k);
+            else
+                top_candidates = searchBaseLayerST<false, false, true>(currObj, query_data, ef, isIdAllowed, nullptr, k);
+        } else if (bare_bone_search) {
             top_candidates = searchBaseLayerST<true>(
                     currObj, query_data, std::max(ef_, k), isIdAllowed);
         } else {

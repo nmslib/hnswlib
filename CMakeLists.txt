@@ -28,6 +28,7 @@ set(EXAMPLE_NAMES
     )
 
 set(TEST_NAMES
+    ef_below_k_test
     epsilon_search_test
     multiThread_replace_test
     multiThreadLoad_test
