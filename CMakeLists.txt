@@ -171,9 +171,34 @@ if(HNSWLIB_EXAMPLES)
     message("Building examples and tests")
     message("System architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
     enable_testing()
+
+    if(APPLE AND NOT DEFINED OpenMP_ROOT)
+        find_program(HNSWLIB_BREW_EXECUTABLE brew)
+        mark_as_advanced(HNSWLIB_BREW_EXECUTABLE)
+        if(HNSWLIB_BREW_EXECUTABLE)
+            execute_process(
+                COMMAND "${HNSWLIB_BREW_EXECUTABLE}" --prefix libomp
+                OUTPUT_VARIABLE HNSWLIB_LIBOMP_PREFIX
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET)
+            # brew prints a prefix even for formulae that are not installed.
+            if(EXISTS "${HNSWLIB_LIBOMP_PREFIX}/include/omp.h")
+                set(OpenMP_ROOT "${HNSWLIB_LIBOMP_PREFIX}")
+            endif()
+        endif()
+    endif()
+
+    find_package(OpenMP)
+    if(NOT OpenMP_CXX_FOUND)
+        message(STATUS "OpenMP not available; building single-threaded")
+        if(APPLE)
+            message(STATUS "Run `brew install libomp` to enable OpenMP")
+        endif()
+    endif()
+
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # We enable optimizations in all build types, even in Debug.
-        add_cxx_flags(-O3 -ffast-math -openmp -ftree-vectorize)
+        add_cxx_flags(-O3 -ffast-math -ftree-vectorize)
         add_first_supported_cxx_flag(-march=native -mcpu=apple-m1)
 
         # Avoiding this compilation error in CI/CD:
@@ -182,7 +207,7 @@ if(HNSWLIB_EXAMPLES)
         add_cxx_flag_if_supported(-Wno-invalid-feature-combination)
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # We enable optimizations in all build types, even in Debug.
-        add_cxx_flags(-Ofast -w -fopenmp -ftree-vectorize -ftree-vectorizer-verbose=0)
+        add_cxx_flags(-Ofast -w -ftree-vectorize -ftree-vectorizer-verbose=0)
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
             add_cxx_flags(-mtune=native)
             message("set -mtune=native flag")
@@ -205,7 +230,7 @@ if(HNSWLIB_EXAMPLES)
                     "Flags for ${config} configuration." FORCE)
             endforeach()
         endif()
-        add_cxx_flags(/O2 /W1 /openmp)
+        add_cxx_flags(/O2 /W1)
     endif()
     add_cxx_flags(-DHAVE_CXX0X)
 
@@ -265,6 +290,9 @@ if(HNSWLIB_EXAMPLES)
 
     # For historical reasons, the "main" program links with sift_1b.cpp.
     add_example_or_test(main tests/cpp/main.cpp tests/cpp/sift_1b.cpp)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(main OpenMP::OpenMP_CXX)
+    endif()
 
     foreach(target_name IN LISTS HNSWLIB_TARGETS_REQUIRING_EXCEPTIONS)
         if(NOT TARGET ${target_name})
