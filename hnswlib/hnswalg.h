@@ -1048,6 +1048,24 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
             return OkStatus();
         }
+        // if the label is already in the index, update it in its own slot
+        // (reviving it if it was deleted) instead of taking a vacant place,
+        // otherwise the old element would stay in the graph under the same label
+        std::unique_lock <std::mutex> lock_lookup(label_lookup_lock);
+        auto search = label_lookup_.find(label);
+        if (search != label_lookup_.end()) {
+            tableint existing_internal_id = search->second;
+            lock_lookup.unlock();
+            if (isMarkedDeleted(existing_internal_id)) {
+                Status delete_status = unmarkDeletedInternal(existing_internal_id);
+                if (!delete_status.ok()) {
+                    return delete_status;
+                }
+            }
+            return updatePoint(data_point, existing_internal_id, 1.0);
+        }
+        lock_lookup.unlock();
+
         // check if there is vacant place
         tableint internal_id_replaced;
         std::unique_lock <std::mutex> lock_deleted_elements(deleted_elements_lock);

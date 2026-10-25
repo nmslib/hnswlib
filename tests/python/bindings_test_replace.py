@@ -152,6 +152,53 @@ class RandomSelfTestCase(unittest.TestCase):
         os.remove(index_path)
 
 
+    def test_replace_deleted_existing_label(self):
+        """
+            add_items with replace_deleted=True and a label that is already
+            in the index must update that element, not take a deleted slot
+        """
+        dim = 4
+        data = np.eye(dim, dtype=np.float32) * 10
+        new_vector = np.ones((1, dim), dtype=np.float32)
+
+        # existing label is alive: it is updated in place
+        p = hnswlib.Index(space='l2', dim=dim)
+        p.init_index(max_elements=10, ef_construction=50, M=8, allow_replace_deleted=True)
+        p.add_items(data, np.arange(dim))
+        p.mark_deleted(0)
+        p.add_items(new_vector, [1], replace_deleted=True)
+        p.set_ef(10)
+
+        labels, distances = p.knn_query(data[1], k=3)
+        self.assertEqual(sorted(labels[0].tolist()), [1, 2, 3])
+        np.testing.assert_allclose(p.get_items([1]), new_vector)
+
+        # the deleted slot is still free and the old vector of label 1 is gone
+        p.mark_deleted(1)
+        labels, distances = p.knn_query(data[1], k=2)
+        self.assertEqual(sorted(labels[0].tolist()), [2, 3])
+        p.add_items(data[0:1], [0], replace_deleted=True)
+        self.assertEqual(p.get_current_count(), dim)
+
+        # existing label is deleted: it is revived in its own slot
+        p = hnswlib.Index(space='l2', dim=dim)
+        p.init_index(max_elements=10, ef_construction=50, M=8, allow_replace_deleted=True)
+        p.add_items(data, np.arange(dim))
+        p.mark_deleted(0)
+        p.mark_deleted(1)
+        p.add_items(new_vector, [1], replace_deleted=True)
+        p.set_ef(10)
+
+        labels, distances = p.knn_query(data[1], k=3)
+        self.assertEqual(sorted(labels[0].tolist()), [1, 2, 3])
+        np.testing.assert_allclose(p.get_items([1]), new_vector)
+        # label 0 still owns its deleted slot and can be replaced again
+        p.add_items(data[0:1], [0], replace_deleted=True)
+        labels, distances = p.knn_query(data[0], k=4)
+        self.assertEqual(sorted(labels[0].tolist()), [0, 1, 2, 3])
+        self.assertEqual(p.get_current_count(), dim)
+
+
     def test_recall_degradation(self):
         """
             Compares recall of the index with replaced elements and without
