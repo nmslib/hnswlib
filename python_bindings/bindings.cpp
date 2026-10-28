@@ -416,6 +416,7 @@ class Index {
             "offset_level0"_a = appr_alg->offsetLevel0_,
             "max_elements"_a = appr_alg->max_elements_,
             "cur_element_count"_a = (size_t)appr_alg->cur_element_count,
+            "cur_l"_a = cur_l,
             "size_data_per_element"_a = appr_alg->size_data_per_element_,
             "label_offset"_a = appr_alg->label_offset_,
             "offset_data"_a = appr_alg->offsetData_,
@@ -505,7 +506,9 @@ class Index {
                 d["M"].cast<size_t>(),
                 d["ef_construction"].cast<size_t>(),
                 new_index->seed);
-            new_index->cur_l = d["cur_element_count"].cast<size_t>();
+            new_index->cur_l = d.contains("cur_l")
+                ? d["cur_l"].cast<hnswlib::labeltype>()
+                : d["cur_element_count"].cast<size_t>();
         }
 
         new_index->index_inited = index_inited_;
