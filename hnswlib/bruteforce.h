@@ -186,6 +186,12 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
             HNSWLIB_THROW_RUNTIME_ERROR("Not enough memory: loadIndex failed to allocate data");
 
         input.read(data_, maxelements_ * size_per_element_);
+        if (input) {
+            dict_external_to_internal.clear();
+            for (size_t i = 0; i < cur_element_count; ++i) {
+                dict_external_to_internal[getExternalLabel(i)] = i;
+            }
+        }
     }
 
 
