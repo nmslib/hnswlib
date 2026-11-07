@@ -116,11 +116,22 @@ class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
 
 template<typename DOCIDTYPE, typename dist_t>
 class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+    struct CompareByFirst {
+        bool operator()(const std::pair<dist_t, DOCIDTYPE>& a,
+                        const std::pair<dist_t, DOCIDTYPE>& b) const {
+            return a.first < b.first;
+        }
+    };
+
     size_t curr_num_docs_;
     size_t num_docs_to_search_;
     size_t ef_collection_;
     std::unordered_map<DOCIDTYPE, size_t> doc_counter_;
-    std::priority_queue<std::pair<dist_t, DOCIDTYPE>> search_results_;
+    // Mirror the distance-only ordering of searchBaseLayerST's result heap.
+    // Breaking ties by document ID would remove a different document than
+    // the corresponding vector, corrupting the document counts.
+    std::priority_queue<std::pair<dist_t, DOCIDTYPE>,
+                        std::vector<std::pair<dist_t, DOCIDTYPE>>, CompareByFirst> search_results_;
     BaseMultiVectorSpace<DOCIDTYPE>& space_;
 
  public:
