@@ -65,6 +65,35 @@ class BruteforceSearch : public AlgorithmInterface<dist_t> {
     }
 
 
+    void resizeIndex(size_t new_max_elements) {
+        Status status = resizeIndexNoExceptions(new_max_elements);
+        if (!status.ok()) {
+            HNSWLIB_THROW_RUNTIME_ERROR(status.message());
+        }
+    }
+
+
+    Status resizeIndexNoExceptions(size_t new_max_elements) {
+        if (size_per_element_ == 0)
+            return Status("The index is not initialized");
+        if (new_max_elements < cur_element_count)
+            return Status("Cannot resize, max element is less than the current number of elements");
+        if (new_max_elements == maxelements_)
+            return OkStatus();
+        if (new_max_elements > std::numeric_limits<size_t>::max() / size_per_element_)
+            return Status("Requested index size is too large");
+
+        // Keep a one-byte allocation for zero capacity so realloc has portable failure semantics.
+        const size_t bytes = std::max<size_t>(1, new_max_elements * size_per_element_);
+        char *new_data = static_cast<char *>(realloc(data_, bytes));
+        if (new_data == nullptr)
+            return Status("Not enough memory: resizeIndex failed to allocate data");
+        data_ = new_data;
+        maxelements_ = new_max_elements;
+        return OkStatus();
+    }
+
+
     Status addPointNoExceptions(const void *datapoint, labeltype label, bool replace_deleted = false) override {
         int idx;
         {

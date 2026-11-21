@@ -5,6 +5,41 @@ import numpy as np
 import hnswlib
 
 
+class BruteForceResizeTestCase(unittest.TestCase):
+    def test_resize(self):
+        index = hnswlib.BFIndex(space="l2", dim=2)
+        index.init_index(max_elements=2)
+        vectors = np.float32([[1, 2], [3, 4], [5, 6]])
+        index.add_items(vectors[:2], [11, 22])
+
+        index.resize_index(new_size=4)
+        index.add_items(vectors[2:], [33])
+        index.resize_index(3)
+        with self.assertRaises(RuntimeError):
+            index.resize_index(2)
+        with self.assertRaises(RuntimeError):
+            index.resize_index(np.iinfo(np.uintp).max)
+
+        vectors[0] = [7, 8]
+        index.add_items(vectors[:1], [11])
+        self.assertEqual(index.get_max_elements(), 3)
+        self.assertEqual(index.get_current_count(), 3)
+        labels, distances = index.knn_query(vectors, k=1)
+        np.testing.assert_array_equal(labels[:, 0], [11, 22, 33])
+        np.testing.assert_array_equal(distances[:, 0], [0, 0, 0])
+
+    def test_resize_empty(self):
+        index = hnswlib.BFIndex(space="l2", dim=2)
+        with self.assertRaises(RuntimeError):
+            index.resize_index(1)
+        index.init_index(max_elements=2)
+        index.resize_index(0)
+        self.assertEqual(index.get_max_elements(), 0)
+        index.resize_index(1)
+        index.add_items([[1, 2]])
+        self.assertEqual(index.get_current_count(), 1)
+
+
 class RandomSelfTestCase(unittest.TestCase):
     def testRandomSelf(self):
         for idx in range(16):
