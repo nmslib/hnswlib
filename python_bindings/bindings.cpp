@@ -833,6 +833,13 @@ class BFIndex {
     }
 
 
+    void resizeIndex(size_t new_size) {
+        if (!alg)
+            HNSWLIB_THROW_RUNTIME_ERROR("The index is not initialized");
+        alg->resizeIndex(new_size);
+    }
+
+
     void saveIndex(const std::string &path_to_index) {
         alg->saveIndex(path_to_index);
     }
@@ -1025,6 +1032,7 @@ PYBIND11_PLUGIN(hnswlib) {
             py::arg("filter") = py::none())
         .def("add_items", &BFIndex<float>::addItems, py::arg("data"), py::arg("ids") = py::none())
         .def("delete_vector", &BFIndex<float>::deleteVector, py::arg("label"))
+        .def("resize_index", &BFIndex<float>::resizeIndex, py::arg("new_size"))
         .def("set_num_threads", &BFIndex<float>::set_num_threads, py::arg("num_threads"))
         .def("save_index", &BFIndex<float>::saveIndex, py::arg("path_to_index"))
         .def("load_index", &BFIndex<float>::loadIndex, py::arg("path_to_index"), py::arg("max_elements") = 0)

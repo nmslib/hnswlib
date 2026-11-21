@@ -90,7 +90,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 
 * `unmark_deleted(label)`  - unmarks the element as deleted, so it will be not be omitted from search results.
 
-* `resize_index(new_size)` - changes the maximum capacity of the index. Not thread safe with `add_items` and `knn_query`.
+* `resize_index(new_size)` - changes the maximum capacity of an initialized `Index` or `BFIndex`, preserving its elements and labels. The new capacity must fit the current elements. Finish active insertions and queries before resizing.
 
 * `set_ef(ef)` - sets the query time accuracy/speed trade-off, defined by the `ef` parameter (
 [ALGO_PARAMS.md](ALGO_PARAMS.md)). Note that the parameter is currently not saved along with the index, so you need to set it manually after loading.
