@@ -1,4 +1,6 @@
 #include <iostream>
+#include <memory>
+#include <limits>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -752,6 +754,7 @@ class BFIndex {
         } else {
             HNSWLIB_THROW_RUNTIME_ERROR("Space name must be one of l2, ip, or cosine.");
         }
+        cur_l = 0;
         alg = NULL;
         index_inited = false;
 
@@ -763,6 +766,52 @@ class BFIndex {
         delete space;
         if (alg)
             delete alg;
+    }
+
+
+    py::dict getIndexParams() const {
+        py::dict params(
+            "ser_version"_a = ser_version,
+            "space"_a = space_name,
+            "dim"_a = dim,
+            "index_inited"_a = index_inited,
+            "num_threads"_a = num_threads_default,
+            "cur_l"_a = cur_l);
+        if (index_inited) {
+            params["max_elements"] = alg->maxelements_;
+            params["cur_element_count"] = alg->cur_element_count;
+            // Unused capacity is uninitialized memory, not part of the index state.
+            params["data"] = py::bytes(alg->data_, alg->cur_element_count * alg->size_per_element_);
+        }
+        return params;
+    }
+
+
+    static BFIndex<float>* createFromParams(const py::dict params) {
+        assert_true(params["ser_version"].cast<int>() == ser_version, "Invalid serialization version!");
+        const int dim = params["dim"].cast<int>();
+        assert_true(dim > 0, "Invalid dimensionality!");
+        std::unique_ptr<BFIndex<float>> index(new BFIndex<float>(params["space"].cast<std::string>(), dim));
+        index->num_threads_default = params["num_threads"].cast<int>();
+        if (params["index_inited"].cast<bool>()) {
+            const size_t capacity = params["max_elements"].cast<size_t>();
+            const size_t count = params["cur_element_count"].cast<size_t>();
+            const size_t row_size = index->space->get_data_size() + sizeof(hnswlib::labeltype);
+            const std::string data = params["data"].cast<py::bytes>();
+            assert_true(count <= capacity, "Element count exceeds capacity!");
+            assert_true(capacity <= std::numeric_limits<size_t>::max() / row_size, "Invalid capacity!");
+            assert_true(data.size() == count * row_size, "Invalid data size!");
+            index->init_new_index(capacity);
+            memcpy(index->alg->data_, data.data(), data.size());
+            index->alg->cur_element_count = count;
+            for (size_t i = 0; i < count; ++i) {
+                const auto label = index->alg->getExternalLabel(i);
+                assert_true(index->alg->dict_external_to_internal.emplace(label, i).second,
+                            "Duplicate labels!");
+            }
+        }
+        index->cur_l = params["cur_l"].cast<hnswlib::labeltype>();
+        return index.release();
     }
 
 
@@ -1036,6 +1085,14 @@ PYBIND11_PLUGIN(hnswlib) {
         })
         .def("get_max_elements", &BFIndex<float>::getMaxElements)
         .def("get_current_count", &BFIndex<float>::getCurrentCount)
-        .def_readwrite("num_threads", &BFIndex<float>::num_threads_default);
+        .def_readwrite("num_threads", &BFIndex<float>::num_threads_default)
+        .def(py::pickle(
+            [](const BFIndex<float> &index) {
+                return py::make_tuple(index.getIndexParams());
+            },
+            [](py::tuple state) {
+                assert_true(state.size() == 1, "Invalid state!");
+                return BFIndex<float>::createFromParams(state[0].cast<py::dict>());
+            }));
         return m.ptr();
 }
