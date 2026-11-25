@@ -150,6 +150,13 @@ Properties of `hnswlib.Index` that support reading and writing:
 * Filtering during the search with a boolean function
 * Deleting the elements and reusing the memory of the deleted elements for newly added elements
 
+Both `Index` and `BFIndex` support Python pickle serialization, including before
+`init_index` is called. A `BFIndex` round-trip preserves its space, dimensions,
+capacity, labels, vectors, thread setting and automatic-label counter, so the
+restored index can be queried and updated. Pickling must not run concurrently
+with `add_items` or `delete_vector`. As with Python pickle generally, only load
+trusted data; this is not a cross-platform index interchange format.
+
 An example of creating index, inserting elements, searching and pickle serialization:
 ```python
 import hnswlib
